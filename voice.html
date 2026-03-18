@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Botler Voice Pane</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Georgia, serif; background: radial-gradient(circle at center, #241006 0%, #120700 58%, #090300 100%); color: rgba(255,230,190,0.95); min-height: 100vh; }
+    .wrap { max-width: 900px; margin: 0 auto; padding: 28px 18px 40px; }
+    h1 { font-size: 28px; letter-spacing: 0.08em; margin-bottom: 8px; color: rgba(255,220,140,0.96); }
+    p { line-height: 1.5; color: rgba(255,220,180,0.82); }
+    .panel { background: rgba(25,10,4,0.82); border: 1px solid rgba(255,160,40,0.22); padding: 18px; margin-top: 18px; }
+    .actions { display:flex; flex-wrap:wrap; gap:10px; margin-top: 12px; }
+    .btn { background: rgba(255,160,40,0.08); border: 1px solid rgba(255,160,40,0.22); color: rgba(255,220,140,0.9); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; padding: 10px 14px; cursor: pointer; font-family: Georgia, serif; }
+    .btn.active { background: rgba(255,160,40,0.18); }
+    textarea { width: 100%; min-height: 110px; margin-top: 12px; background: rgba(0,0,0,0.24); border: 1px solid rgba(255,160,40,0.18); color: rgba(255,240,220,0.96); padding: 12px; font-family: Georgia, serif; }
+    .status { margin-top: 10px; font-size: 13px; color: rgba(255,210,130,0.78); }
+    .small { font-size: 13px; color: rgba(255,220,180,0.68); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Botler Voice</h1>
+    <p>Test speech, listen to the children, and begin shaping Botler’s spoken presence. This pane uses browser-native voice tools for now, with the deeper local voice stack reserved for the next integration pass.</p>
+
+    <div class="panel">
+      <strong>Speak as Botler</strong>
+      <textarea id="speechText" placeholder="Type what Botler should say...">Good morning. I’m Botler. I’m here to help the house run smoothly.</textarea>
+      <div class="actions">
+        <button class="btn" id="speakBtn">Speak</button>
+        <button class="btn" id="stopBtn">Stop</button>
+        <button class="btn" id="testKidsBtn">Kid Greeting</button>
+      </div>
+      <div class="status" id="speakStatus">Standing by.</div>
+    </div>
+
+    <div class="panel">
+      <strong>Listen / Transcribe</strong>
+      <p class="small">If browser speech recognition is available, Botler can listen here. If not, the Mac-side transcription stack is still available separately.</p>
+      <div class="actions">
+        <button class="btn" id="listenBtn">Start Listening</button>
+        <button class="btn" id="stopListenBtn">Stop Listening</button>
+        <button class="btn" id="clearBtn">Clear</button>
+      </div>
+      <textarea id="transcript" placeholder="What Botler hears will appear here..."></textarea>
+      <div class="status" id="listenStatus">Listening is idle.</div>
+    </div>
+  </div>
+
+  <script>
+    const synth = window.speechSynthesis;
+    const speechText = document.getElementById('speechText');
+    const transcript = document.getElementById('transcript');
+    const speakStatus = document.getElementById('speakStatus');
+    const listenStatus = document.getElementById('listenStatus');
+    let utterance = null;
+    let recognition = null;
+
+    function pickVoice() {
+      if (!synth) return null;
+      const voices = synth.getVoices();
+      return voices.find(v => /Daniel/i.test(v.name))
+        || voices.find(v => /Eddy/i.test(v.name))
+        || voices.find(v => /English \(UK\)/i.test(v.name))
+        || voices.find(v => /Samantha|Alex|Karen/i.test(v.name))
+        || voices[0]
+        || null;
+    }
+
+    function speak(text) {
+      if (!synth) {
+        speakStatus.textContent = 'Speech synthesis is not available in this browser.';
+        return;
+      }
+      synth.cancel();
+      utterance = new SpeechSynthesisUtterance(text);
+      const voice = pickVoice();
+      if (voice) utterance.voice = voice;
+      utterance.rate = 0.95;
+      utterance.pitch = 0.95;
+      utterance.onstart = () => speakStatus.textContent = 'Botler is speaking.';
+      utterance.onend = () => speakStatus.textContent = 'Standing by.';
+      utterance.onerror = () => speakStatus.textContent = 'Speech hit an error.';
+      synth.speak(utterance);
+    }
+
+    document.getElementById('speakBtn').addEventListener('click', () => speak(speechText.value.trim() || 'Good morning. I am Botler.'));
+    document.getElementById('stopBtn').addEventListener('click', () => { if (synth) synth.cancel(); speakStatus.textContent = 'Stopped.'; });
+    document.getElementById('testKidsBtn').addEventListener('click', () => {
+      speak('Good morning, friends. I am Botler. I am very glad to see you today. Are you ready to learn and build together?');
+    });
+
+    document.getElementById('listenBtn').addEventListener('click', () => {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) {
+        listenStatus.textContent = 'Browser listening is not available here.';
+        return;
+      }
+      if (recognition) {
+        try { recognition.stop(); } catch {}
+      }
+      recognition = new SR();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+      recognition.onstart = () => listenStatus.textContent = 'Botler is listening.';
+      recognition.onresult = (event) => {
+        let text = '';
+        for (let i = 0; i < event.results.length; i++) text += event.results[i][0].transcript + ' ';
+        transcript.value = text.trim();
+      };
+      recognition.onerror = () => listenStatus.textContent = 'Listening error.';
+      recognition.onend = () => { listenStatus.textContent = 'Listening stopped.'; recognition = null; };
+      try { recognition.start(); } catch { listenStatus.textContent = 'Could not start listening.'; }
+    });
+
+    document.getElementById('stopListenBtn').addEventListener('click', () => {
+      if (recognition) {
+        try { recognition.stop(); } catch {}
+      }
+      listenStatus.textContent = 'Listening stopped.';
+    });
+
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      transcript.value = '';
+      listenStatus.textContent = 'Listening is idle.';
+    });
+
+    if (synth) {
+      const warm = () => synth.getVoices();
+      warm();
+      window.speechSynthesis.onvoiceschanged = warm;
+    }
+  </script>
+</body>
+</html>

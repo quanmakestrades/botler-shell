@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Botler Real Face Bridge</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Georgia, serif; background: radial-gradient(circle at center, #241006 0%, #120700 58%, #090300 100%); color: rgba(255,230,190,0.96); }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 28px 18px 48px; }
+    h1 { margin: 0 0 8px; color: rgba(255,220,140,0.96); letter-spacing: 0.08em; }
+    p { line-height: 1.5; color: rgba(255,220,180,0.82); }
+    .grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 18px; margin-top: 18px; }
+    .panel { background: rgba(25,10,4,0.82); border: 1px solid rgba(255,160,40,0.22); padding: 18px; min-height: 220px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+    .btn { background: rgba(255,160,40,0.08); border: 1px solid rgba(255,160,40,0.22); color: rgba(255,220,140,0.9); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; padding: 10px 14px; cursor: pointer; font-family: Georgia, serif; }
+    textarea { width: 100%; min-height: 100px; margin-top: 12px; background: rgba(0,0,0,0.24); border: 1px solid rgba(255,160,40,0.18); color: rgba(255,240,220,0.96); padding: 12px; font-family: Georgia, serif; }
+    .status { margin-top: 10px; font-size: 13px; color: rgba(255,210,130,0.78); }
+    .face-state { font-size: 34px; letter-spacing: 0.08em; color: rgba(255,220,140,0.96); margin-top: 8px; }
+    .log { white-space: pre-wrap; background: rgba(0,0,0,0.22); padding: 12px; min-height: 200px; margin-top: 12px; border: 1px solid rgba(255,160,40,0.14); color: rgba(255,235,210,0.88); }
+    .small { font-size: 13px; color: rgba(255,220,180,0.7); }
+    audio { width: 100%; margin-top: 12px; }
+    @media (max-width: 820px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Botler Real Face Bridge</h1>
+    <p>This is the safe bridge scaffold: browser speech goes into a local sidecar, the sidecar generates a reply, and Botler speaks back with browser TTS or local rendered audio.</p>
+
+    <div class="grid">
+      <div class="panel">
+        <strong>Conversation Loop</strong>
+        <div class="face-state" id="faceState">idle</div>
+        <div class="status" id="bridgeStatus">Connecting…</div>
+        <textarea id="manualText" placeholder="Type a request for Botler...">Good morning Botler. What is your current status?</textarea>
+        <div class="actions">
+          <button class="btn" id="startSessionBtn">Start Session</button>
+          <button class="btn" id="listenBtn">Listen</button>
+          <button class="btn" id="sendBtn">Send Text</button>
+          <button class="btn" id="speakFileBtn">Render Local Audio</button>
+          <button class="btn" id="stopBtn">Stop Audio</button>
+        </div>
+        <div class="status" id="sessionStatus">No session yet.</div>
+        <audio id="audioPlayer" controls preload="none"></audio>
+      </div>
+
+      <div class="panel">
+        <strong>Transcript and Reply</strong>
+        <div class="small">Heard</div>
+        <textarea id="heardBox" placeholder="What Botler hears..."></textarea>
+        <div class="small">Reply</div>
+        <textarea id="replyBox" placeholder="What Botler says back..."></textarea>
+      </div>
+    </div>
+
+    <div class="panel">
+      <strong>Bridge Event Log</strong>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+
+  <script>
+    const bridgeBase = window.location.origin;
+    const bridgeStatus = document.getElementById('bridgeStatus');
+    const sessionStatus = document.getElementById('sessionStatus');
+    const heardBox = document.getElementById('heardBox');
+    const replyBox = document.getElementById('replyBox');
+    const manualText = document.getElementById('manualText');
+    const faceState = document.getElementById('faceState');
+    const audioPlayer = document.getElementById('audioPlayer');
+    const logEl = document.getElementById('log');
+    const synth = window.speechSynthesis;
+    let sessionId = null;
+    let recognition = null;
+
+    function log(line) {
+      const stamp = new Date().toLocaleTimeString();
+      logEl.textContent = `[${stamp}] ${line}\n` + logEl.textContent;
+    }
+
+    function setState(state) {
+      faceState.textContent = state;
+    }
+
+    function pickVoice() {
+      if (!synth) return null;
+      const voices = synth.getVoices();
+      return voices.find(v => /Daniel/i.test(v.name))
+        || voices.find(v => /Eddy/i.test(v.name))
+        || voices.find(v => /English \(UK\)/i.test(v.name))
+        || voices[0]
+        || null;
+    }
+
+    function speakBrowser(text) {
+      if (!synth || !text) return;
+      synth.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      const voice = pickVoice();
+      if (voice) utterance.voice = voice;
+      utterance.rate = 0.95;
+      utterance.pitch = 0.95;
+      utterance.onstart = () => setState('speaking');
+      utterance.onend = () => setState('idle');
+      synth.speak(utterance);
+    }
+
+    async function api(path, payload) {
+      const res = await fetch(`${bridgeBase}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload || {})
+      });
+      return res.json();
+    }
+
+    async function startSession() {
+      const data = await api('/api/session/start');
+      sessionId = data.session.id;
+      sessionStatus.textContent = `Session: ${sessionId}`;
+      log(`session started ${sessionId}`);
+    }
+
+    async function sendTranscript(text, source = 'manual') {
+      if (!sessionId) await startSession();
+      setState('thinking');
+      const data = await api('/api/listen/transcript', { sessionId, text, source });
+      heardBox.value = data.heard || '';
+      replyBox.value = data.reply || '';
+      log(`heard: ${data.heard || '(empty)'}`);
+      if (data.intent) log(`intent: ${data.intent}`);
+      if (data.actions && data.actions.length) log(`actions: ${JSON.stringify(data.actions)}`);
+      log(`reply: ${data.reply || '(empty)'}`);
+      if (data.audio && data.audio.mode === 'file' && data.audio.url) {
+        audioPlayer.src = `${bridgeBase}${data.audio.url}`;
+        audioPlayer.play().catch(() => {});
+      } else {
+        speakBrowser(data.reply || '');
+      }
+    }
+
+    async function renderLocalAudio() {
+      if (!sessionId) await startSession();
+      const text = replyBox.value.trim() || manualText.value.trim();
+      const data = await api('/api/speak', { sessionId, text, preferAudioFile: true });
+      if (data.audio && data.audio.url) {
+        audioPlayer.src = `${bridgeBase}${data.audio.url}`;
+        audioPlayer.play().catch(() => {});
+        log(`audio file ready: ${data.audio.url}`);
+      } else {
+        log('local audio unavailable, using browser speech');
+        speakBrowser(text);
+      }
+    }
+
+    function connectEvents() {
+      const es = new EventSource(`${bridgeBase}/api/events`);
+      es.addEventListener('status', (event) => {
+        const data = JSON.parse(event.data);
+        bridgeStatus.textContent = `Bridge online. Status: ${data.status}`;
+        setState(data.status);
+      });
+      es.addEventListener('transcript', (event) => {
+        const data = JSON.parse(event.data);
+        heardBox.value = data.text || '';
+        log(`event transcript: ${data.text || ''}`);
+      });
+      es.addEventListener('reply', (event) => {
+        const data = JSON.parse(event.data);
+        replyBox.value = data.text || '';
+        log(`event reply: ${data.text || ''}`);
+      });
+      es.addEventListener('audio', (event) => {
+        const data = JSON.parse(event.data);
+        if (data.url) {
+          audioPlayer.src = `${bridgeBase}${data.url}`;
+          audioPlayer.play().catch(() => {});
+        }
+      });
+      es.onerror = () => {
+        bridgeStatus.textContent = 'Bridge event stream disconnected.';
+      };
+    }
+
+    document.getElementById('startSessionBtn').addEventListener('click', startSession);
+    document.getElementById('sendBtn').addEventListener('click', () => sendTranscript(manualText.value.trim(), 'manual'));
+    document.getElementById('speakFileBtn').addEventListener('click', renderLocalAudio);
+    document.getElementById('stopBtn').addEventListener('click', () => {
+      audioPlayer.pause();
+      audioPlayer.currentTime = 0;
+      if (synth) synth.cancel();
+      setState('idle');
+    });
+
+    document.getElementById('listenBtn').addEventListener('click', async () => {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) {
+        log('browser speech recognition unavailable');
+        bridgeStatus.textContent = 'Browser listening is unavailable here.';
+        return;
+      }
+      if (!sessionId) await startSession();
+      if (recognition) {
+        try { recognition.stop(); } catch {}
+      }
+      recognition = new SR();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+      recognition.onstart = () => { setState('listening'); log('listening started'); };
+      recognition.onresult = (event) => {
+        const text = event.results[0][0].transcript.trim();
+        heardBox.value = text;
+        sendTranscript(text, 'browser-stt');
+      };
+      recognition.onerror = () => { setState('idle'); log('listening error'); };
+      recognition.onend = () => { if (faceState.textContent === 'listening') setState('idle'); recognition = null; };
+      try { recognition.start(); } catch { log('could not start listening'); }
+    });
+
+    if (synth) {
+      const warm = () => synth.getVoices();
+      warm();
+      window.speechSynthesis.onvoiceschanged = warm;
+    }
+
+    connectEvents();
+    fetch(`${bridgeBase}/health`).then(r => r.json()).then(data => {
+      bridgeStatus.textContent = `Bridge online at ${data.host}:${data.port}`;
+      log(`health ok; reasoning=${data.reasoningMode}; voiceScriptPresent=${data.voiceScriptPresent}`);
+    }).catch(() => {
+      bridgeStatus.textContent = 'Bridge health check failed.';
+    });
+  </script>
+</body>
+</html>

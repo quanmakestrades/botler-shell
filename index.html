@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Botler</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { width: 100vw; height: 100vh; overflow: hidden; background: #1a0800; font-family: 'Georgia', serif; }
+  canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; }
+  #hud, #controls, #edit-btn, #edit-ui { z-index: 1; }
+
+  #hud { position: fixed; inset: 0; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 32px 0 28px; }
+  #status { color: rgba(255,200,100,0.32); font-size: 11px; letter-spacing: 0.42em; text-transform: uppercase; pointer-events: none; }
+  #name-tag { color: rgba(255,200,100,0.16); font-size: 11px; letter-spacing: 0.62em; text-transform: uppercase; }
+
+  #controls { position: fixed; bottom: 64px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; pointer-events: all; flex-wrap: wrap; justify-content: center; }
+  .btn { background: rgba(255,160,40,0.08); border: 1px solid rgba(255,160,40,0.22); color: rgba(255,200,100,0.55); font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; padding: 6px 14px; border-radius: 2px; cursor: pointer; font-family: 'Georgia', serif; transition: background 0.25s, color 0.25s; }
+  .btn:hover, .btn.active { background: rgba(255,160,40,0.18); color: rgba(255,220,120,0.9); }
+
+  #edit-btn { position: fixed; top: 20px; right: 24px; pointer-events: all; }
+
+  /* ─── Color Picker ─── */
+  #color-btn { position: relative; }
+  #color-panel {
+    display: none; position: absolute; bottom: calc(100% + 10px); left: 50%;
+    transform: translateX(-50%);
+    background: rgba(20,8,0,0.96); border: 1px solid rgba(255,160,40,0.3);
+    border-radius: 4px; padding: 10px; width: 220px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.7);
+  }
+  #color-panel.open { display: block; }
+  #color-swatches { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .swatch {
+    width: 22px; height: 22px; border-radius: 3px; cursor: pointer;
+    border: 2px solid transparent; transition: border-color 0.15s, transform 0.15s;
+    flex-shrink: 0;
+  }
+  .swatch:hover, .swatch.active { border-color: rgba(255,230,120,0.9); transform: scale(1.18); }
+  #color-spectrum { width: 100%; height: 16px; border-radius: 3px; cursor: crosshair;
+    background: linear-gradient(to right, #ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000); }
+  #spectrum-label { color: rgba(255,200,100,0.4); font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; margin-top: 5px; text-align: center; }
+  #edit-ui { display: none; position: fixed; inset: 0; pointer-events: none; }
+
+  .e-box {
+    position: absolute; pointer-events: all; cursor: ns-resize;
+    border: 1px dashed rgba(255,180,50,0.55);
+    background: rgba(255,140,20,0.04);
+    min-height: 24px; min-width: 40px;
+  }
+  .e-handle {
+    position: absolute; pointer-events: all;
+    width: 11px; height: 11px;
+    background: rgba(255,180,50,0.88);
+    border: 1px solid rgba(255,230,120,1);
+    transform: translate(-50%, -50%);
+    border-radius: 2px;
+    user-select: none;
+  }
+  .e-handle.round  { border-radius: 50%; width: 13px; height: 13px; }
+  .e-handle.se     { cursor: se-resize; }
+  .e-handle.move   { cursor: move; }
+  .e-handle.ew     { cursor: ew-resize; }
+  .e-handle.ns     { cursor: ns-resize; }
+  .e-label {
+    position: absolute; color: rgba(255,200,100,0.45);
+    font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase;
+    pointer-events: none; white-space: nowrap;
+    transform: translate(-50%, 0);
+  }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div id="status">Speaking</div>
+  <div id="name-tag">Botler</div>
+</div>
+<div id="controls">
+  <button class="btn" data-state="idle">Idle</button>
+  <button class="btn" data-state="listening">Listen</button>
+  <button class="btn" data-state="thinking">Think</button>
+  <button class="btn active" data-state="speaking">Speak</button>
+  <button class="btn" data-state="pleased">Pleased</button>
+  <div id="color-btn" class="btn" style="cursor:pointer;user-select:none;" onclick="toggleColorPanel(event)">
+    🎨 Color
+    <div id="color-panel">
+      <div id="color-swatches"></div>
+      <canvas id="color-spectrum" width="200" height="16"></canvas>
+      <div id="spectrum-label">drag for any hue</div>
+    </div>
+  </div>
+</div>
+<button id="edit-btn" class="btn" onclick="toggleEdit()">Edit</button>
+
+<div id="edit-ui">
+  <div  id="mst-box"    class="e-box"></div>
+  <div  id="mst-corner" class="e-handle se"   title="resize mustache width"></div>
+  <div  id="mst-height" class="e-handle ns"   title="resize mustache height"></div>
+  <div  id="eye-pos"    class="e-handle round move" title="move eyes"></div>
+  <div  id="eye-sz"     class="e-handle ew"   title="eye size"></div>
+  <div  id="mono-sz"    class="e-handle ns"   title="monocle size"></div>
+  <div  id="lbl-mst"    class="e-label">mustache</div>
+  <div  id="lbl-mh"     class="e-label">height</div>
+  <div  id="lbl-eye"    class="e-label">eyes</div>
+  <div  id="lbl-esz"    class="e-label">size</div>
+  <div  id="lbl-mono"   class="e-label" style="transform:none;">monocle ⌀</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ─── Renderer ────────────────────────────────────────────────────────────────
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.autoClear = false;
+document.body.appendChild(renderer.domElement);
+
+let aspect = innerWidth / innerHeight;
+
+function makeCamera() {
+  const c = new THREE.OrthographicCamera(-aspect, aspect, 1, -1, 0.01, 10);
+  c.position.z = 1;
+  return c;
+}
+let camera = makeCamera();
+const scene = new THREE.Scene();
+
+// ─── Background ───────────────────────────────────────────────────────────────
+const bgScene = new THREE.Scene();
+const bgCam   = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const bgMat   = new THREE.ShaderMaterial({
+  uniforms: { time: { value: 0 }, aspect: { value: aspect }, tint: { value: new THREE.Color(1.0, 0.60, 0.08) } },
+  vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position,1.0); }`,
+  fragmentShader: `
+    uniform float time; uniform float aspect; uniform vec3 tint;
+    varying vec2 vUv;
+    void main(){
+      vec2 c = (vUv - 0.5) * vec2(aspect, 1.0);
+      float d = length(c);
+      float breathe = sin(time * 0.65) * 0.05;
+      vec3 inner = tint;
+      vec3 mid   = tint * vec3(0.85, 0.58, 0.25);
+      vec3 outer = tint * vec3(0.14, 0.083, 0.00);
+      vec3 col = mix(inner, mid, smoothstep(0.0, 0.35+breathe, d));
+      col = mix(col, outer, smoothstep(0.3, 0.75+breathe, d));
+      col += tint * exp(-d*d*1.8) * (sin(time*0.5)*0.1+0.9) * 0.18;
+      gl_FragColor = vec4(col, 1.0);
+    }
+  `
+});
+const bgMesh = new THREE.Mesh(new THREE.PlaneGeometry(2,2), bgMat);
+bgMesh.frustumCulled = false;
+bgScene.add(bgMesh);
+
+// ─── Scale helpers ────────────────────────────────────────────────────────────
+function S()      { return Math.min(aspect, 1.0); }
+const EYE_R   = () => S() * 0.05625;
+const EYE_SEP = () => S() * 0.38;
+const EYE_Y   = () => S() * 0.20;
+const MOUTH_Y = () => -S() * 0.34;
+const HW      = () => 0.15 * aspect;
+const LIP_TH  = () => S() * 0.013;
+
+// ─── Edit state ───────────────────────────────────────────────────────────────
+const edit = {
+  mustacheY:  0,    // scene-unit additive Y offset
+  mustacheSX: 1,    // X scale
+  mustacheSY: 1,    // Y scale
+  eyeY:       0,    // scene-unit additive Y offset
+  eyeSepOff:  0,    // scene-unit additive separation offset
+  eyeSize:    1,    // uniform scale on eye groups
+  monoSize:   1,    // uniform scale on monocle sub-group
+};
+let editMode = false;
+let drag     = null;
+
+// ─── Coord helpers ────────────────────────────────────────────────────────────
+function toScreen(sx, sy) {
+  return {
+    x: (sx / aspect + 1) / 2 * innerWidth,
+    y: (-sy + 1) / 2 * innerHeight
+  };
+}
+
+// ─── Chain physics ────────────────────────────────────────────────────────────
+const CHAIN_LINKS = 4;
+const chainPts    = Array.from({length:CHAIN_LINKS}, () => ({x:0,y:0,vx:0,vy:0}));
+let   chainMeshes = [];
+
+function initChainPositions() {
+  const R  = EYE_R();
+  const ld = R * 0.38;
+  chainPts.forEach((p, i) => {
+    p.x = 0;
+    p.y = -(R * 1.35 + i * ld);
+    p.vx = 0; p.vy = 0;
+  });
+}
+
+function stepChain(eyeWX, eyeWY, effectiveMonoScale) {
+  const R  = EYE_R();
+  const ld = R * 0.38;
+  // Anchor hangs from bottom of monocle ring in world space
+  const anchorX = eyeWX;
+  const anchorY = eyeWY - R * 1.35 * effectiveMonoScale;
+
+  chainPts.forEach((p, i) => {
+    const prevX = i === 0 ? anchorX : chainPts[i-1].x;
+    const prevY = i === 0 ? anchorY : chainPts[i-1].y;
+    const dx = p.x - prevX, dy = p.y - prevY;
+    const dist = Math.sqrt(dx*dx + dy*dy) || 0.0001;
+    const stretch = dist - ld;
+    p.vx -= (dx/dist) * stretch * 0.32;
+    p.vy -= (dy/dist) * stretch * 0.32;
+    p.vy -= 0.007;
+    p.vx *= 0.80; p.vy *= 0.80;
+    p.x  += p.vx;  p.y  += p.vy;
+  });
+  chainMeshes.forEach((m, i) => {
+    m.position.x = chainPts[i].x;
+    m.position.y = chainPts[i].y;
+  });
+}
+
+// ─── Eyes ────────────────────────────────────────────────────────────────────
+function makeEye(xSign, withMonocle) {
+  const g = new THREE.Group();
+  scene.add(g);
+  const R = EYE_R();
+
+  // Black dot
+  const dot = new THREE.Mesh(
+    new THREE.CircleGeometry(R, 48),
+    new THREE.MeshBasicMaterial({ color: 0x080200 })
+  );
+  dot.position.z = 0.001;
+  g.add(dot);
+
+  // Glint — child of dot so it squishes with blink.
+  // z must be small (< camera near plane distance ~0.9) NOT 1.0!
+  const glint = new THREE.Mesh(
+    new THREE.CircleGeometry(R * 0.32, 16),
+    new THREE.MeshBasicMaterial({ color: 0xffffff })
+  );
+  glint.position.set(-R * 0.36, R * 0.40, 0.003);
+  dot.add(glint);
+
+  let monoGroup = null;
+  if (withMonocle) {
+    // Monocle in its own sub-group — scaled independently
+    monoGroup = new THREE.Group();
+    g.add(monoGroup);
+
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(R * 1.12, R * 1.35, 56),
+      new THREE.MeshBasicMaterial({ color: 0xd4a030, side: THREE.DoubleSide })
+    );
+    ring.position.z = 0.003;
+    monoGroup.add(ring);
+
+    // Crescent glints on ring — top-left bright, bottom-right dim
+    const tlG = new THREE.Mesh(
+      new THREE.RingGeometry(R*1.10, R*1.37, 20, 1, 1.92, 1.05),
+      new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0.55, side:THREE.DoubleSide })
+    );
+    tlG.position.z = 0.005;
+    monoGroup.add(tlG);
+
+    const brG = new THREE.Mesh(
+      new THREE.RingGeometry(R*1.10, R*1.37, 20, 1, 4.90, 0.85),
+      new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0.25, side:THREE.DoubleSide })
+    );
+    brG.position.z = 0.005;
+    monoGroup.add(brG);
+
+    // Chain links in scene (physics positions them independently)
+    initChainPositions();
+    const chainMat = new THREE.MeshBasicMaterial({ color:0xbb8820, side:THREE.DoubleSide });
+    chainMeshes = [];
+    for (let i = 0; i < CHAIN_LINKS; i++) {
+      const m = new THREE.Mesh(new THREE.RingGeometry(R*0.09, R*0.155, 12), chainMat.clone());
+      m.position.z = 0.004;
+      scene.add(m);
+      chainMeshes.push(m);
+    }
+  }
+
+  return { g, dot, xSign, monoGroup };
+}
+
+const leftEye  = makeEye(-1, false);
+const rightEye = makeEye( 1, true);
+
+// ─── Mustache ────────────────────────────────────────────────────────────────
+const mustacheGroup = new THREE.Group();
+mustacheGroup.position.z = 0.1;
+scene.add(mustacheGroup);
+
+function buildMustache() {
+  while (mustacheGroup.children.length) mustacheGroup.remove(mustacheGroup.children[0]);
+  const th  = LIP_TH() * 1.3 * 1.25 * 0.5;   // current thickness
+  const hw  = HW();
+  const mat = new THREE.MeshBasicMaterial({ color: 0x100400 });
+
+  ;[-1, 1].forEach(xs => {
+    const gap       = hw * 0.225;
+    const length    = hw * 1.2;
+    const thickness = th;
+    const shape     = new THREE.Shape();
+    shape.moveTo(xs * gap,             thickness);
+    shape.lineTo(xs * gap,            -thickness * 0.2);
+    shape.lineTo(xs * (gap + length),  thickness * 0.5);
+    shape.closePath();
+    const mesh = new THREE.Mesh(new THREE.ShapeGeometry(shape), mat);
+    mesh.position.z  = 0.01;
+    mesh.rotation.z  = xs * (-6 * Math.PI / 180);
+    mustacheGroup.add(mesh);
+  });
+}
+buildMustache();
+
+// ─── Mouth ───────────────────────────────────────────────────────────────────
+const mouthGroup = new THREE.Group();
+mouthGroup.position.z = 0.1;
+scene.add(mouthGroup);
+
+function buildMouth(smile, openness) {
+  while (mouthGroup.children.length) mouthGroup.remove(mouthGroup.children[0]);
+  const hw   = HW();
+  const lift = smile * 0.13;
+  const drop = openness * 0.095;
+  const th   = LIP_TH();
+  const N    = 60;
+  const mat  = new THREE.MeshBasicMaterial({ color: 0x160500 });
+
+  const uL = new THREE.Vector3(-hw, 0, 0);
+  const uC = new THREE.Vector3(0,  lift + drop * 0.15, 0);
+  const uR = new THREE.Vector3( hw, 0, 0);
+  const lC = new THREE.Vector3(0,  lift - drop, 0);
+
+  const uPts = new THREE.QuadraticBezierCurve3(uL, uC, uR).getPoints(N);
+  const lPts = new THREE.QuadraticBezierCurve3(uL, lC, uR).getPoints(N);
+
+  if (openness > 0.04) {
+    const shape = new THREE.Shape();
+    shape.moveTo(uPts[0].x, uPts[0].y);
+    uPts.forEach(p => shape.lineTo(p.x, p.y));
+    for (let i = lPts.length-1; i >= 0; i--) shape.lineTo(lPts[i].x, lPts[i].y);
+    shape.closePath();
+    mouthGroup.add(new THREE.Mesh(new THREE.ShapeGeometry(shape),
+      new THREE.MeshBasicMaterial({ color:0x060100 })));
+    mouthGroup.add(new THREE.Mesh(
+      new THREE.TubeGeometry(new THREE.CatmullRomCurve3(lPts.map(p=>new THREE.Vector3(p.x,p.y,0.002))),N,th,8,false), mat));
+  }
+  mouthGroup.add(new THREE.Mesh(
+    new THREE.TubeGeometry(new THREE.CatmullRomCurve3(uPts.map(p=>new THREE.Vector3(p.x,p.y,0.002))),N,th,8,false), mat));
+}
+buildMouth(0.45, 0);
+
+// ─── Particles ───────────────────────────────────────────────────────────────
+const PN   = 90;
+const pGeo = new THREE.BufferGeometry();
+const pArr = new Float32Array(PN * 3);
+const pSpd = Array.from({length:PN}, ()=>(Math.random()*0.6+0.2)*0.0012*(Math.random()<0.5?1:-1));
+for (let i = 0; i < PN; i++) {
+  pArr[i*3]=(Math.random()-0.5)*2*aspect; pArr[i*3+1]=(Math.random()-0.5)*2; pArr[i*3+2]=-0.3;
+}
+pGeo.setAttribute('position', new THREE.BufferAttribute(pArr, 3));
+scene.add(new THREE.Points(pGeo, new THREE.PointsMaterial({color:0xffcc55,size:0.012,transparent:true,opacity:0.3})));
+
+// ─── State machine ───────────────────────────────────────────────────────────
+const LABELS = {idle:'Standby',listening:'Listening…',thinking:'Thinking…',speaking:'Speaking',pleased:'Here for you'};
+const SMILES = {idle:0.45,listening:0.15,thinking:0.0,speaking:0.5,pleased:1.0};
+const OPEN   = {idle:0.0, listening:0.0, thinking:0.0,speaking:0.4,pleased:0.08};
+let state = 'speaking';
+const statusEl = document.getElementById('status');
+
+function setState(s) {
+  state = s;
+  statusEl.textContent = LABELS[s];
+  document.querySelectorAll('.btn[data-state]').forEach(b => b.classList.toggle('active', b.dataset.state === s));
+  if (s !== 'speaking') buildMouth(SMILES[s], OPEN[s]);
+}
+document.querySelectorAll('.btn[data-state]').forEach(btn =>
+  btn.addEventListener('click', () => setState(btn.dataset.state)));
+
+// ─── Blink ───────────────────────────────────────────────────────────────────
+let blinkTimer = 0, blinkInterval = 2.8 + Math.random()*3.5;
+let blinking = false, blinkProg = 0;
+
+// ─── Mouse / touch look ───────────────────────────────────────────────────────
+const mouse = new THREE.Vector2();
+const look  = new THREE.Vector2();
+document.addEventListener('mousemove', e => {
+  if (drag) return; // don't update look while edit-dragging
+  mouse.x =  (e.clientX/innerWidth  - 0.5) * 2 * aspect;
+  mouse.y = -(e.clientY/innerHeight - 0.5) * 2;
+});
+document.addEventListener('touchmove', e => {
+  if (drag) return;
+  const t = e.touches[0];
+  mouse.x =  (t.clientX/innerWidth  - 0.5) * 2 * aspect;
+  mouse.y = -(t.clientY/innerHeight - 0.5) * 2;
+}, { passive: true });
+
+// ─── Edit drag system ─────────────────────────────────────────────────────────
+function getXY(e) {
+  return e.touches ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
+                   : { x: e.clientX,             y: e.clientY };
+}
+function startDrag(id, e) {
+  e.preventDefault(); e.stopPropagation();
+  const { x, y } = getXY(e);
+  drag = { id, sx: x, sy: y, snap: { ...edit } };
+}
+function onDragMove(e) {
+  if (!drag) return;
+  const { x, y } = getXY(e);
+  const dx  = x - drag.sx;
+  const dy  = y - drag.sy;
+  const dsy = -dy / innerHeight * 2;                    // positive = up
+
+  switch (drag.id) {
+    case 'mst-box':
+      edit.mustacheY  = drag.snap.mustacheY + dsy;
+      break;
+    case 'mst-corner':
+      edit.mustacheSX = Math.max(0.2, drag.snap.mustacheSX + dx / 280);
+      break;
+    case 'mst-height':
+      edit.mustacheSY = Math.max(0.1, drag.snap.mustacheSY - dy / 260);
+      break;
+    case 'eye-pos':
+      edit.eyeY      = drag.snap.eyeY + dsy;
+      // dragging left eye LEFT → eyes spread (sep increases) → negate dsx
+      edit.eyeSepOff = drag.snap.eyeSepOff - (dx / innerWidth) * aspect * 1.2;
+      break;
+    case 'eye-sz':
+      edit.eyeSize   = Math.max(0.15, drag.snap.eyeSize + dx / 280);
+      break;
+    case 'mono-sz':
+      edit.monoSize  = Math.max(0.2, drag.snap.monoSize - dy / 260);
+      break;
+  }
+}
+function onDragEnd() { drag = null; }
+
+document.addEventListener('mousemove', onDragMove);
+document.addEventListener('mouseup',   onDragEnd);
+document.addEventListener('touchmove', onDragMove, { passive: false });
+document.addEventListener('touchend',  onDragEnd);
+
+['mst-box','mst-corner','mst-height','eye-pos','eye-sz','mono-sz'].forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener('mousedown',  e => startDrag(id, e));
+  el.addEventListener('touchstart', e => startDrag(id, e), { passive: false });
+});
+
+function toggleEdit() {
+  editMode = !editMode;
+  document.getElementById('edit-ui').style.display = editMode ? 'block' : 'none';
+  const eb = document.getElementById('edit-btn');
+  eb.textContent = editMode ? 'Done' : 'Edit';
+  eb.classList.toggle('active', editMode);
+}
+
+// ─── Color Picker ─────────────────────────────────────────────────────────────
+const SWATCHES = [
+  '#ff8800','#ff4422','#ff2266','#cc44ff','#4455ff',
+  '#00aaff','#00cc88','#aacc00','#ffcc00','#ffffff',
+  '#ff6600','#884400','#002233','#1a0800','#333333',
+];
+let colorPanelOpen = false;
+
+function applyColor(hex) {
+  const c = new THREE.Color(hex);
+  bgMat.uniforms.tint.value.set(c);
+  document.querySelectorAll('.swatch').forEach(s =>
+    s.classList.toggle('active', s.dataset.hex === hex));
+}
+
+function toggleColorPanel(e) {
+  e.stopPropagation();
+  colorPanelOpen = !colorPanelOpen;
+  document.getElementById('color-panel').classList.toggle('open', colorPanelOpen);
+}
+document.addEventListener('click', () => {
+  colorPanelOpen = false;
+  document.getElementById('color-panel').classList.remove('open');
+});
+
+// Build swatches
+const swatchContainer = document.getElementById('color-swatches');
+SWATCHES.forEach(hex => {
+  const s = document.createElement('div');
+  s.className = 'swatch';
+  s.dataset.hex = hex;
+  s.style.background = hex;
+  if (hex === '#ff8800') s.classList.add('active');
+  s.addEventListener('click', e => { e.stopPropagation(); applyColor(hex); });
+  swatchContainer.appendChild(s);
+});
+
+// Spectrum canvas — click or drag for hue
+const specCanvas = document.getElementById('color-spectrum');
+const specCtx    = specCanvas.getContext('2d');
+(function drawSpectrum() {
+  const grad = specCtx.createLinearGradient(0, 0, 200, 0);
+  for (let i = 0; i <= 360; i += 30) grad.addColorStop(i/360, `hsl(${i},100%,50%)`);
+  specCtx.fillStyle = grad;
+  specCtx.fillRect(0, 0, 200, 16);
+})();
+
+function pickSpectrum(e) {
+  e.stopPropagation();
+  const rect = specCanvas.getBoundingClientRect();
+  const cx   = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+  const pct  = Math.max(0, Math.min(1, cx / rect.width));
+  const hue  = Math.round(pct * 360);
+  const hex  = `hsl(${hue},100%,50%)`;
+  const c    = new THREE.Color(hex);
+  bgMat.uniforms.tint.value.set(c);
+  document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+}
+specCanvas.addEventListener('click', pickSpectrum);
+specCanvas.addEventListener('mousemove', e => { if (e.buttons === 1) pickSpectrum(e); });
+specCanvas.addEventListener('touchmove', e => { e.stopPropagation(); pickSpectrum(e); }, { passive: false });
+
+// ─── Update edit handles (called each frame) ──────────────────────────────────
+function updateEditUI() {
+  if (!editMode) return;
+
+  const hw  = HW();
+  // Mustache extents in scene space (before group scale)
+  const mstHW  = hw * (0.225 + 1.2);                   // half-width (one side)
+  const mstHH  = LIP_TH() * 1.3 * 1.25 * 0.5 * 1.2;   // half-height with buffer
+  const mstCY  = mustacheGroup.position.y;
+
+  const tl = toScreen(-mstHW * edit.mustacheSX, mstCY + mstHH * edit.mustacheSY);
+  const br = toScreen( mstHW * edit.mustacheSX, mstCY - mstHH * edit.mustacheSY);
+  const bW = Math.max(40, br.x - tl.x);
+  const bH = Math.max(24, br.y - tl.y);
+
+  const box = document.getElementById('mst-box');
+  box.style.left   = tl.x + 'px';
+  box.style.top    = tl.y + 'px';
+  box.style.width  = bW + 'px';
+  box.style.height = bH + 'px';
+
+  const cor = document.getElementById('mst-corner');
+  cor.style.left = (tl.x + bW) + 'px';
+  cor.style.top  = (tl.y + bH) + 'px';
+
+  // Height handle — right edge, vertically centered
+  const mh = document.getElementById('mst-height');
+  mh.style.left = (tl.x + bW) + 'px';
+  mh.style.top  = (tl.y + bH/2) + 'px';
+  document.getElementById('lbl-mh').style.left = (tl.x + bW + 14) + 'px';
+  document.getElementById('lbl-mh').style.top  = (tl.y + bH/2 - 6) + 'px';
+
+  const lm = document.getElementById('lbl-mst');
+  lm.style.left = (tl.x + bW/2) + 'px';
+  lm.style.top  = (tl.y - 16) + 'px';
+
+  // Left eye
+  const leS    = toScreen(leftEye.g.position.x, leftEye.g.position.y);
+  const eyePxR = EYE_R() * edit.eyeSize * innerHeight / 2;
+
+  const ep = document.getElementById('eye-pos');
+  ep.style.left = leS.x + 'px';
+  ep.style.top  = leS.y + 'px';
+
+  const esz = document.getElementById('eye-sz');
+  esz.style.left = (leS.x - eyePxR - 18) + 'px';
+  esz.style.top  = leS.y + 'px';
+
+  document.getElementById('lbl-eye').style.left = leS.x + 'px';
+  document.getElementById('lbl-eye').style.top  = (leS.y - eyePxR - 18) + 'px';
+  document.getElementById('lbl-esz').style.left = (leS.x - eyePxR - 18) + 'px';
+  document.getElementById('lbl-esz').style.top  = (leS.y + 14) + 'px';
+
+  // Monocle
+  const reS      = toScreen(rightEye.g.position.x, rightEye.g.position.y);
+  const monoPxR  = EYE_R() * 1.35 * edit.eyeSize * edit.monoSize * innerHeight / 2;
+
+  const msz = document.getElementById('mono-sz');
+  msz.style.left = reS.x + 'px';
+  msz.style.top  = (reS.y - monoPxR - 18) + 'px';
+
+  const lmo = document.getElementById('lbl-mono');
+  lmo.style.left = (reS.x + monoPxR + 8) + 'px';
+  lmo.style.top  = (reS.y - monoPxR - 20) + 'px';
+}
+
+// ─── Animate ─────────────────────────────────────────────────────────────────
+const clock = new THREE.Clock();
+let speakPhase = 0;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const t  = clock.getElapsedTime();
+  const dt = 0.016;
+
+  bgMat.uniforms.time.value   = t;
+  bgMat.uniforms.aspect.value = aspect;
+
+  const fy = Math.sin(t * 0.55) * 0.022;
+
+  if (!drag) {
+    look.x += (mouse.x - look.x) * 0.055;
+    look.y += (mouse.y - look.y) * 0.055;
+  }
+
+  const driftX = state === 'thinking' ? Math.sin(t * 1.05) * 0.03 : look.x * 0.012;
+  const driftY = state === 'thinking' ? 0 : look.y * 0.008;
+
+  const eyeWY = EYE_Y() + fy + driftY + edit.eyeY;
+
+  ;[leftEye, rightEye].forEach(eye => {
+    eye.g.position.x = eye.xSign * (EYE_SEP() + edit.eyeSepOff) + driftX;
+    eye.g.position.y = eyeWY;
+    eye.g.position.z = 0.1;
+    eye.g.scale.set(edit.eyeSize, edit.eyeSize, 1);
+  });
+
+  // Monocle independent scale
+  if (rightEye.monoGroup) {
+    rightEye.monoGroup.scale.set(edit.monoSize, edit.monoSize, 1);
+    // Crescent glints parallax
+    const parallax = look.x * 0.18 + look.y * 0.10;
+    rightEye.monoGroup.children[1].rotation.z = -parallax; // tlGlint
+    rightEye.monoGroup.children[2].rotation.z = -parallax; // brGlint
+  }
+
+  // Chain — anchor accounts for eyeSize × monoSize scaling
+  stepChain(rightEye.g.position.x, rightEye.g.position.y, edit.eyeSize * edit.monoSize);
+
+  // Mouth + mustache
+  const my       = MOUTH_Y() + fy;
+  const mustacheH = LIP_TH() * 1.3 * 1.25 * 0.5;
+  mouthGroup.position.y     = my;
+  mustacheGroup.position.y  = my + mustacheH * 2.2 + edit.mustacheY;
+  mustacheGroup.position.x  = 0;  // always centered
+  mustacheGroup.scale.set(edit.mustacheSX, edit.mustacheSY, 1);
+
+  // Blink — squish dot to 10% height
+  blinkTimer += dt;
+  if (!blinking && blinkTimer > blinkInterval) {
+    blinking = true; blinkTimer = 0;
+    blinkInterval = 2.5 + Math.random() * 4;
+  }
+  if (blinking) {
+    blinkProg += 0.15;
+    const b = Math.sin(blinkProg * Math.PI);
+    ;[leftEye, rightEye].forEach(eye => { eye.dot.scale.y = 1 - b * 0.90; });
+    if (blinkProg >= 1) {
+      blinking = false; blinkProg = 0;
+      ;[leftEye, rightEye].forEach(eye => { eye.dot.scale.y = 1; });
+    }
+  }
+
+  // Speaking
+  if (state === 'speaking') {
+    speakPhase += 0.11;
+    const o = (Math.sin(speakPhase) * 0.42 + Math.sin(speakPhase * 2.3) * 0.16 + 0.58) * 0.48;
+    buildMouth(0.5, Math.max(0, o));
+  }
+
+  // Particles
+  const pa = pGeo.attributes.position.array;
+  for (let i = 0; i < PN; i++) {
+    pa[i*3+1] += pSpd[i];
+    if (pa[i*3+1] >  1.15) pa[i*3+1] = -1.15;
+    if (pa[i*3+1] < -1.15) pa[i*3+1] =  1.15;
+  }
+  pGeo.attributes.position.needsUpdate = true;
+
+  updateEditUI();
+
+  renderer.clear();
+  renderer.render(bgScene, bgCam);
+  renderer.render(scene, camera);
+}
+animate();
+
+// ─── Resize ──────────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  aspect = innerWidth / innerHeight;
+  renderer.setSize(innerWidth, innerHeight);
+  camera = makeCamera();
+  buildMouth(SMILES[state], OPEN[state]);
+  buildMustache();
+  initChainPositions();
+});
+</script>
+</body>
+</html>
