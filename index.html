@@ -18,6 +18,44 @@
   .btn { background: rgba(255,160,40,0.08); border: 1px solid rgba(255,160,40,0.22); color: rgba(255,200,100,0.55); font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; padding: 6px 14px; border-radius: 2px; cursor: pointer; font-family: 'Georgia', serif; transition: background 0.25s, color 0.25s; }
   .btn:hover, .btn.active { background: rgba(255,160,40,0.18); color: rgba(255,220,120,0.9); }
 
+  /* ─── Dropdowns ─── */
+  .dropdown { position: relative; display: inline-block; }
+  .dropdown-menu {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 10px); /* Position above the button */
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(20,8,0,0.96);
+    border: 1px solid rgba(255,160,40,0.3);
+    border-radius: 4px;
+    padding: 8px 0;
+    min-width: 120px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.7);
+    z-index: 10;
+  }
+  .dropdown-menu.open { display: block; }
+  .dropdown-menu a {
+    color: rgba(255,200,100,0.55);
+    padding: 6px 15px;
+    text-decoration: none;
+    display: block;
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    font-family: 'Georgia', serif;
+    transition: background 0.25s, color 0.25s;
+  }
+  .dropdown-menu a:hover {
+    background: rgba(255,160,40,0.12);
+    color: rgba(255,220,120,0.9);
+  }
+  .dropdown-menu a.active {
+    background: rgba(255,160,40,0.18);
+    color: rgba(255,220,120,0.9);
+  }
+
+
   #edit-btn { position: fixed; top: 20px; right: 24px; pointer-events: all; }
 
   /* ─── Color Picker ─── */
@@ -77,21 +115,35 @@
   <div id="name-tag">Botler</div>
 </div>
 <div id="controls">
-  <button class="btn" data-state="idle">Idle</button>
-  <button class="btn" data-state="listening">Listen</button>
-  <button class="btn" data-state="thinking">Think</button>
-  <button class="btn active" data-state="speaking">Speak</button>
-  <button class="btn" data-state="pleased">Pleased</button>
-  <div id="color-btn" class="btn" style="cursor:pointer;user-select:none;" onclick="toggleColorPanel(event)">
-    🎨 Color
-    <div id="color-panel">
-      <div id="color-swatches"></div>
-      <canvas id="color-spectrum" width="200" height="16"></canvas>
-      <div id="spectrum-label">drag for any hue</div>
+  <div class="dropdown">
+    <button class="btn" onclick="toggleDropdown(event, 'voice-dropdown')">Voice</button>
+    <div class="dropdown-menu" id="voice-dropdown">
+      <a href="#" data-state="idle"      onclick="setState('idle'); return false;">Idle</a>
+      <a href="#" data-state="listening" onclick="setState('listening'); return false;">Listen</a>
+      <a href="#" data-state="thinking"  onclick="setState('thinking'); return false;">Think</a>
+      <a href="#" data-state="speaking"  onclick="setState('speaking'); return false;">Speak</a>
+      <a href="#" data-state="pleased"   onclick="setState('pleased'); return false;">Pleased</a>
     </div>
   </div>
+
+  <div class="dropdown">
+    <button class="btn" onclick="toggleDropdown(event, 'looks-dropdown')">Looks</button>
+    <div class="dropdown-menu" id="looks-dropdown">
+      <a href="#" onclick="loadLook(); return false;">Load Look</a>
+      <a href="#" onclick="saveLook(); return false;">Save Look</a>
+      <a href="#" onclick="toggleColorPanel(event); return false;" id="color-picker-link">🎨 Color</a>
+    </div>
+  </div>
+
+  <button class="btn" onclick="greetKids()">Greet Kids</button>
 </div>
 <button id="edit-btn" class="btn" onclick="toggleEdit()">Edit</button>
+
+<div id="color-panel" style="display: none; position: fixed; bottom: 64px; left: 50%; transform: translateX(-50%); background: rgba(20,8,0,0.96); border: 1px solid rgba(255,160,40,0.3); border-radius: 4px; padding: 10px; width: 220px; box-shadow: 0 4px 24px rgba(0,0,0,0.7); z-index: 10;">
+  <div id="color-swatches"></div>
+  <canvas id="color-spectrum" width="200" height="16"></canvas>
+  <div id="spectrum-label">drag for any hue</div>
+</div>
 
 <div id="edit-ui">
   <div  id="mst-box"    class="e-box"></div>
@@ -109,6 +161,67 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
+let activeDropdownId = null;
+
+function toggleDropdown(event, id) {
+  event.stopPropagation();
+  const dropdownMenu = document.getElementById(id);
+  if (activeDropdownId && activeDropdownId !== id) {
+    document.getElementById(activeDropdownId).classList.remove('open');
+  }
+  dropdownMenu.classList.toggle('open');
+  activeDropdownId = dropdownMenu.classList.contains('open') ? id : null;
+
+  // Close color panel if another dropdown is opened
+  if (id !== 'looks-dropdown' && colorPanelOpen) {
+    colorPanelOpen = false;
+    document.getElementById('color-panel').classList.remove('open');
+  }
+}
+
+function applyLook(loadedEdit) {
+  Object.assign(edit, loadedEdit);
+  // Rebuild mustache and mouth to reflect new edit values
+  buildMustache();
+  buildMouth(SMILES[state], OPEN[state]); // Ensure mouth is updated
+  // Trigger a full redraw of the edit UI for handle positions
+  updateEditUI();
+}
+
+function saveLook() {
+  localStorage.setItem('botlerLook', JSON.stringify(edit));
+  alert('Current look saved!');
+}
+
+function loadLook() {
+  const savedLook = localStorage.getItem('botlerLook');
+  if (savedLook) {
+    applyLook(JSON.parse(savedLook));
+    alert('Look loaded!');
+  } else {
+    alert('No saved look found.');
+  }
+}
+
+function greetKids() {
+  const kids = [
+    { name: 'Kage', age: 6 },
+    { name: 'Avonté', age: 3 },
+    { name: 'Ezlynn', age: 2 }
+  ];
+  let greeting = "Hello ";
+  kids.forEach((kid, index) => {
+    greeting += `${kid.name} (${kid.age})`;
+    if (index < kids.length - 2) {
+      greeting += ", ";
+    } else if (index === kids.length - 2) {
+      greeting += " and ";
+    }
+  });
+  greeting += "! I'm Botler, here to help.";
+  alert(greeting); // Using alert for now, can be replaced with a more integrated TTS or display later
+}
+
 // ─── Renderer ────────────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -379,7 +492,7 @@ const statusEl = document.getElementById('status');
 function setState(s) {
   state = s;
   statusEl.textContent = LABELS[s];
-  document.querySelectorAll('.btn[data-state]').forEach(b => b.classList.toggle('active', b.dataset.state === s));
+  document.querySelectorAll('#voice-dropdown a').forEach(a => a.classList.toggle('active', a.dataset.state === s));
   if (s !== 'speaking') buildMouth(SMILES[s], OPEN[s]);
 }
 document.querySelectorAll('.btn[data-state]').forEach(btn =>
@@ -482,12 +595,30 @@ function applyColor(hex) {
 
 function toggleColorPanel(e) {
   e.stopPropagation();
+  // Close any open dropdowns first
+  if (activeDropdownId) {
+    document.getElementById(activeDropdownId).classList.remove('open');
+    activeDropdownId = null;
+  }
   colorPanelOpen = !colorPanelOpen;
   document.getElementById('color-panel').classList.toggle('open', colorPanelOpen);
 }
-document.addEventListener('click', () => {
-  colorPanelOpen = false;
-  document.getElementById('color-panel').classList.remove('open');
+document.addEventListener('click', (event) => {
+  // Close all dropdowns if click is outside
+  document.querySelectorAll('.dropdown-menu').forEach(menu => {
+    if (menu.classList.contains('open') && !menu.contains(event.target)) {
+      menu.classList.remove('open');
+    }
+  });
+  activeDropdownId = null;
+
+  // Close color panel if click is outside
+  const colorPanel = document.getElementById('color-panel');
+  const colorPickerLink = document.getElementById('color-picker-link');
+  if (colorPanelOpen && !colorPanel.contains(event.target) && (!colorPickerLink || !colorPickerLink.contains(event.target)) && (!colorPanel.contains(event.target))) {
+    colorPanelOpen = false;
+    colorPanel.classList.remove('open');
+  }
 });
 
 // Build swatches
