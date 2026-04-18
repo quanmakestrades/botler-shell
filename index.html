@@ -8,53 +8,99 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { width: 100vw; height: 100vh; overflow: hidden; background: #1a0800; font-family: 'Georgia', serif; }
   canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; }
-  #hud, #controls, #edit-btn, #edit-ui { z-index: 1; }
+  #hud, #controls, #edit-btn, #edit-ui, #gw-dot, #transcript-panel, #text-input-wrap, #tool-panel { z-index: 1; }
 
   #hud { position: fixed; inset: 0; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 32px 0 28px; }
   #status { color: rgba(255,200,100,0.32); font-size: 11px; letter-spacing: 0.42em; text-transform: uppercase; pointer-events: none; }
   #name-tag { color: rgba(255,200,100,0.16); font-size: 11px; letter-spacing: 0.62em; text-transform: uppercase; }
 
-  #controls { position: fixed; bottom: 64px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; pointer-events: all; flex-wrap: wrap; justify-content: center; }
+  /* ─── Gateway status dot ─── */
+  #gw-dot {
+    position: fixed; top: 20px; left: 24px; width: 8px; height: 8px;
+    border-radius: 50%; background: #442200; border: 1px solid rgba(255,160,40,0.2);
+    transition: background 0.4s, box-shadow 0.4s; pointer-events: none;
+  }
+  #gw-dot.connected { background: #44cc44; box-shadow: 0 0 6px #44cc44; }
+  #gw-dot.connecting { background: #cc8800; box-shadow: 0 0 6px #cc8800; animation: pulse-dot 1s infinite; }
+  @keyframes pulse-dot { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+
+  /* ─── Transcript ─── */
+  #transcript-panel {
+    position: fixed; bottom: 140px; left: 50%; transform: translateX(-50%);
+    max-width: min(460px, 88vw); min-height: 32px; text-align: center;
+    color: rgba(255,215,120,0.82); font-size: 13px; line-height: 1.6;
+    letter-spacing: 0.04em; pointer-events: none;
+    text-shadow: 0 1px 8px rgba(0,0,0,0.8);
+    transition: opacity 0.5s;
+  }
+  #transcript-panel.tool-msg { color: rgba(255,180,60,0.55); font-size: 11px; letter-spacing: 0.12em; font-style: italic; }
+
+  /* ─── Text input ─── */
+  #text-input-wrap {
+    position: fixed; bottom: 96px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 6px; width: min(400px, 86vw);
+  }
+  #text-input {
+    flex: 1; background: rgba(255,140,20,0.06); border: 1px solid rgba(255,160,40,0.22);
+    color: rgba(255,220,120,0.9); font-family: 'Georgia', serif; font-size: 11px;
+    letter-spacing: 0.15em; padding: 6px 10px; border-radius: 2px; outline: none;
+  }
+  #text-input::placeholder { color: rgba(255,180,60,0.28); }
+  #text-send {
+    background: rgba(255,160,40,0.08); border: 1px solid rgba(255,160,40,0.22);
+    color: rgba(255,200,100,0.55); font-family: 'Georgia', serif; font-size: 10px;
+    letter-spacing: 0.3em; text-transform: uppercase; padding: 6px 12px;
+    border-radius: 2px; cursor: pointer; transition: background 0.25s, color 0.25s;
+  }
+  #text-send:hover { background: rgba(255,160,40,0.18); color: rgba(255,220,120,0.9); }
+
+  /* ─── Tool panel ─── */
+  #tool-panel {
+    display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    background: rgba(15,5,0,0.97); border: 1px solid rgba(255,160,40,0.3);
+    border-radius: 6px; padding: 20px; width: min(480px, 90vw); max-height: 70vh;
+    overflow-y: auto; box-shadow: 0 8px 40px rgba(0,0,0,0.8); z-index: 20;
+  }
+  #tool-panel.open { display: block; }
+  #tool-panel-title {
+    color: rgba(255,200,100,0.7); font-size: 10px; letter-spacing: 0.4em;
+    text-transform: uppercase; margin-bottom: 14px;
+  }
+  #tool-panel-body { color: rgba(255,215,120,0.8); font-size: 12px; line-height: 1.7; }
+  #tool-panel-close {
+    position: absolute; top: 10px; right: 14px;
+    background: none; border: none; color: rgba(255,180,60,0.5);
+    font-size: 16px; cursor: pointer; font-family: 'Georgia', serif;
+  }
+  .tool-list-item {
+    display: flex; align-items: flex-start; gap: 10px; padding: 8px 0;
+    border-bottom: 1px solid rgba(255,160,40,0.08);
+  }
+  .tool-list-item:last-child { border-bottom: none; }
+  .tool-item-check { color: rgba(255,180,60,0.6); font-size: 13px; margin-top: 1px; }
+  .tool-item-text { flex: 1; color: rgba(255,215,120,0.75); font-size: 12px; }
+  .finance-locked { color: rgba(255,80,40,0.6); font-size: 10px; letter-spacing: 0.2em; }
+
+  #controls { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; pointer-events: all; flex-wrap: wrap; justify-content: center; }
   .btn { background: rgba(255,160,40,0.08); border: 1px solid rgba(255,160,40,0.22); color: rgba(255,200,100,0.55); font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; padding: 6px 14px; border-radius: 2px; cursor: pointer; font-family: 'Georgia', serif; transition: background 0.25s, color 0.25s; }
   .btn:hover, .btn.active { background: rgba(255,160,40,0.18); color: rgba(255,220,120,0.9); }
 
   /* ─── Dropdowns ─── */
   .dropdown { position: relative; display: inline-block; }
   .dropdown-menu {
-    display: none;
-    position: absolute;
-    bottom: calc(100% + 10px); /* Position above the button */
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(20,8,0,0.96);
-    border: 1px solid rgba(255,160,40,0.3);
-    border-radius: 4px;
-    padding: 8px 0;
-    min-width: 120px;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.7);
-    z-index: 10;
+    display: none; position: absolute; bottom: calc(100% + 10px); left: 50%;
+    transform: translateX(-50%); background: rgba(20,8,0,0.96);
+    border: 1px solid rgba(255,160,40,0.3); border-radius: 4px; padding: 8px 0;
+    min-width: 120px; box-shadow: 0 4px 24px rgba(0,0,0,0.7); z-index: 10;
   }
   .dropdown-menu.open { display: block; }
   .dropdown-menu a {
-    color: rgba(255,200,100,0.55);
-    padding: 6px 15px;
-    text-decoration: none;
-    display: block;
-    font-size: 10px;
-    letter-spacing: 0.3em;
-    text-transform: uppercase;
-    font-family: 'Georgia', serif;
-    transition: background 0.25s, color 0.25s;
+    color: rgba(255,200,100,0.55); padding: 6px 15px; text-decoration: none;
+    display: block; font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase;
+    font-family: 'Georgia', serif; transition: background 0.25s, color 0.25s;
   }
-  .dropdown-menu a:hover {
-    background: rgba(255,160,40,0.12);
-    color: rgba(255,220,120,0.9);
-  }
-  .dropdown-menu a.active {
-    background: rgba(255,160,40,0.18);
-    color: rgba(255,220,120,0.9);
-  }
-
+  .dropdown-menu a:hover { background: rgba(255,160,40,0.12); color: rgba(255,220,120,0.9); }
+  .dropdown-menu a.active { background: rgba(255,160,40,0.18); color: rgba(255,220,120,0.9); }
 
   #edit-btn { position: fixed; top: 20px; right: 24px; pointer-events: all; }
 
@@ -62,58 +108,44 @@
   #color-btn { position: relative; }
   #color-panel {
     display: none; position: absolute; bottom: calc(100% + 10px); left: 50%;
-    transform: translateX(-50%);
-    background: rgba(20,8,0,0.96); border: 1px solid rgba(255,160,40,0.3);
-    border-radius: 4px; padding: 10px; width: 220px;
+    transform: translateX(-50%); background: rgba(20,8,0,0.96);
+    border: 1px solid rgba(255,160,40,0.3); border-radius: 4px; padding: 10px; width: 220px;
     box-shadow: 0 4px 24px rgba(0,0,0,0.7);
   }
   #color-panel.open { display: block; }
   #color-swatches { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-  .swatch {
-    width: 22px; height: 22px; border-radius: 3px; cursor: pointer;
-    border: 2px solid transparent; transition: border-color 0.15s, transform 0.15s;
-    flex-shrink: 0;
-  }
+  .swatch { width: 22px; height: 22px; border-radius: 3px; cursor: pointer; border: 2px solid transparent; transition: border-color 0.15s, transform 0.15s; flex-shrink: 0; }
   .swatch:hover, .swatch.active { border-color: rgba(255,230,120,0.9); transform: scale(1.18); }
-  #color-spectrum { width: 100%; height: 16px; border-radius: 3px; cursor: crosshair;
-    background: linear-gradient(to right, #ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000); }
+  #color-spectrum { width: 100%; height: 16px; border-radius: 3px; cursor: crosshair; background: linear-gradient(to right, #ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000); }
   #spectrum-label { color: rgba(255,200,100,0.4); font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; margin-top: 5px; text-align: center; }
   #edit-ui { display: none; position: fixed; inset: 0; pointer-events: none; }
 
-  .e-box {
-    position: absolute; pointer-events: all; cursor: ns-resize;
-    border: 1px dashed rgba(255,180,50,0.55);
-    background: rgba(255,140,20,0.04);
-    min-height: 24px; min-width: 40px;
-  }
-  .e-handle {
-    position: absolute; pointer-events: all;
-    width: 11px; height: 11px;
-    background: rgba(255,180,50,0.88);
-    border: 1px solid rgba(255,230,120,1);
-    transform: translate(-50%, -50%);
-    border-radius: 2px;
-    user-select: none;
-  }
+  .e-box { position: absolute; pointer-events: all; cursor: ns-resize; border: 1px dashed rgba(255,180,50,0.55); background: rgba(255,140,20,0.04); min-height: 24px; min-width: 40px; }
+  .e-handle { position: absolute; pointer-events: all; width: 11px; height: 11px; background: rgba(255,180,50,0.88); border: 1px solid rgba(255,230,120,1); transform: translate(-50%, -50%); border-radius: 2px; user-select: none; }
   .e-handle.round  { border-radius: 50%; width: 13px; height: 13px; }
   .e-handle.se     { cursor: se-resize; }
   .e-handle.move   { cursor: move; }
   .e-handle.ew     { cursor: ew-resize; }
   .e-handle.ns     { cursor: ns-resize; }
-  .e-label {
-    position: absolute; color: rgba(255,200,100,0.45);
-    font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase;
-    pointer-events: none; white-space: nowrap;
-    transform: translate(-50%, 0);
-  }
+  .e-label { position: absolute; color: rgba(255,200,100,0.45); font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; pointer-events: none; white-space: nowrap; transform: translate(-50%, 0); }
 </style>
 </head>
 <body>
 
+<div id="gw-dot" title="Gateway"></div>
+
 <div id="hud">
-  <div id="status">Speaking</div>
+  <div id="status">Standby</div>
   <div id="name-tag">Botler</div>
 </div>
+
+<div id="transcript-panel"></div>
+
+<div id="text-input-wrap">
+  <input id="text-input" type="text" placeholder="Ask Botler…" autocomplete="off" spellcheck="false">
+  <button id="text-send">Send</button>
+</div>
+
 <div id="controls">
   <div class="dropdown">
     <button class="btn" onclick="toggleDropdown(event, 'voice-dropdown')">Voice</button>
@@ -131,18 +163,28 @@
     <div class="dropdown-menu" id="looks-dropdown">
       <a href="#" onclick="loadLook(); return false;">Load Look</a>
       <a href="#" onclick="saveLook(); return false;">Save Look</a>
-      <a href="#" onclick="toggleColorPanel(event); return false;" id="color-picker-link">🎨 Color</a>
+      <a href="#" onclick="toggleColorPanel(event); return false;" id="color-picker-link">Color</a>
     </div>
   </div>
 
-  <button class="btn" onclick="greetKids()">Greet Kids</button>
+  <button class="btn" onclick="askBotler('greet the kids')">Greet Kids</button>
+  <button class="btn" onclick="openToolPanel()">Tools</button>
+
+  <div class="dropdown" id="color-btn">
+    <div id="color-panel">
+      <div id="color-swatches"></div>
+      <canvas id="color-spectrum" width="200" height="16"></canvas>
+      <div id="spectrum-label">drag for any hue</div>
+    </div>
+  </div>
 </div>
 <button id="edit-btn" class="btn" onclick="toggleEdit()">Edit</button>
 
-<div id="color-panel" style="display: none; position: fixed; bottom: 64px; left: 50%; transform: translateX(-50%); background: rgba(20,8,0,0.96); border: 1px solid rgba(255,160,40,0.3); border-radius: 4px; padding: 10px; width: 220px; box-shadow: 0 4px 24px rgba(0,0,0,0.7); z-index: 10;">
-  <div id="color-swatches"></div>
-  <canvas id="color-spectrum" width="200" height="16"></canvas>
-  <div id="spectrum-label">drag for any hue</div>
+<!-- Tool panel -->
+<div id="tool-panel">
+  <button id="tool-panel-close" onclick="closeToolPanel()">✕</button>
+  <div id="tool-panel-title">Botler Tools</div>
+  <div id="tool-panel-body"></div>
 </div>
 
 <div id="edit-ui">
@@ -156,11 +198,378 @@
   <div  id="lbl-mh"     class="e-label">height</div>
   <div  id="lbl-eye"    class="e-label">eyes</div>
   <div  id="lbl-esz"    class="e-label">size</div>
-  <div  id="lbl-mono"   class="e-label" style="transform:none;">monocle ⌀</div>
+  <div  id="lbl-mono"   class="e-label" style="transform:none;">monocle</div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
+// ─── Constants ────────────────────────────────────────────────────────────────
+const GW_URL     = 'ws://localhost:18789';
+const SESSION_KEY = 'agent:botler:main';
+const FINANCE_PASSPHRASE = localStorage.getItem('botler:finance:pass') || null;
+
+// ─── Gateway Client ───────────────────────────────────────────────────────────
+class GatewayClient {
+  constructor(url) {
+    this._url      = url;
+    this._ws       = null;
+    this._pending  = new Map();  // reqId → { resolve, reject }
+    this._handlers = {};
+    this._seq      = 1;
+    this._ready    = false;
+    this._retryT   = null;
+  }
+
+  on(event, fn) { this._handlers[event] = fn; return this; }
+
+  connect() {
+    setDot('connecting');
+    this._ws = new WebSocket(this._url);
+
+    this._ws.onopen = () => {
+      // wait for challenge
+    };
+
+    this._ws.onmessage = (ev) => {
+      let f;
+      try { f = JSON.parse(ev.data); } catch { return; }
+
+      // Challenge/response handshake
+      if (f.event === 'connect.challenge') {
+        this._ws.send(JSON.stringify({ event: 'connect', payload: { challenge: f.payload?.challenge || '' } }));
+        return;
+      }
+      if (f.event === 'connect.ack') {
+        this._ready = true;
+        setDot('connected');
+        this._handlers['connect']?.();
+        return;
+      }
+
+      // Resolve pending request
+      if (f.reqId && this._pending.has(f.reqId)) {
+        const { resolve, reject } = this._pending.get(f.reqId);
+        this._pending.delete(f.reqId);
+        if (f.error) reject(new Error(f.error.message || JSON.stringify(f.error)));
+        else resolve(f.payload);
+        return;
+      }
+
+      // Streaming events
+      if (f.event) {
+        this._handlers['event']?.(f);
+      }
+    };
+
+    this._ws.onerror = () => {};
+
+    this._ws.onclose = () => {
+      this._ready = false;
+      setDot('disconnected');
+      this._handlers['disconnect']?.();
+      clearTimeout(this._retryT);
+      this._retryT = setTimeout(() => this.connect(), 4000);
+    };
+  }
+
+  request(action, payload = {}) {
+    return new Promise((resolve, reject) => {
+      if (!this._ready) { reject(new Error('not connected')); return; }
+      const reqId = String(this._seq++);
+      this._pending.set(reqId, { resolve, reject });
+      this._ws.send(JSON.stringify({ event: action, payload, reqId }));
+      // timeout after 30s
+      setTimeout(() => {
+        if (this._pending.has(reqId)) {
+          this._pending.delete(reqId);
+          reject(new Error('timeout'));
+        }
+      }, 30000);
+    });
+  }
+}
+
+// ─── Gateway dot ─────────────────────────────────────────────────────────────
+const gwDot = document.getElementById('gw-dot');
+function setDot(s) {
+  gwDot.className = '';
+  if (s === 'connected')   gwDot.classList.add('connected');
+  if (s === 'connecting')  gwDot.classList.add('connecting');
+}
+
+// ─── Gateway instance ─────────────────────────────────────────────────────────
+const gw = new GatewayClient(GW_URL);
+let streamBuf = '';
+let streamFinal = false;
+
+gw.on('connect', () => {
+  setTranscript('Ready.', true);
+  setState('idle');
+});
+gw.on('disconnect', () => {
+  setTranscript('Reconnecting…', false, 'tool');
+});
+gw.on('event', (f) => {
+  if (f.event === 'chat')  _onChatEvent(f.payload);
+  if (f.event === 'agent') _onAgentEvent(f.payload);
+});
+gw.connect();
+
+// ─── CMD tag parser ───────────────────────────────────────────────────────────
+function parseCmds(text) {
+  const cmds = [];
+  const clean = text.replace(/<cmd>([\s\S]*?)<\/cmd>/gi, (_, json) => {
+    try { cmds.push(JSON.parse(json)); } catch(e) {}
+    return '';
+  });
+  return { clean: clean.trim(), cmds };
+}
+
+// ─── Chat event handler ───────────────────────────────────────────────────────
+function _resetStream() {
+  streamBuf = '';
+  streamFinal = false;
+}
+
+function _onChatEvent(p) {
+  if (!p) return;
+  const st = p.state;
+
+  if (st === 'delta') {
+    const { clean, cmds } = parseCmds(p.delta || '');
+    streamBuf += clean;
+    setTranscript(streamBuf, false);
+    if (state !== 'speaking') setState('speaking');
+    cmds.forEach(executeTool);
+  }
+  else if (st === 'final') {
+    const { clean, cmds } = parseCmds(p.text || streamBuf);
+    streamBuf = '';
+    setTranscript(clean, true);
+    cmds.forEach(executeTool);
+    speakText(clean);
+  }
+  else if (st === 'error' || st === 'aborted') {
+    _resetStream();
+    setTranscript('Something went wrong. Try again.', true);
+    setState('idle');
+  }
+}
+
+// ─── Agent (tool) event handler ───────────────────────────────────────────────
+function _onAgentEvent(p) {
+  if (!p || p.stream !== 'tool') return;
+  const phase = p.data?.phase;
+  const toolName = p.data?.name ?? 'tool';
+  if (phase === 'start') {
+    setState('thinking');
+    setTranscript(`Using: ${toolName}`, false, 'tool');
+  } else if (phase === 'result') {
+    if (state === 'thinking') setTranscript('Composing…', false, 'tool');
+  }
+}
+
+// ─── Transcript display ───────────────────────────────────────────────────────
+let transcriptTimer = null;
+const transcriptEl = document.getElementById('transcript-panel');
+
+function setTranscript(text, fade, type) {
+  clearTimeout(transcriptTimer);
+  transcriptEl.className = type === 'tool' ? 'tool-msg' : '';
+  transcriptEl.textContent = text;
+  transcriptEl.style.opacity = '1';
+  if (fade && text) {
+    transcriptTimer = setTimeout(() => {
+      transcriptEl.style.opacity = '0';
+      setTimeout(() => { transcriptEl.textContent = ''; }, 600);
+    }, 6000);
+  }
+}
+
+// ─── Send query to Botler ─────────────────────────────────────────────────────
+async function askBotler(query) {
+  if (!query || !query.trim()) return;
+  _resetStream();
+  setState('thinking');
+  setTranscript(query, false, 'tool');
+  try {
+    await gw.request('chat.send', {
+      sessionKey: SESSION_KEY,
+      agentId: 'botler',
+      message: query,
+      idempotencyKey: crypto.randomUUID(),
+    });
+  } catch (err) {
+    setTranscript('Gateway unavailable. Is the OpenClaw app running?', true);
+    setState('idle');
+  }
+}
+
+// ─── Text input ───────────────────────────────────────────────────────────────
+const textInput = document.getElementById('text-input');
+document.getElementById('text-send').addEventListener('click', () => {
+  const q = textInput.value.trim();
+  if (q) { textInput.value = ''; askBotler(q); }
+});
+textInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    const q = textInput.value.trim();
+    if (q) { textInput.value = ''; askBotler(q); }
+  }
+});
+
+// ─── TTS with lip sync ────────────────────────────────────────────────────────
+let ttsUtter = null;
+function speakText(text) {
+  if (!text || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.rate  = 0.92;
+  u.pitch = 0.88;
+  u.volume = 1;
+  ttsUtter = u;
+  u.onstart = () => setState('speaking');
+  u.onend   = () => { setState('idle'); ttsUtter = null; };
+  u.onerror  = () => { setState('idle'); ttsUtter = null; };
+  u.onboundary = (ev) => {
+    if (ev.name === 'word') speakPhase += 0.35;
+  };
+  window.speechSynthesis.speak(u);
+}
+
+// ─── STT wake word ────────────────────────────────────────────────────────────
+let sttActive = false;
+let recognition = null;
+const WAKE_WORDS = ['botler', 'hey botler', 'butler'];
+
+function startSTT() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return;
+  recognition = new SR();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+
+  let woke = false;
+  let wakeTimer = null;
+
+  recognition.onresult = (ev) => {
+    let interim = '', final = '';
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      const t = ev.results[i][0].transcript.toLowerCase().trim();
+      if (ev.results[i].isFinal) final += t + ' ';
+      else interim += t + ' ';
+    }
+    const combined = (interim + final).toLowerCase();
+
+    if (!woke) {
+      if (WAKE_WORDS.some(w => combined.includes(w))) {
+        woke = true;
+        setState('listening');
+        setTranscript('Listening…', false, 'tool');
+        clearTimeout(wakeTimer);
+        wakeTimer = setTimeout(() => { woke = false; setState('idle'); }, 8000);
+      }
+      return;
+    }
+
+    if (final.trim() && woke) {
+      let query = final.trim();
+      WAKE_WORDS.forEach(w => { query = query.replace(w, '').trim(); });
+      if (query.length > 2) {
+        woke = false;
+        clearTimeout(wakeTimer);
+        askBotler(query);
+      }
+    }
+  };
+
+  recognition.onerror = (e) => {
+    if (e.error !== 'no-speech') console.warn('STT error', e.error);
+  };
+  recognition.onend = () => {
+    if (sttActive) setTimeout(() => recognition.start(), 500);
+  };
+  recognition.start();
+  sttActive = true;
+}
+
+// Auto-start STT on first user interaction (needed for iOS/mobile permission)
+let sttStarted = false;
+function ensureSTT() {
+  if (!sttStarted) { sttStarted = true; startSTT(); }
+}
+document.addEventListener('click', ensureSTT, { once: true });
+document.addEventListener('touchstart', ensureSTT, { once: true });
+
+// ─── executeTool (client-side cmd dispatch) ───────────────────────────────────
+function executeTool(cmd) {
+  if (!cmd || !cmd.action) return;
+  switch (cmd.action) {
+    case 'render_component': renderComponent(cmd); break;
+    case 'shopping_list':    renderShoppingList(cmd); break;
+    case 'browser':          openBrowser(cmd); break;
+    case 'finance':          openFinance(cmd); break;
+    case 'close_panel':      closeToolPanel(); break;
+    default: console.log('Unknown cmd action:', cmd.action, cmd);
+  }
+}
+
+function renderComponent(cmd) {
+  const panel = document.getElementById('tool-panel');
+  const title = document.getElementById('tool-panel-title');
+  const body  = document.getElementById('tool-panel-body');
+  title.textContent = cmd.title || 'Botler';
+  body.innerHTML = cmd.html || escHtml(cmd.text || JSON.stringify(cmd));
+  panel.classList.add('open');
+}
+
+function renderShoppingList(cmd) {
+  const items = cmd.items || [];
+  const html = items.map(item =>
+    `<div class="tool-list-item">
+      <span class="tool-item-check">${item.checked ? '✓' : '○'}</span>
+      <span class="tool-item-text">${escHtml(item.label || item)}</span>
+    </div>`
+  ).join('');
+  renderComponent({ title: cmd.title || 'Shopping List', html });
+}
+
+function openBrowser(cmd) {
+  if (cmd.url) window.open(cmd.url, '_blank', 'noopener');
+}
+
+function openFinance(cmd) {
+  const stored = localStorage.getItem('botler:finance:pass');
+  if (!stored) {
+    const pass = prompt('Finance panel passphrase:');
+    if (!pass) return;
+    localStorage.setItem('botler:finance:pass', pass);
+  }
+  renderComponent({ title: cmd.title || 'Finance', html: cmd.html || '<p style="color:rgba(255,215,120,0.7)">Finance panel loading…</p>' });
+}
+
+function openToolPanel() {
+  const body = document.getElementById('tool-panel-body');
+  document.getElementById('tool-panel-title').textContent = 'Available Tools';
+  body.innerHTML = `
+    <div class="tool-list-item"><span class="tool-item-check">⬡</span><span class="tool-item-text">render_component — display rich UI cards</span></div>
+    <div class="tool-list-item"><span class="tool-item-check">⬡</span><span class="tool-item-text">shopping_list — checklist panels</span></div>
+    <div class="tool-list-item"><span class="tool-item-check">⬡</span><span class="tool-item-text">browser — open URLs</span></div>
+    <div class="tool-list-item"><span class="tool-item-check">⬡</span><span class="tool-item-text finance-locked">finance — passphrase protected</span></div>
+  `;
+  document.getElementById('tool-panel').classList.add('open');
+}
+
+function closeToolPanel() {
+  document.getElementById('tool-panel').classList.remove('open');
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ─── Dropdown helpers ─────────────────────────────────────────────────────────
 let activeDropdownId = null;
 
 function toggleDropdown(event, id) {
@@ -171,8 +580,6 @@ function toggleDropdown(event, id) {
   }
   dropdownMenu.classList.toggle('open');
   activeDropdownId = dropdownMenu.classList.contains('open') ? id : null;
-
-  // Close color panel if another dropdown is opened
   if (id !== 'looks-dropdown' && colorPanelOpen) {
     colorPanelOpen = false;
     document.getElementById('color-panel').classList.remove('open');
@@ -181,45 +588,20 @@ function toggleDropdown(event, id) {
 
 function applyLook(loadedEdit) {
   Object.assign(edit, loadedEdit);
-  // Rebuild mustache and mouth to reflect new edit values
   buildMustache();
-  buildMouth(SMILES[state], OPEN[state]); // Ensure mouth is updated
-  // Trigger a full redraw of the edit UI for handle positions
+  buildMouth(SMILES[state], OPEN[state]);
   updateEditUI();
 }
 
 function saveLook() {
   localStorage.setItem('botlerLook', JSON.stringify(edit));
-  alert('Current look saved!');
+  setTranscript('Look saved.', true, 'tool');
 }
 
 function loadLook() {
   const savedLook = localStorage.getItem('botlerLook');
-  if (savedLook) {
-    applyLook(JSON.parse(savedLook));
-    alert('Look loaded!');
-  } else {
-    alert('No saved look found.');
-  }
-}
-
-function greetKids() {
-  const kids = [
-    { name: 'Kage', age: 6 },
-    { name: 'Avonté', age: 3 },
-    { name: 'Ezlynn', age: 2 }
-  ];
-  let greeting = "Hello ";
-  kids.forEach((kid, index) => {
-    greeting += `${kid.name} (${kid.age})`;
-    if (index < kids.length - 2) {
-      greeting += ", ";
-    } else if (index === kids.length - 2) {
-      greeting += " and ";
-    }
-  });
-  greeting += "! I'm Botler, here to help.";
-  alert(greeting); // Using alert for now, can be replaced with a more integrated TTS or display later
+  if (savedLook) { applyLook(JSON.parse(savedLook)); setTranscript('Look loaded.', true, 'tool'); }
+  else setTranscript('No saved look.', true, 'tool');
 }
 
 // ─── Renderer ────────────────────────────────────────────────────────────────
@@ -277,18 +659,12 @@ const LIP_TH  = () => S() * 0.013;
 
 // ─── Edit state ───────────────────────────────────────────────────────────────
 const edit = {
-  mustacheY:  0,    // scene-unit additive Y offset
-  mustacheSX: 1,    // X scale
-  mustacheSY: 1,    // Y scale
-  eyeY:       0,    // scene-unit additive Y offset
-  eyeSepOff:  0,    // scene-unit additive separation offset
-  eyeSize:    1,    // uniform scale on eye groups
-  monoSize:   1,    // uniform scale on monocle sub-group
+  mustacheY:  0, mustacheSX: 1, mustacheSY: 1,
+  eyeY:       0, eyeSepOff:  0, eyeSize:    1, monoSize:   1,
 };
 let editMode = false;
 let drag     = null;
 
-// ─── Coord helpers ────────────────────────────────────────────────────────────
 function toScreen(sx, sy) {
   return {
     x: (sx / aspect + 1) / 2 * innerWidth,
@@ -305,19 +681,15 @@ function initChainPositions() {
   const R  = EYE_R();
   const ld = R * 0.38;
   chainPts.forEach((p, i) => {
-    p.x = 0;
-    p.y = -(R * 1.35 + i * ld);
-    p.vx = 0; p.vy = 0;
+    p.x = 0; p.y = -(R * 1.35 + i * ld); p.vx = 0; p.vy = 0;
   });
 }
 
 function stepChain(eyeWX, eyeWY, effectiveMonoScale) {
   const R  = EYE_R();
   const ld = R * 0.38;
-  // Anchor hangs from bottom of monocle ring in world space
   const anchorX = eyeWX;
   const anchorY = eyeWY - R * 1.35 * effectiveMonoScale;
-
   chainPts.forEach((p, i) => {
     const prevX = i === 0 ? anchorX : chainPts[i-1].x;
     const prevY = i === 0 ? anchorY : chainPts[i-1].y;
@@ -328,7 +700,7 @@ function stepChain(eyeWX, eyeWY, effectiveMonoScale) {
     p.vy -= (dy/dist) * stretch * 0.32;
     p.vy -= 0.007;
     p.vx *= 0.80; p.vy *= 0.80;
-    p.x  += p.vx;  p.y  += p.vy;
+    p.x  += p.vx; p.y  += p.vy;
   });
   chainMeshes.forEach((m, i) => {
     m.position.x = chainPts[i].x;
@@ -342,7 +714,6 @@ function makeEye(xSign, withMonocle) {
   scene.add(g);
   const R = EYE_R();
 
-  // Black dot
   const dot = new THREE.Mesh(
     new THREE.CircleGeometry(R, 48),
     new THREE.MeshBasicMaterial({ color: 0x080200 })
@@ -350,8 +721,6 @@ function makeEye(xSign, withMonocle) {
   dot.position.z = 0.001;
   g.add(dot);
 
-  // Glint — child of dot so it squishes with blink.
-  // z must be small (< camera near plane distance ~0.9) NOT 1.0!
   const glint = new THREE.Mesh(
     new THREE.CircleGeometry(R * 0.32, 16),
     new THREE.MeshBasicMaterial({ color: 0xffffff })
@@ -361,7 +730,6 @@ function makeEye(xSign, withMonocle) {
 
   let monoGroup = null;
   if (withMonocle) {
-    // Monocle in its own sub-group — scaled independently
     monoGroup = new THREE.Group();
     g.add(monoGroup);
 
@@ -372,7 +740,6 @@ function makeEye(xSign, withMonocle) {
     ring.position.z = 0.003;
     monoGroup.add(ring);
 
-    // Crescent glints on ring — top-left bright, bottom-right dim
     const tlG = new THREE.Mesh(
       new THREE.RingGeometry(R*1.10, R*1.37, 20, 1, 1.92, 1.05),
       new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0.55, side:THREE.DoubleSide })
@@ -387,7 +754,6 @@ function makeEye(xSign, withMonocle) {
     brG.position.z = 0.005;
     monoGroup.add(brG);
 
-    // Chain links in scene (physics positions them independently)
     initChainPositions();
     const chainMat = new THREE.MeshBasicMaterial({ color:0xbb8820, side:THREE.DoubleSide });
     chainMeshes = [];
@@ -398,7 +764,6 @@ function makeEye(xSign, withMonocle) {
       chainMeshes.push(m);
     }
   }
-
   return { g, dot, xSign, monoGroup };
 }
 
@@ -412,10 +777,9 @@ scene.add(mustacheGroup);
 
 function buildMustache() {
   while (mustacheGroup.children.length) mustacheGroup.remove(mustacheGroup.children[0]);
-  const th  = LIP_TH() * 1.3 * 1.25 * 0.5;   // current thickness
+  const th  = LIP_TH() * 1.3 * 1.25 * 0.5;
   const hw  = HW();
   const mat = new THREE.MeshBasicMaterial({ color: 0x100400 });
-
   ;[-1, 1].forEach(xs => {
     const gap       = hw * 0.225;
     const length    = hw * 1.2;
@@ -486,7 +850,7 @@ scene.add(new THREE.Points(pGeo, new THREE.PointsMaterial({color:0xffcc55,size:0
 const LABELS = {idle:'Standby',listening:'Listening…',thinking:'Thinking…',speaking:'Speaking',pleased:'Here for you'};
 const SMILES = {idle:0.45,listening:0.15,thinking:0.0,speaking:0.5,pleased:1.0};
 const OPEN   = {idle:0.0, listening:0.0, thinking:0.0,speaking:0.4,pleased:0.08};
-let state = 'speaking';
+let state = 'idle';
 const statusEl = document.getElementById('status');
 
 function setState(s) {
@@ -495,8 +859,6 @@ function setState(s) {
   document.querySelectorAll('#voice-dropdown a').forEach(a => a.classList.toggle('active', a.dataset.state === s));
   if (s !== 'speaking') buildMouth(SMILES[s], OPEN[s]);
 }
-document.querySelectorAll('.btn[data-state]').forEach(btn =>
-  btn.addEventListener('click', () => setState(btn.dataset.state)));
 
 // ─── Blink ───────────────────────────────────────────────────────────────────
 let blinkTimer = 0, blinkInterval = 2.8 + Math.random()*3.5;
@@ -506,7 +868,7 @@ let blinking = false, blinkProg = 0;
 const mouse = new THREE.Vector2();
 const look  = new THREE.Vector2();
 document.addEventListener('mousemove', e => {
-  if (drag) return; // don't update look while edit-dragging
+  if (drag) return;
   mouse.x =  (e.clientX/innerWidth  - 0.5) * 2 * aspect;
   mouse.y = -(e.clientY/innerHeight - 0.5) * 2;
 });
@@ -532,29 +894,17 @@ function onDragMove(e) {
   const { x, y } = getXY(e);
   const dx  = x - drag.sx;
   const dy  = y - drag.sy;
-  const dsy = -dy / innerHeight * 2;                    // positive = up
-
+  const dsy = -dy / innerHeight * 2;
   switch (drag.id) {
-    case 'mst-box':
-      edit.mustacheY  = drag.snap.mustacheY + dsy;
-      break;
-    case 'mst-corner':
-      edit.mustacheSX = Math.max(0.2, drag.snap.mustacheSX + dx / 280);
-      break;
-    case 'mst-height':
-      edit.mustacheSY = Math.max(0.1, drag.snap.mustacheSY - dy / 260);
-      break;
+    case 'mst-box':    edit.mustacheY  = drag.snap.mustacheY + dsy; break;
+    case 'mst-corner': edit.mustacheSX = Math.max(0.2, drag.snap.mustacheSX + dx / 280); break;
+    case 'mst-height': edit.mustacheSY = Math.max(0.1, drag.snap.mustacheSY - dy / 260); break;
     case 'eye-pos':
       edit.eyeY      = drag.snap.eyeY + dsy;
-      // dragging left eye LEFT → eyes spread (sep increases) → negate dsx
       edit.eyeSepOff = drag.snap.eyeSepOff - (dx / innerWidth) * aspect * 1.2;
       break;
-    case 'eye-sz':
-      edit.eyeSize   = Math.max(0.15, drag.snap.eyeSize + dx / 280);
-      break;
-    case 'mono-sz':
-      edit.monoSize  = Math.max(0.2, drag.snap.monoSize - dy / 260);
-      break;
+    case 'eye-sz':  edit.eyeSize  = Math.max(0.15, drag.snap.eyeSize + dx / 280); break;
+    case 'mono-sz': edit.monoSize = Math.max(0.2,  drag.snap.monoSize - dy / 260); break;
   }
 }
 function onDragEnd() { drag = null; }
@@ -595,7 +945,6 @@ function applyColor(hex) {
 
 function toggleColorPanel(e) {
   e.stopPropagation();
-  // Close any open dropdowns first
   if (activeDropdownId) {
     document.getElementById(activeDropdownId).classList.remove('open');
     activeDropdownId = null;
@@ -603,25 +952,22 @@ function toggleColorPanel(e) {
   colorPanelOpen = !colorPanelOpen;
   document.getElementById('color-panel').classList.toggle('open', colorPanelOpen);
 }
+
 document.addEventListener('click', (event) => {
-  // Close all dropdowns if click is outside
   document.querySelectorAll('.dropdown-menu').forEach(menu => {
     if (menu.classList.contains('open') && !menu.contains(event.target)) {
       menu.classList.remove('open');
     }
   });
   activeDropdownId = null;
-
-  // Close color panel if click is outside
   const colorPanel = document.getElementById('color-panel');
   const colorPickerLink = document.getElementById('color-picker-link');
-  if (colorPanelOpen && !colorPanel.contains(event.target) && (!colorPickerLink || !colorPickerLink.contains(event.target)) && (!colorPanel.contains(event.target))) {
+  if (colorPanelOpen && !colorPanel.contains(event.target) && (!colorPickerLink || !colorPickerLink.contains(event.target))) {
     colorPanelOpen = false;
     colorPanel.classList.remove('open');
   }
 });
 
-// Build swatches
 const swatchContainer = document.getElementById('color-swatches');
 SWATCHES.forEach(hex => {
   const s = document.createElement('div');
@@ -633,7 +979,6 @@ SWATCHES.forEach(hex => {
   swatchContainer.appendChild(s);
 });
 
-// Spectrum canvas — click or drag for hue
 const specCanvas = document.getElementById('color-spectrum');
 const specCtx    = specCanvas.getContext('2d');
 (function drawSpectrum() {
@@ -658,14 +1003,12 @@ specCanvas.addEventListener('click', pickSpectrum);
 specCanvas.addEventListener('mousemove', e => { if (e.buttons === 1) pickSpectrum(e); });
 specCanvas.addEventListener('touchmove', e => { e.stopPropagation(); pickSpectrum(e); }, { passive: false });
 
-// ─── Update edit handles (called each frame) ──────────────────────────────────
+// ─── Update edit handles ──────────────────────────────────────────────────────
 function updateEditUI() {
   if (!editMode) return;
-
   const hw  = HW();
-  // Mustache extents in scene space (before group scale)
-  const mstHW  = hw * (0.225 + 1.2);                   // half-width (one side)
-  const mstHH  = LIP_TH() * 1.3 * 1.25 * 0.5 * 1.2;   // half-height with buffer
+  const mstHW  = hw * (0.225 + 1.2);
+  const mstHH  = LIP_TH() * 1.3 * 1.25 * 0.5 * 1.2;
   const mstCY  = mustacheGroup.position.y;
 
   const tl = toScreen(-mstHW * edit.mustacheSX, mstCY + mstHH * edit.mustacheSY);
@@ -674,54 +1017,42 @@ function updateEditUI() {
   const bH = Math.max(24, br.y - tl.y);
 
   const box = document.getElementById('mst-box');
-  box.style.left   = tl.x + 'px';
-  box.style.top    = tl.y + 'px';
-  box.style.width  = bW + 'px';
-  box.style.height = bH + 'px';
+  box.style.left = tl.x+'px'; box.style.top = tl.y+'px';
+  box.style.width = bW+'px';  box.style.height = bH+'px';
 
   const cor = document.getElementById('mst-corner');
-  cor.style.left = (tl.x + bW) + 'px';
-  cor.style.top  = (tl.y + bH) + 'px';
+  cor.style.left = (tl.x+bW)+'px'; cor.style.top = (tl.y+bH)+'px';
 
-  // Height handle — right edge, vertically centered
   const mh = document.getElementById('mst-height');
-  mh.style.left = (tl.x + bW) + 'px';
-  mh.style.top  = (tl.y + bH/2) + 'px';
-  document.getElementById('lbl-mh').style.left = (tl.x + bW + 14) + 'px';
-  document.getElementById('lbl-mh').style.top  = (tl.y + bH/2 - 6) + 'px';
+  mh.style.left = (tl.x+bW)+'px'; mh.style.top = (tl.y+bH/2)+'px';
+  document.getElementById('lbl-mh').style.left = (tl.x+bW+14)+'px';
+  document.getElementById('lbl-mh').style.top  = (tl.y+bH/2-6)+'px';
 
   const lm = document.getElementById('lbl-mst');
-  lm.style.left = (tl.x + bW/2) + 'px';
-  lm.style.top  = (tl.y - 16) + 'px';
+  lm.style.left = (tl.x+bW/2)+'px'; lm.style.top = (tl.y-16)+'px';
 
-  // Left eye
   const leS    = toScreen(leftEye.g.position.x, leftEye.g.position.y);
   const eyePxR = EYE_R() * edit.eyeSize * innerHeight / 2;
 
   const ep = document.getElementById('eye-pos');
-  ep.style.left = leS.x + 'px';
-  ep.style.top  = leS.y + 'px';
+  ep.style.left = leS.x+'px'; ep.style.top = leS.y+'px';
 
   const esz = document.getElementById('eye-sz');
-  esz.style.left = (leS.x - eyePxR - 18) + 'px';
-  esz.style.top  = leS.y + 'px';
+  esz.style.left = (leS.x-eyePxR-18)+'px'; esz.style.top = leS.y+'px';
 
-  document.getElementById('lbl-eye').style.left = leS.x + 'px';
-  document.getElementById('lbl-eye').style.top  = (leS.y - eyePxR - 18) + 'px';
-  document.getElementById('lbl-esz').style.left = (leS.x - eyePxR - 18) + 'px';
-  document.getElementById('lbl-esz').style.top  = (leS.y + 14) + 'px';
+  document.getElementById('lbl-eye').style.left = leS.x+'px';
+  document.getElementById('lbl-eye').style.top  = (leS.y-eyePxR-18)+'px';
+  document.getElementById('lbl-esz').style.left = (leS.x-eyePxR-18)+'px';
+  document.getElementById('lbl-esz').style.top  = (leS.y+14)+'px';
 
-  // Monocle
-  const reS      = toScreen(rightEye.g.position.x, rightEye.g.position.y);
-  const monoPxR  = EYE_R() * 1.35 * edit.eyeSize * edit.monoSize * innerHeight / 2;
+  const reS     = toScreen(rightEye.g.position.x, rightEye.g.position.y);
+  const monoPxR = EYE_R() * 1.35 * edit.eyeSize * edit.monoSize * innerHeight / 2;
 
   const msz = document.getElementById('mono-sz');
-  msz.style.left = reS.x + 'px';
-  msz.style.top  = (reS.y - monoPxR - 18) + 'px';
+  msz.style.left = reS.x+'px'; msz.style.top = (reS.y-monoPxR-18)+'px';
 
   const lmo = document.getElementById('lbl-mono');
-  lmo.style.left = (reS.x + monoPxR + 8) + 'px';
-  lmo.style.top  = (reS.y - monoPxR - 20) + 'px';
+  lmo.style.left = (reS.x+monoPxR+8)+'px'; lmo.style.top = (reS.y-monoPxR-20)+'px';
 }
 
 // ─── Animate ─────────────────────────────────────────────────────────────────
@@ -755,27 +1086,22 @@ function animate() {
     eye.g.scale.set(edit.eyeSize, edit.eyeSize, 1);
   });
 
-  // Monocle independent scale
   if (rightEye.monoGroup) {
     rightEye.monoGroup.scale.set(edit.monoSize, edit.monoSize, 1);
-    // Crescent glints parallax
     const parallax = look.x * 0.18 + look.y * 0.10;
-    rightEye.monoGroup.children[1].rotation.z = -parallax; // tlGlint
-    rightEye.monoGroup.children[2].rotation.z = -parallax; // brGlint
+    rightEye.monoGroup.children[1].rotation.z = -parallax;
+    rightEye.monoGroup.children[2].rotation.z = -parallax;
   }
 
-  // Chain — anchor accounts for eyeSize × monoSize scaling
   stepChain(rightEye.g.position.x, rightEye.g.position.y, edit.eyeSize * edit.monoSize);
 
-  // Mouth + mustache
   const my       = MOUTH_Y() + fy;
   const mustacheH = LIP_TH() * 1.3 * 1.25 * 0.5;
   mouthGroup.position.y     = my;
   mustacheGroup.position.y  = my + mustacheH * 2.2 + edit.mustacheY;
-  mustacheGroup.position.x  = 0;  // always centered
+  mustacheGroup.position.x  = 0;
   mustacheGroup.scale.set(edit.mustacheSX, edit.mustacheSY, 1);
 
-  // Blink — squish dot to 10% height
   blinkTimer += dt;
   if (!blinking && blinkTimer > blinkInterval) {
     blinking = true; blinkTimer = 0;
@@ -791,14 +1117,12 @@ function animate() {
     }
   }
 
-  // Speaking
   if (state === 'speaking') {
     speakPhase += 0.11;
     const o = (Math.sin(speakPhase) * 0.42 + Math.sin(speakPhase * 2.3) * 0.16 + 0.58) * 0.48;
     buildMouth(0.5, Math.max(0, o));
   }
 
-  // Particles
   const pa = pGeo.attributes.position.array;
   for (let i = 0; i < PN; i++) {
     pa[i*3+1] += pSpd[i];
