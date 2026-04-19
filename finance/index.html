@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Botler Finance</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg:            #120700;
+  --bg-panel:      rgba(20, 8, 0, 0.72);
+  --border:        rgba(255, 160, 40, 0.18);
+  --border-hi:     rgba(255, 160, 40, 0.32);
+  --text:          #f5d49a;
+  --text-dim:      rgba(245, 212, 154, 0.55);
+  --text-muted:    rgba(245, 212, 154, 0.35);
+  --amber:         rgba(255, 160, 40, 1);
+  --green:         #4caf6e;
+  --red:           #e05555;
+  --due:           #f5a623;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+h1, h2, h3, .panel-title, .net-stat .value {
+  font-family: Georgia, serif;
+}
+
+/* ─── PIN Overlay ─────────────────────────────────────────── */
+#pin-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(10, 4, 0, 0.97);
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 22px;
+}
+
+#pin-overlay h2 {
+  font-size: 16px; letter-spacing: 0.36em; text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+#pin-display {
+  display: flex; gap: 14px;
+}
+
+.pin-dot {
+  width: 13px; height: 13px; border-radius: 50%;
+  border: 1px solid var(--border-hi);
+  background: transparent;
+  transition: background 0.12s;
+}
+.pin-dot.filled { background: var(--amber); }
+
+#pin-keypad {
+  display: grid; grid-template-columns: repeat(3, 62px);
+  gap: 8px;
+}
+
+.pin-key {
+  height: 54px;
+  background: rgba(255, 160, 40, 0.08);
+  border: 1px solid rgba(255, 160, 40, 0.22);
+  color: rgba(255, 220, 140, 0.88);
+  font-size: 18px; font-family: Georgia, serif;
+  cursor: pointer; transition: background 0.2s;
+}
+.pin-key:hover { background: rgba(255, 160, 40, 0.18); }
+.pin-key.small { font-size: 11px; letter-spacing: 0.12em; }
+
+#pin-error {
+  color: var(--red); font-size: 11px; letter-spacing: 0.22em;
+  text-transform: uppercase; opacity: 0; height: 14px;
+  transition: opacity 0.2s;
+}
+#pin-error.show { opacity: 1; }
+
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20%      { transform: translateX(-10px); }
+  40%      { transform: translateX(10px); }
+  60%      { transform: translateX(-8px); }
+  80%      { transform: translateX(8px); }
+}
+.shake { animation: shake 0.38s ease; }
+
+/* ─── Dashboard ───────────────────────────────────────────── */
+.dash-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 22px; padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap; gap: 8px;
+}
+.dash-header h1 {
+  font-size: 18px; letter-spacing: 0.26em; text-transform: uppercase;
+}
+.dash-header .sub {
+  font-size: 10px; color: var(--text-muted); letter-spacing: 0.28em;
+  text-transform: uppercase; margin-top: 5px;
+}
+.dash-period {
+  font-size: 11px; color: var(--text-dim); letter-spacing: 0.18em;
+  text-transform: uppercase; align-self: center;
+}
+
+/* ─── Net Position Banner ─────────────────────────────────── */
+#net-banner {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  padding: 16px 20px; margin-bottom: 18px;
+  display: flex; gap: 0; flex-wrap: wrap;
+}
+
+.net-stat {
+  flex: 1; min-width: 110px;
+  padding: 4px 16px 4px 0;
+  border-right: 1px solid var(--border);
+}
+.net-stat:last-of-type { border-right: none; }
+
+.net-stat label {
+  font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase;
+  color: var(--text-muted); display: block; margin-bottom: 6px;
+}
+.net-stat .value {
+  font-size: 20px;
+}
+.value.pos  { color: var(--green); }
+.value.neg  { color: var(--red); }
+.value.due  { color: var(--due); }
+
+.net-actions {
+  display: flex; flex-direction: column; align-items: flex-end;
+  justify-content: space-between; padding-left: 16px; min-width: 90px;
+}
+
+/* ─── Panels grid ─────────────────────────────────────────── */
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  display: flex; flex-direction: column;
+}
+
+.panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 15px 9px;
+  border-bottom: 1px solid var(--border);
+}
+.panel-title {
+  font-size: 12px; letter-spacing: 0.22em; text-transform: uppercase;
+}
+.panel-meta {
+  display: flex; align-items: center; gap: 8px;
+}
+.ts {
+  font-size: 9px; color: var(--text-muted); letter-spacing: 0.12em;
+}
+.refresh-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 160, 40, 0.15);
+  color: var(--text-dim); font-size: 10px; letter-spacing: 0.15em;
+  text-transform: uppercase; padding: 3px 9px; cursor: pointer;
+  font-family: inherit; transition: background 0.2s, color 0.2s;
+}
+.refresh-btn:hover { background: rgba(255, 160, 40, 0.1); color: var(--text); }
+.refresh-btn:disabled { opacity: 0.4; cursor: default; }
+
+.panel-body { padding: 12px 15px; flex: 1; }
+
+/* ─── Bills ───────────────────────────────────────────────── */
+.bill-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 160, 40, 0.06);
+}
+.bill-row:last-child { border-bottom: none; }
+
+.bill-l { display: flex; align-items: center; gap: 10px; }
+.dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.dot.paid    { background: var(--green); }
+.dot.due     { background: var(--due); }
+.dot.overdue { background: var(--red); }
+
+.bill-name { font-size: 13px; }
+.bill-sub  { font-size: 9px; color: var(--text-dim); letter-spacing: 0.1em;
+             text-transform: uppercase; margin-top: 2px; }
+.bill-r    { text-align: right; }
+.bill-amt  { font-size: 14px; font-family: Georgia, serif; }
+.bill-amt.paid    { color: var(--green); }
+.bill-amt.due     { color: var(--due); }
+.bill-amt.overdue { color: var(--red); }
+.bill-date { font-size: 9px; color: var(--text-muted); margin-top: 2px; }
+
+/* ─── Income ──────────────────────────────────────────────── */
+.income-row {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 160, 40, 0.06);
+}
+.income-row:last-child { border-bottom: none; }
+
+.income-name   { font-size: 13px; }
+.income-src    { font-size: 9px; color: var(--text-dim); letter-spacing: 0.1em;
+                 text-transform: uppercase; margin-top: 2px; }
+.income-r      { text-align: right; }
+.income-amt    { font-size: 14px; font-family: Georgia, serif; color: var(--green); }
+.income-amt.z  { color: var(--text-dim); }
+.income-detail { font-size: 9px; color: var(--text-muted); margin-top: 2px; }
+
+/* ─── Assets ──────────────────────────────────────────────── */
+.asset-row {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 160, 40, 0.06);
+}
+.asset-row:last-child { border-bottom: none; }
+
+.asset-name { font-size: 13px; }
+.asset-type { font-size: 9px; color: var(--text-dim); letter-spacing: 0.1em;
+              text-transform: uppercase; margin-top: 2px; }
+.asset-r    { text-align: right; }
+.asset-bal  { font-size: 16px; font-family: Georgia, serif; }
+.asset-upd  { font-size: 9px; color: var(--text-muted); margin-top: 2px; }
+
+/* ─── Spending ────────────────────────────────────────────── */
+.tx-row {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(255, 160, 40, 0.06);
+}
+.tx-row:last-child { border-bottom: none; }
+
+.tx-desc  { font-size: 12px; }
+.tx-cat   { font-size: 9px; color: var(--text-dim); letter-spacing: 0.1em;
+            text-transform: uppercase; margin-top: 2px; }
+.tx-r     { text-align: right; }
+.tx-amt   { font-size: 13px; font-family: Georgia, serif; }
+.tx-amt.in  { color: var(--green); }
+.tx-amt.out { color: var(--red); }
+.tx-date  { font-size: 9px; color: var(--text-muted); margin-top: 2px; }
+
+.tx-totals {
+  display: flex; gap: 20px; justify-content: flex-end;
+  padding-top: 10px; margin-top: 6px;
+  border-top: 1px solid var(--border);
+  font-size: 11px; font-family: Georgia, serif;
+}
+.tot-in  { color: var(--green); }
+.tot-out { color: var(--red); }
+
+/* ─── Responsive ──────────────────────────────────────────── */
+@media (max-width: 600px) {
+  body { padding: 10px; }
+  .dash-grid { grid-template-columns: 1fr; }
+  #net-banner { gap: 12px; }
+  .net-stat { min-width: 90px; padding-right: 10px; }
+  .net-stat .value { font-size: 16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── PIN Overlay ──────────────────────────────────────────────────────── -->
+<div id="pin-overlay">
+  <h2>Finance Access</h2>
+  <div id="pin-display">
+    <div class="pin-dot" id="d0"></div>
+    <div class="pin-dot" id="d1"></div>
+    <div class="pin-dot" id="d2"></div>
+    <div class="pin-dot" id="d3"></div>
+  </div>
+  <div id="pin-error">Incorrect PIN</div>
+  <div id="pin-keypad">
+    <button class="pin-key" data-k="1">1</button>
+    <button class="pin-key" data-k="2">2</button>
+    <button class="pin-key" data-k="3">3</button>
+    <button class="pin-key" data-k="4">4</button>
+    <button class="pin-key" data-k="5">5</button>
+    <button class="pin-key" data-k="6">6</button>
+    <button class="pin-key" data-k="7">7</button>
+    <button class="pin-key" data-k="8">8</button>
+    <button class="pin-key" data-k="9">9</button>
+    <button class="pin-key small" data-k="clr">CLR</button>
+    <button class="pin-key" data-k="0">0</button>
+    <button class="pin-key small" data-k="back">&#8592;</button>
+  </div>
+</div>
+
+<!-- ── Dashboard ────────────────────────────────────────────────────────── -->
+<div id="dashboard" style="display:none;">
+
+  <div class="dash-header">
+    <div>
+      <h1>Finance</h1>
+      <div class="sub">Botler Financial Dashboard &mdash; Phase 1 / Mock Data</div>
+    </div>
+    <div class="dash-period" id="dash-period">APR 2026</div>
+  </div>
+
+  <!-- Net Position -->
+  <div id="net-banner" data-panel="net-position">
+    <div class="net-stat">
+      <label>Money In (Apr)</label>
+      <div class="value pos" id="net-in">—</div>
+    </div>
+    <div class="net-stat">
+      <label>Money Out (Apr)</label>
+      <div class="value neg" id="net-out">—</div>
+    </div>
+    <div class="net-stat">
+      <label>Net Position</label>
+      <div class="value" id="net-pos">—</div>
+    </div>
+    <div class="net-stat">
+      <label>Bills Due</label>
+      <div class="value due" id="net-bills">—</div>
+    </div>
+    <div class="net-actions">
+      <button class="refresh-btn" onclick="refreshPanel('net-position',this)">Refresh</button>
+      <div class="ts" id="ts-net">—</div>
+    </div>
+  </div>
+
+  <!-- 4-panel grid -->
+  <div class="dash-grid">
+
+    <!-- Bills Calendar -->
+    <div class="panel" data-panel="bills">
+      <div class="panel-header">
+        <span class="panel-title">Bill Calendar</span>
+        <div class="panel-meta">
+          <span class="ts" id="ts-bills">—</span>
+          <button class="refresh-btn" onclick="refreshPanel('bills',this)">Refresh</button>
+        </div>
+      </div>
+      <div class="panel-body" id="bills-body"></div>
+    </div>
+
+    <!-- Income Streams -->
+    <div class="panel" data-panel="income">
+      <div class="panel-header">
+        <span class="panel-title">Income Streams</span>
+        <div class="panel-meta">
+          <span class="ts" id="ts-income">—</span>
+          <button class="refresh-btn" onclick="refreshPanel('income',this)">Refresh</button>
+        </div>
+      </div>
+      <div class="panel-body" id="income-body"></div>
+    </div>
+
+    <!-- Asset Holdings -->
+    <div class="panel" data-panel="assets">
+      <div class="panel-header">
+        <span class="panel-title">Asset Holdings</span>
+        <div class="panel-meta">
+          <span class="ts" id="ts-assets">—</span>
+          <button class="refresh-btn" onclick="refreshPanel('assets',this)">Refresh</button>
+        </div>
+      </div>
+      <div class="panel-body" id="assets-body"></div>
+    </div>
+
+    <!-- Spending Tracker -->
+    <div class="panel" data-panel="spending">
+      <div class="panel-header">
+        <span class="panel-title">Spending Tracker</span>
+        <div class="panel-meta">
+          <span class="ts" id="ts-spending">—</span>
+          <button class="refresh-btn" onclick="refreshPanel('spending',this)">Refresh</button>
+        </div>
+      </div>
+      <div class="panel-body" id="spending-body"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// MOCK_DATA — Phase 2: replace with API fetches that return the same shapes.
+// Schema: finance/schema.js
+// ═══════════════════════════════════════════════════════════════════════════
+const MOCK_DATA = {
+
+  accounts: [
+    {
+      id: "chase-checking",
+      label: "Chase Checking",
+      type: "bank",
+      balance: 0,
+      currency: "USD",
+      lastUpdated: "2026-04-17T00:00:00Z",
+      source: "manual"
+    },
+    {
+      id: "coinbase-portfolio",
+      label: "Coinbase Portfolio",
+      type: "crypto",
+      balance: 0,
+      currency: "USD",
+      lastUpdated: "2026-04-17T00:00:00Z",
+      source: "manual"
+    },
+    {
+      id: "sol-wallet",
+      label: "SOL Wallet",
+      type: "crypto",
+      balance: 0,
+      currency: "SOL",
+      lastUpdated: "2026-04-17T00:00:00Z",
+      source: "manual"
+    }
+  ],
+
+  bills: [
+    {
+      id: "comed-apr",
+      label: "COMED Electric",
+      amount: 112.43,
+      currency: "USD",
+      dueDate: "2026-04-10T00:00:00Z",
+      paid: true,
+      paidDate: "2026-04-08T00:00:00Z",
+      recurring: true,
+      recurrencePeriod: "monthly",
+      category: "utility"
+    },
+    {
+      id: "water-apr",
+      label: "Water",
+      amount: 165.11,
+      currency: "USD",
+      dueDate: "2026-04-22T00:00:00Z",
+      paid: false,
+      paidDate: null,
+      recurring: true,
+      recurrencePeriod: "monthly",
+      category: "utility"
+    },
+    {
+      id: "sewer-apr",
+      label: "Sewer",
+      amount: 238.05,
+      currency: "USD",
+      dueDate: "2026-04-28T00:00:00Z",
+      paid: false,
+      paidDate: null,
+      recurring: true,
+      recurrencePeriod: "monthly",
+      category: "utility"
+    },
+    {
+      id: "internet-apr",
+      label: "Internet",
+      amount: 79.99,
+      currency: "USD",
+      dueDate: "2026-05-01T00:00:00Z",
+      paid: false,
+      paidDate: null,
+      recurring: true,
+      recurrencePeriod: "monthly",
+      category: "subscription"
+    },
+    {
+      id: "phone-apr",
+      label: "Phone Plan",
+      amount: 45.00,
+      currency: "USD",
+      dueDate: "2026-05-05T00:00:00Z",
+      paid: false,
+      paidDate: null,
+      recurring: true,
+      recurrencePeriod: "monthly",
+      category: "subscription"
+    }
+  ],
+
+  incomeEvents: [
+    {
+      id: "jim-royalties-apr",
+      label: "JIM Royalties",
+      source: "jim_royalties",
+      amount: 0,
+      currency: "USD",
+      receivedDate: null,
+      expectedDate: "2026-04-30T00:00:00Z",
+      recurring: true,
+      recurrencePeriod: "monthly"
+    },
+    {
+      id: "consulting-apr",
+      label: "Consulting",
+      source: "consulting",
+      amount: 0,
+      currency: "USD",
+      receivedDate: null,
+      expectedDate: null,
+      recurring: false,
+      recurrencePeriod: null
+    },
+    {
+      id: "sol-payments-apr",
+      label: "SOL Payments",
+      source: "solana",
+      amount: 0,
+      currency: "USD",
+      receivedDate: null,
+      expectedDate: null,
+      recurring: false,
+      recurrencePeriod: null
+    },
+    {
+      id: "snap-apr",
+      label: "SNAP Benefits",
+      source: "snap",
+      amount: 375,
+      currency: "USD",
+      receivedDate: "2026-04-03T00:00:00Z",
+      expectedDate: "2026-05-03T00:00:00Z",
+      recurring: true,
+      recurrencePeriod: "monthly"
+    },
+    {
+      id: "lessons-apr-1",
+      label: "Private Lesson",
+      source: "lessons",
+      amount: 75,
+      currency: "USD",
+      receivedDate: "2026-04-05T00:00:00Z",
+      expectedDate: null,
+      recurring: false,
+      recurrencePeriod: null
+    },
+    {
+      id: "lessons-apr-2",
+      label: "Private Lesson",
+      source: "lessons",
+      amount: 75,
+      currency: "USD",
+      receivedDate: "2026-04-12T00:00:00Z",
+      expectedDate: null,
+      recurring: false,
+      recurrencePeriod: null
+    }
+  ],
+
+  transactions: [
+    {
+      id: "tx-001",
+      date: "2026-04-03T00:00:00Z",
+      description: "SNAP deposit",
+      amount: 375,
+      category: "income",
+      account: "chase-checking",
+      source: "manual"
+    },
+    {
+      id: "tx-002",
+      date: "2026-04-05T00:00:00Z",
+      description: "Private lesson",
+      amount: 75,
+      category: "income",
+      account: "chase-checking",
+      source: "manual"
+    },
+    {
+      id: "tx-003",
+      date: "2026-04-06T00:00:00Z",
+      description: "Jewel-Osco groceries",
+      amount: -87.32,
+      category: "groceries",
+      account: "chase-checking",
+      source: "manual"
+    },
+    {
+      id: "tx-004",
+      date: "2026-04-08T00:00:00Z",
+      description: "COMED payment",
+      amount: -112.43,
+      category: "bill",
+      account: "chase-checking",
+      source: "manual"
+    },
+    {
+      id: "tx-005",
+      date: "2026-04-10T00:00:00Z",
+      description: "Dollar General",
+      amount: -23.14,
+      category: "discretionary",
+      account: "chase-checking",
+      source: "manual"
+    },
+    {
+      id: "tx-006",
+      date: "2026-04-12T00:00:00Z",
+      description: "Private lesson",
+      amount: 75,
+      category: "income",
+      account: "chase-checking",
+      source: "manual"
+    },
+    {
+      id: "tx-007",
+      date: "2026-04-14T00:00:00Z",
+      description: "Aldi groceries",
+      amount: -54.67,
+      category: "groceries",
+      account: "chase-checking",
+      source: "manual"
+    },
+    {
+      id: "tx-008",
+      date: "2026-04-15T00:00:00Z",
+      description: "Transfer — savings",
+      amount: -50,
+      category: "transfer",
+      account: "chase-checking",
+      source: "manual"
+    }
+  ]
+
+};
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function fmtUSD(n) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function nowStamp() {
+  return new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
+function billStatus(bill) {
+  if (bill.paid) return 'paid';
+  return new Date(bill.dueDate) < new Date() ? 'overdue' : 'due';
+}
+
+// ─── Render: Net Position ────────────────────────────────────────────────────
+
+function renderNet() {
+  const txs = MOCK_DATA.transactions;
+  const inAmt  = txs.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+  const outAmt = txs.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0);
+  const net    = inAmt + outAmt;
+  const due    = MOCK_DATA.bills.filter(b => !b.paid).reduce((s, b) => s + b.amount, 0);
+
+  document.getElementById('net-in').textContent    = fmtUSD(inAmt);
+  document.getElementById('net-out').textContent   = fmtUSD(Math.abs(outAmt));
+  const netEl = document.getElementById('net-pos');
+  netEl.textContent  = fmtUSD(net);
+  netEl.className    = 'value ' + (net >= 0 ? 'pos' : 'neg');
+  document.getElementById('net-bills').textContent = fmtUSD(due);
+  document.getElementById('ts-net').textContent    = nowStamp();
+}
+
+// ─── Render: Bills ───────────────────────────────────────────────────────────
+
+function renderBills() {
+  const sorted = [...MOCK_DATA.bills].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+  document.getElementById('bills-body').innerHTML = sorted.map(b => {
+    const st  = billStatus(b);
+    const dt  = b.paid ? `Paid ${fmtDate(b.paidDate)}` : `Due ${fmtDate(b.dueDate)}`;
+    return `
+      <div class="bill-row">
+        <div class="bill-l">
+          <div class="dot ${st}"></div>
+          <div>
+            <div class="bill-name">${b.label}</div>
+            <div class="bill-sub">${b.recurrencePeriod} &middot; ${b.category}</div>
+          </div>
+        </div>
+        <div class="bill-r">
+          <div class="bill-amt ${st}">${fmtUSD(b.amount)}</div>
+          <div class="bill-date">${dt}</div>
+        </div>
+      </div>`;
+  }).join('');
+  document.getElementById('ts-bills').textContent = nowStamp();
+}
+
+// ─── Render: Income ──────────────────────────────────────────────────────────
+
+function renderIncome() {
+  document.getElementById('income-body').innerHTML = MOCK_DATA.incomeEvents.map(ev => {
+    const zero   = ev.amount === 0;
+    const detail = ev.receivedDate
+      ? `Received ${fmtDate(ev.receivedDate)}`
+      : ev.expectedDate
+        ? `Expected ${fmtDate(ev.expectedDate)}`
+        : 'No date set';
+    return `
+      <div class="income-row">
+        <div>
+          <div class="income-name">${ev.label}</div>
+          <div class="income-src">${ev.source.replace(/_/g, ' ')}</div>
+        </div>
+        <div class="income-r">
+          <div class="income-amt${zero ? ' z' : ''}">${zero ? '$0' : fmtUSD(ev.amount)}</div>
+          <div class="income-detail">${detail}</div>
+        </div>
+      </div>`;
+  }).join('');
+  document.getElementById('ts-income').textContent = nowStamp();
+}
+
+// ─── Render: Assets ──────────────────────────────────────────────────────────
+
+function renderAssets() {
+  document.getElementById('assets-body').innerHTML = MOCK_DATA.accounts.map(acc => {
+    const bal = acc.currency === 'USD'
+      ? fmtUSD(acc.balance)
+      : `${acc.balance.toFixed(4)} ${acc.currency}`;
+    return `
+      <div class="asset-row">
+        <div>
+          <div class="asset-name">${acc.label}</div>
+          <div class="asset-type">${acc.type} &middot; ${acc.source}</div>
+        </div>
+        <div class="asset-r">
+          <div class="asset-bal">${bal}</div>
+          <div class="asset-upd">Updated ${fmtDate(acc.lastUpdated)}</div>
+        </div>
+      </div>`;
+  }).join('');
+  document.getElementById('ts-assets').textContent = nowStamp();
+}
+
+// ─── Render: Spending ────────────────────────────────────────────────────────
+
+function renderSpending() {
+  const sorted  = [...MOCK_DATA.transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const totalIn = sorted.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+  const totalOut= sorted.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
+
+  const rows = sorted.map(tx => {
+    const cls  = tx.amount >= 0 ? 'in' : 'out';
+    const sign = tx.amount >= 0 ? '+' : '−';
+    return `
+      <div class="tx-row">
+        <div>
+          <div class="tx-desc">${tx.description}</div>
+          <div class="tx-cat">${tx.category}</div>
+        </div>
+        <div class="tx-r">
+          <div class="tx-amt ${cls}">${sign}${fmtUSD(Math.abs(tx.amount))}</div>
+          <div class="tx-date">${fmtDate(tx.date)}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  const totals = `
+    <div class="tx-totals">
+      <span class="tot-in">In: ${fmtUSD(totalIn)}</span>
+      <span class="tot-out">Out: ${fmtUSD(totalOut)}</span>
+    </div>`;
+
+  document.getElementById('spending-body').innerHTML = rows + totals;
+  document.getElementById('ts-spending').textContent = nowStamp();
+}
+
+// ─── Render All ──────────────────────────────────────────────────────────────
+
+function renderAll() {
+  renderNet();
+  renderBills();
+  renderIncome();
+  renderAssets();
+  renderSpending();
+}
+
+// ─── Refresh (Phase 2: replace with live fetch + re-render) ─────────────────
+
+function refreshPanel(id, btn) {
+  btn.textContent = '…';
+  btn.disabled = true;
+  // Simulate async fetch delay
+  setTimeout(() => {
+    switch (id) {
+      case 'net-position': renderNet();      break;
+      case 'bills':        renderBills();    break;
+      case 'income':       renderIncome();   break;
+      case 'assets':       renderAssets();   break;
+      case 'spending':     renderSpending(); break;
+    }
+    btn.textContent = 'Refresh';
+    btn.disabled = false;
+  }, 420);
+}
+
+// ─── PIN Auth ────────────────────────────────────────────────────────────────
+
+const PIN_CORRECT = '1234';
+let pinBuf = '';
+
+function pinUpdateDots() {
+  for (let i = 0; i < 4; i++) {
+    document.getElementById('d' + i).classList.toggle('filled', i < pinBuf.length);
+  }
+}
+
+function pinFail() {
+  const disp = document.getElementById('pin-display');
+  document.getElementById('pin-error').classList.add('show');
+  disp.classList.add('shake');
+  pinBuf = '';
+  pinUpdateDots();
+  setTimeout(() => {
+    disp.classList.remove('shake');
+    document.getElementById('pin-error').classList.remove('show');
+  }, 1300);
+}
+
+function pinOK() {
+  sessionStorage.setItem('botler_authed', 'true');
+  document.getElementById('pin-overlay').style.display = 'none';
+  document.getElementById('dashboard').style.display   = 'block';
+  renderAll();
+}
+
+function pinKey(k) {
+  if (k === 'clr') { pinBuf = ''; pinUpdateDots(); return; }
+  if (k === 'back') { pinBuf = pinBuf.slice(0, -1); pinUpdateDots(); return; }
+  if (pinBuf.length >= 4) return;
+  pinBuf += k;
+  pinUpdateDots();
+  if (pinBuf.length === 4) {
+    if (pinBuf === PIN_CORRECT) pinOK(); else pinFail();
+  }
+}
+
+document.querySelectorAll('.pin-key').forEach(btn => {
+  btn.addEventListener('click', () => pinKey(btn.dataset.k));
+});
+
+document.addEventListener('keydown', e => {
+  if (document.getElementById('pin-overlay').style.display === 'none') return;
+  if (e.key >= '0' && e.key <= '9') pinKey(e.key);
+  else if (e.key === 'Backspace')   pinKey('back');
+  else if (e.key === 'Escape')      pinKey('clr');
+});
+
+// ─── Init ────────────────────────────────────────────────────────────────────
+
+if (sessionStorage.getItem('botler_authed') === 'true') {
+  document.getElementById('pin-overlay').style.display = 'none';
+  document.getElementById('dashboard').style.display   = 'block';
+  renderAll();
+}
+</script>
+</body>
+</html>
