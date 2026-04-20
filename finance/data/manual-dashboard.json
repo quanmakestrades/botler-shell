@@ -1,0 +1,164 @@
+{
+  "meta": {
+    "updatedAt": "2026-04-20T18:30:00Z",
+    "source": "manual-cash-sync",
+    "notes": [
+      "Built from Quan's April 20 finance updates in Telegram while Cash lane remained unreliable.",
+      "This manual layer should be replaced or augmented by Cash-driven sync and server endpoints."
+    ]
+  },
+  "accounts": [
+    {
+      "id": "credit-karma-spend",
+      "label": "Credit Karma Spend",
+      "type": "cash",
+      "balance": 9474.0,
+      "currency": "USD",
+      "lastUpdated": "2026-04-20T17:17:00Z",
+      "source": "manual"
+    },
+    {
+      "id": "chase-checking",
+      "label": "Chase Checking",
+      "type": "bank",
+      "balance": 1780.31,
+      "currency": "USD",
+      "lastUpdated": "2026-04-20T17:16:00Z",
+      "source": "manual"
+    },
+    {
+      "id": "sol-wallet",
+      "label": "SOL Wallet",
+      "type": "crypto",
+      "balance": 1.73007092,
+      "currency": "SOL",
+      "lastUpdated": "2026-04-20T17:20:00Z",
+      "source": "manual"
+    },
+    {
+      "id": "sol-wallet-usd",
+      "label": "SOL Wallet (USD Value)",
+      "type": "crypto",
+      "balance": 148.81,
+      "currency": "USD",
+      "lastUpdated": "2026-04-20T17:20:00Z",
+      "source": "manual"
+    }
+  ],
+  "bills": [
+    {
+      "id": "water-next",
+      "label": "Water",
+      "amount": 250,
+      "currency": "USD",
+      "dueDate": "2026-04-25T00:00:00Z",
+      "paid": false,
+      "paidDate": null,
+      "recurring": true,
+      "recurrencePeriod": "monthly",
+      "category": "utility"
+    },
+    {
+      "id": "state-taxes-mailed",
+      "label": "State Taxes Mailed",
+      "amount": 3070,
+      "currency": "USD",
+      "dueDate": "2026-04-14T00:00:00Z",
+      "paid": true,
+      "paidDate": "2026-04-14T00:00:00Z",
+      "recurring": false,
+      "recurrencePeriod": "annual",
+      "category": "tax"
+    }
+  ],
+  "incomeEvents": [
+    {
+      "id": "state-refund-pending",
+      "label": "State Tax Refund",
+      "source": "manual",
+      "amount": 3070,
+      "currency": "USD",
+      "receivedDate": null,
+      "expectedDate": "2026-04-25T00:00:00Z",
+      "recurring": false,
+      "recurrencePeriod": null
+    },
+    {
+      "id": "f100rd-seed-pending",
+      "label": "f10.0rd Seed Funding",
+      "source": "manual",
+      "amount": 0,
+      "currency": "USD",
+      "receivedDate": null,
+      "expectedDate": "2026-04-24T00:00:00Z",
+      "recurring": false,
+      "recurrencePeriod": null
+    },
+    {
+      "id": "harper-track-fee-pending",
+      "label": "Harper Track Fee",
+      "source": "manual",
+      "amount": 300,
+      "currency": "USD",
+      "receivedDate": null,
+      "expectedDate": "2026-04-24T00:00:00Z",
+      "recurring": false,
+      "recurrencePeriod": null
+    }
+  ],
+  "transactions": [
+    {
+      "id": "tx-state-taxes-2026-04-14",
+      "date": "2026-04-14T00:00:00Z",
+      "description": "State taxes mailed",
+      "amount": -3070,
+      "category": "tax",
+      "account": "credit-karma-spend",
+      "source": "manual"
+    },
+    {
+      "id": "tx-onn-tablets-2026-04-20",
+      "date": "2026-04-20T17:00:00Z",
+      "description": "2 onn tablets for homeschool",
+      "amount": -120,
+      "category": "homeschool",
+      "account": "credit-karma-spend",
+      "source": "manual"
+    }
+  ],
+  "plan": {
+    "currentLiquidUsd": 11403.12,
+    "nearTermIncomingFloorUsd": 3170,
+    "recommended": {
+      "runwayReserve": 7500,
+      "macBudgetTarget": 1200,
+      "macBudgetCeiling": 2000,
+      "householdEssentials": 900,
+      "businessGrowth": 800,
+      "homeMoveReserve": 500,
+      "flexReserve": 300
+    },
+    "priorities": [
+      "Protect runway first",
+      "Pay water and household essentials",
+      "Buy groceries and Ezzlyn clothes",
+      "Treat the new Mac as a capped productivity investment",
+      "Fund business growth only where it directly supports cash flow",
+      "Delay flooring, paint, second vehicle, and major move spending"
+    ],
+    "notes": [
+      "No immediate fires reported.",
+      "Bill due dates otherwise unchanged.",
+      "Mac purchase justified as homeschool plus business bottleneck removal, but should remain capped."
+    ]
+  },
+  "routing": {
+    "cashLane": "telegram group -1003873570056 topic 3",
+    "impulseLane": "future capital/trading route pending real-capital activation",
+    "handoffPlan": [
+      "Keep manual finance sync in Botler UI until Cash lane is stable again.",
+      "When Cash is stable, make Cash the writer of the finance data file or API payload.",
+      "When Impulse manages real capital, route portfolio and capital-allocation updates into a separate adapter or event feed consumed by finance dashboard."
+    ]
+  }
+}

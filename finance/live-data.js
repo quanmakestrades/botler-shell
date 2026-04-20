@@ -1,4 +1,6 @@
 (function () {
+  const MANUAL_DATA_URL = './data/manual-dashboard.json';
+
   const MOCK_DATA = {
     accounts: [
       {
@@ -243,13 +245,25 @@
     return clone(MOCK_DATA);
   }
 
+  async function fetchManualDashboardData() {
+    const response = await fetch(MANUAL_DATA_URL, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Manual dashboard fetch failed: ${response.status}`);
+    return response.json();
+  }
+
   async function fetchLiveDashboardData() {
-    throw new Error('Live data sources are not configured yet. Add adapters and server endpoints first.');
+    return fetchManualDashboardData();
   }
 
   async function fetchDashboardData(options) {
     const useLive = Boolean(options && options.useLive);
-    if (!useLive) return getMockDashboardData();
+    if (!useLive) {
+      try {
+        return await fetchManualDashboardData();
+      } catch {
+        return getMockDashboardData();
+      }
+    }
     return fetchLiveDashboardData();
   }
 

@@ -306,7 +306,7 @@ h1, h2, h3, .panel-title, .net-stat .value {
   <div class="dash-header">
     <div>
       <h1>Finance</h1>
-      <div class="sub">Botler Financial Dashboard &mdash; Phase 1 / Mock Data</div>
+      <div class="sub">Botler Financial Dashboard &mdash; live manual sync</div>
     </div>
     <div class="dash-period" id="dash-period">APR 2026</div>
   </div>
@@ -418,17 +418,23 @@ function billStatus(bill) {
 // ─── Render: Net Position ────────────────────────────────────────────────────
 
 function renderNet() {
-  const txs = DASHBOARD_DATA.transactions;
+  const txs = DASHBOARD_DATA.transactions || [];
   const inAmt  = txs.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
   const outAmt = txs.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0);
   const net    = inAmt + outAmt;
-  const due    = DASHBOARD_DATA.bills.filter(b => !b.paid).reduce((s, b) => s + b.amount, 0);
+  const due    = (DASHBOARD_DATA.bills || []).filter(b => !b.paid).reduce((s, b) => s + b.amount, 0);
+  const planCurrentLiquid = DASHBOARD_DATA.plan && typeof DASHBOARD_DATA.plan.currentLiquidUsd === 'number'
+    ? DASHBOARD_DATA.plan.currentLiquidUsd
+    : null;
+  const planIncoming = DASHBOARD_DATA.plan && typeof DASHBOARD_DATA.plan.nearTermIncomingFloorUsd === 'number'
+    ? DASHBOARD_DATA.plan.nearTermIncomingFloorUsd
+    : null;
 
-  document.getElementById('net-in').textContent    = fmtUSD(inAmt);
+  document.getElementById('net-in').textContent    = planIncoming != null ? fmtUSD(planIncoming) : fmtUSD(inAmt);
   document.getElementById('net-out').textContent   = fmtUSD(Math.abs(outAmt));
   const netEl = document.getElementById('net-pos');
-  netEl.textContent  = fmtUSD(net);
-  netEl.className    = 'value ' + (net >= 0 ? 'pos' : 'neg');
+  netEl.textContent  = planCurrentLiquid != null ? fmtUSD(planCurrentLiquid) : fmtUSD(net);
+  netEl.className    = 'value ' + ((planCurrentLiquid != null ? planCurrentLiquid : net) >= 0 ? 'pos' : 'neg');
   document.getElementById('net-bills').textContent = fmtUSD(due);
   document.getElementById('ts-net').textContent    = nowStamp();
 }
@@ -461,7 +467,20 @@ function renderBills() {
 // ─── Render: Income ──────────────────────────────────────────────────────────
 
 function renderIncome() {
-  document.getElementById('income-body').innerHTML = DASHBOARD_DATA.incomeEvents.map(ev => {
+  const plan = DASHBOARD_DATA.plan || null;
+  const plannedRows = plan && plan.recommended ? Object.entries(plan.recommended).map(([key, value]) => `
+      <div class="income-row">
+        <div>
+          <div class="income-name">${key.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase())}</div>
+          <div class="income-src">allocation plan</div>
+        </div>
+        <div class="income-r">
+          <div class="income-amt">${fmtUSD(value)}</div>
+          <div class="income-detail">recommended reserve</div>
+        </div>
+      </div>`).join('') : '';
+
+  document.getElementById('income-body').innerHTML = (DASHBOARD_DATA.incomeEvents || []).map(ev => {
     const zero   = ev.amount === 0;
     const detail = ev.receivedDate
       ? `Received ${fmtDate(ev.receivedDate)}`
@@ -479,14 +498,14 @@ function renderIncome() {
           <div class="income-detail">${detail}</div>
         </div>
       </div>`;
-  }).join('');
+  }).join('') + plannedRows;
   document.getElementById('ts-income').textContent = nowStamp();
 }
 
 // ─── Render: Assets ──────────────────────────────────────────────────────────
 
 function renderAssets() {
-  document.getElementById('assets-body').innerHTML = DASHBOARD_DATA.accounts.map(acc => {
+  document.getElementById('assets-body').innerHTML = (DASHBOARD_DATA.accounts || []).map(acc => {
     const bal = acc.currency === 'USD'
       ? fmtUSD(acc.balance)
       : `${acc.balance.toFixed(4)} ${acc.currency}`;
@@ -508,7 +527,7 @@ function renderAssets() {
 // ─── Render: Spending ────────────────────────────────────────────────────────
 
 function renderSpending() {
-  const sorted  = [...DASHBOARD_DATA.transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const sorted  = [...(DASHBOARD_DATA.transactions || [])].sort((a, b) => new Date(b.date) - new Date(a.date));
   const totalIn = sorted.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
   const totalOut= sorted.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
 
@@ -555,7 +574,7 @@ async function refreshPanel(id, btn) {
   btn.disabled = true;
   try {
     if (window.BotlerFinanceData) {
-      const result = await window.BotlerFinanceData.refreshPanel(id, DASHBOARD_DATA, { useLive: false });
+      const result = await window.BotlerFinanceData.refreshPanel(id, DASHBOARD_DATA, { useLive: true });
       DASHBOARD_DATA = result.data;
     }
     switch (id) {
@@ -601,7 +620,7 @@ async function pinOK() {
   document.getElementById('pin-overlay').style.display = 'none';
   document.getElementById('dashboard').style.display   = 'block';
   if (window.BotlerFinanceData) {
-    DASHBOARD_DATA = await window.BotlerFinanceData.fetchDashboardData({ useLive: false });
+    DASHBOARD_DATA = await window.BotlerFinanceData.fetchDashboardData({ useLive: true });
   }
   renderAll();
 }
@@ -632,7 +651,7 @@ document.addEventListener('keydown', e => {
 
 async function bootDashboard() {
   if (window.BotlerFinanceData) {
-    DASHBOARD_DATA = await window.BotlerFinanceData.fetchDashboardData({ useLive: false });
+    DASHBOARD_DATA = await window.BotlerFinanceData.fetchDashboardData({ useLive: true });
   }
   if (sessionStorage.getItem('botler_authed') === 'true') {
     document.getElementById('pin-overlay').style.display = 'none';

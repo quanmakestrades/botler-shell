@@ -1,0 +1,17 @@
+[build]
+  publish = "."
+
+[[redirects]]
+  from = "/"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/finance"
+  to = "/finance/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/finance/*"
+  to = "/finance/:splat"
+  status = 200
