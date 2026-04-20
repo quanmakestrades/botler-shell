@@ -141,6 +141,35 @@ h1, h2, h3, .panel-title, .net-stat .value {
 }
 
 /* ─── Panels grid ─────────────────────────────────────────── */
+.status-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.status-chip {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  padding: 12px 14px;
+}
+.status-chip label {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.status-chip .value {
+  font-size: 13px;
+  color: var(--text);
+}
+.status-chip .subvalue {
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
 .dash-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
@@ -266,9 +295,11 @@ h1, h2, h3, .panel-title, .net-stat .value {
 @media (max-width: 600px) {
   body { padding: 10px; }
   .dash-grid { grid-template-columns: 1fr; }
+  .status-bar { grid-template-columns: 1fr; }
   #net-banner { gap: 12px; }
-  .net-stat { min-width: 90px; padding-right: 10px; }
+  .net-stat { min-width: 90px; padding-right: 10px; border-right: none; }
   .net-stat .value { font-size: 16px; }
+  .net-actions { width: 100%; align-items: flex-start; padding-left: 0; }
 }
 </style>
 </head>
@@ -309,6 +340,24 @@ h1, h2, h3, .panel-title, .net-stat .value {
       <div class="sub">Botler Financial Dashboard &mdash; live manual sync</div>
     </div>
     <div class="dash-period" id="dash-period">APR 2026</div>
+  </div>
+
+  <div class="status-bar">
+    <div class="status-chip">
+      <label>Data Source</label>
+      <div class="value" id="status-source">—</div>
+      <div class="subvalue" id="status-updated">—</div>
+    </div>
+    <div class="status-chip">
+      <label>Cash Lane</label>
+      <div class="value" id="status-cash-lane">—</div>
+      <div class="subvalue" id="status-cash-route">—</div>
+    </div>
+    <div class="status-chip">
+      <label>Impulse Route</label>
+      <div class="value" id="status-impulse-lane">—</div>
+      <div class="subvalue" id="status-impulse-route">—</div>
+    </div>
   </div>
 
   <!-- Net Position -->
@@ -386,6 +435,17 @@ h1, h2, h3, .panel-title, .net-stat .value {
       <div class="panel-body" id="spending-body"></div>
     </div>
 
+    <div class="panel" data-panel="plan">
+      <div class="panel-header">
+        <span class="panel-title">Allocation Plan</span>
+        <div class="panel-meta">
+          <span class="ts" id="ts-plan">—</span>
+          <button class="refresh-btn" onclick="refreshPanel('plan',this)">Refresh</button>
+        </div>
+      </div>
+      <div class="panel-body" id="plan-body"></div>
+    </div>
+
   </div>
 </div>
 
@@ -406,6 +466,13 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function fmtDateTime(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit'
+  });
+}
+
 function nowStamp() {
   return new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
@@ -416,6 +483,18 @@ function billStatus(bill) {
 }
 
 // ─── Render: Net Position ────────────────────────────────────────────────────
+
+function renderStatus() {
+  const meta = DASHBOARD_DATA.meta || {};
+  const routing = DASHBOARD_DATA.routing || {};
+  const handoffPlan = routing.handoffPlan || [];
+  document.getElementById('status-source').textContent = meta.source || 'manual';
+  document.getElementById('status-updated').textContent = `Updated ${fmtDateTime(meta.updatedAt)}`;
+  document.getElementById('status-cash-lane').textContent = routing.cashLane || 'pending';
+  document.getElementById('status-cash-route').textContent = handoffPlan[0] || 'Cash sync route pending';
+  document.getElementById('status-impulse-lane').textContent = routing.impulseLane || 'pending';
+  document.getElementById('status-impulse-route').textContent = handoffPlan[2] || 'Impulse route pending';
+}
 
 function renderNet() {
   const txs = DASHBOARD_DATA.transactions || [];
@@ -557,14 +636,63 @@ function renderSpending() {
   document.getElementById('ts-spending').textContent = nowStamp();
 }
 
+function renderPlan() {
+  const plan = DASHBOARD_DATA.plan || {};
+  const recommended = plan.recommended || {};
+  const priorities = plan.priorities || [];
+  const notes = plan.notes || [];
+
+  const recommendedRows = Object.entries(recommended).map(([key, value]) => `
+    <div class="income-row">
+      <div>
+        <div class="income-name">${key.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase())}</div>
+        <div class="income-src">allocation bucket</div>
+      </div>
+      <div class="income-r">
+        <div class="income-amt">${fmtUSD(value)}</div>
+      </div>
+    </div>`).join('');
+
+  const priorityItems = priorities.map(item => `<li>${item}</li>`).join('');
+  const noteItems = notes.map(item => `<li>${item}</li>`).join('');
+
+  document.getElementById('plan-body').innerHTML = `
+    <div class="income-row">
+      <div>
+        <div class="income-name">Current Liquid</div>
+        <div class="income-src">live finance snapshot</div>
+      </div>
+      <div class="income-r"><div class="income-amt">${fmtUSD(plan.currentLiquidUsd || 0)}</div></div>
+    </div>
+    <div class="income-row">
+      <div>
+        <div class="income-name">Near-Term Incoming Floor</div>
+        <div class="income-src">expected incoming</div>
+      </div>
+      <div class="income-r"><div class="income-amt">${fmtUSD(plan.nearTermIncomingFloorUsd || 0)}</div></div>
+    </div>
+    ${recommendedRows}
+    <div style="padding-top:10px; border-top:1px solid var(--border); margin-top:8px;">
+      <div class="income-src" style="margin-bottom:6px;">priority order</div>
+      <ul style="padding-left:18px; color:var(--text-dim); line-height:1.5; font-size:12px;">${priorityItems}</ul>
+    </div>
+    <div style="padding-top:10px; margin-top:8px;">
+      <div class="income-src" style="margin-bottom:6px;">notes</div>
+      <ul style="padding-left:18px; color:var(--text-dim); line-height:1.5; font-size:12px;">${noteItems}</ul>
+    </div>`;
+  document.getElementById('ts-plan').textContent = nowStamp();
+}
+
 // ─── Render All ──────────────────────────────────────────────────────────────
 
 function renderAll() {
+  renderStatus();
   renderNet();
   renderBills();
   renderIncome();
   renderAssets();
   renderSpending();
+  renderPlan();
 }
 
 // ─── Refresh (Phase 2: replace with live fetch + re-render) ─────────────────
@@ -583,6 +711,7 @@ async function refreshPanel(id, btn) {
       case 'income':       renderIncome();   break;
       case 'assets':       renderAssets();   break;
       case 'spending':     renderSpending(); break;
+      case 'plan':         renderPlan();     break;
     }
   } catch (err) {
     console.error('Finance panel refresh failed', id, err);
