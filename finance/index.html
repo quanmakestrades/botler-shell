@@ -389,251 +389,11 @@ h1, h2, h3, .panel-title, .net-stat .value {
   </div>
 </div>
 
+<script src="./live-data.js"></script>
 <script>
-// ═══════════════════════════════════════════════════════════════════════════
-// MOCK_DATA — Phase 2: replace with API fetches that return the same shapes.
-// Schema: finance/schema.js
-// ═══════════════════════════════════════════════════════════════════════════
-const MOCK_DATA = {
-
-  accounts: [
-    {
-      id: "chase-checking",
-      label: "Chase Checking",
-      type: "bank",
-      balance: 0,
-      currency: "USD",
-      lastUpdated: "2026-04-17T00:00:00Z",
-      source: "manual"
-    },
-    {
-      id: "coinbase-portfolio",
-      label: "Coinbase Portfolio",
-      type: "crypto",
-      balance: 0,
-      currency: "USD",
-      lastUpdated: "2026-04-17T00:00:00Z",
-      source: "manual"
-    },
-    {
-      id: "sol-wallet",
-      label: "SOL Wallet",
-      type: "crypto",
-      balance: 0,
-      currency: "SOL",
-      lastUpdated: "2026-04-17T00:00:00Z",
-      source: "manual"
-    }
-  ],
-
-  bills: [
-    {
-      id: "comed-apr",
-      label: "COMED Electric",
-      amount: 112.43,
-      currency: "USD",
-      dueDate: "2026-04-10T00:00:00Z",
-      paid: true,
-      paidDate: "2026-04-08T00:00:00Z",
-      recurring: true,
-      recurrencePeriod: "monthly",
-      category: "utility"
-    },
-    {
-      id: "water-apr",
-      label: "Water",
-      amount: 165.11,
-      currency: "USD",
-      dueDate: "2026-04-22T00:00:00Z",
-      paid: false,
-      paidDate: null,
-      recurring: true,
-      recurrencePeriod: "monthly",
-      category: "utility"
-    },
-    {
-      id: "sewer-apr",
-      label: "Sewer",
-      amount: 238.05,
-      currency: "USD",
-      dueDate: "2026-04-28T00:00:00Z",
-      paid: false,
-      paidDate: null,
-      recurring: true,
-      recurrencePeriod: "monthly",
-      category: "utility"
-    },
-    {
-      id: "internet-apr",
-      label: "Internet",
-      amount: 79.99,
-      currency: "USD",
-      dueDate: "2026-05-01T00:00:00Z",
-      paid: false,
-      paidDate: null,
-      recurring: true,
-      recurrencePeriod: "monthly",
-      category: "subscription"
-    },
-    {
-      id: "phone-apr",
-      label: "Phone Plan",
-      amount: 45.00,
-      currency: "USD",
-      dueDate: "2026-05-05T00:00:00Z",
-      paid: false,
-      paidDate: null,
-      recurring: true,
-      recurrencePeriod: "monthly",
-      category: "subscription"
-    }
-  ],
-
-  incomeEvents: [
-    {
-      id: "jim-royalties-apr",
-      label: "JIM Royalties",
-      source: "jim_royalties",
-      amount: 0,
-      currency: "USD",
-      receivedDate: null,
-      expectedDate: "2026-04-30T00:00:00Z",
-      recurring: true,
-      recurrencePeriod: "monthly"
-    },
-    {
-      id: "consulting-apr",
-      label: "Consulting",
-      source: "consulting",
-      amount: 0,
-      currency: "USD",
-      receivedDate: null,
-      expectedDate: null,
-      recurring: false,
-      recurrencePeriod: null
-    },
-    {
-      id: "sol-payments-apr",
-      label: "SOL Payments",
-      source: "solana",
-      amount: 0,
-      currency: "USD",
-      receivedDate: null,
-      expectedDate: null,
-      recurring: false,
-      recurrencePeriod: null
-    },
-    {
-      id: "snap-apr",
-      label: "SNAP Benefits",
-      source: "snap",
-      amount: 375,
-      currency: "USD",
-      receivedDate: "2026-04-03T00:00:00Z",
-      expectedDate: "2026-05-03T00:00:00Z",
-      recurring: true,
-      recurrencePeriod: "monthly"
-    },
-    {
-      id: "lessons-apr-1",
-      label: "Private Lesson",
-      source: "lessons",
-      amount: 75,
-      currency: "USD",
-      receivedDate: "2026-04-05T00:00:00Z",
-      expectedDate: null,
-      recurring: false,
-      recurrencePeriod: null
-    },
-    {
-      id: "lessons-apr-2",
-      label: "Private Lesson",
-      source: "lessons",
-      amount: 75,
-      currency: "USD",
-      receivedDate: "2026-04-12T00:00:00Z",
-      expectedDate: null,
-      recurring: false,
-      recurrencePeriod: null
-    }
-  ],
-
-  transactions: [
-    {
-      id: "tx-001",
-      date: "2026-04-03T00:00:00Z",
-      description: "SNAP deposit",
-      amount: 375,
-      category: "income",
-      account: "chase-checking",
-      source: "manual"
-    },
-    {
-      id: "tx-002",
-      date: "2026-04-05T00:00:00Z",
-      description: "Private lesson",
-      amount: 75,
-      category: "income",
-      account: "chase-checking",
-      source: "manual"
-    },
-    {
-      id: "tx-003",
-      date: "2026-04-06T00:00:00Z",
-      description: "Jewel-Osco groceries",
-      amount: -87.32,
-      category: "groceries",
-      account: "chase-checking",
-      source: "manual"
-    },
-    {
-      id: "tx-004",
-      date: "2026-04-08T00:00:00Z",
-      description: "COMED payment",
-      amount: -112.43,
-      category: "bill",
-      account: "chase-checking",
-      source: "manual"
-    },
-    {
-      id: "tx-005",
-      date: "2026-04-10T00:00:00Z",
-      description: "Dollar General",
-      amount: -23.14,
-      category: "discretionary",
-      account: "chase-checking",
-      source: "manual"
-    },
-    {
-      id: "tx-006",
-      date: "2026-04-12T00:00:00Z",
-      description: "Private lesson",
-      amount: 75,
-      category: "income",
-      account: "chase-checking",
-      source: "manual"
-    },
-    {
-      id: "tx-007",
-      date: "2026-04-14T00:00:00Z",
-      description: "Aldi groceries",
-      amount: -54.67,
-      category: "groceries",
-      account: "chase-checking",
-      source: "manual"
-    },
-    {
-      id: "tx-008",
-      date: "2026-04-15T00:00:00Z",
-      description: "Transfer — savings",
-      amount: -50,
-      category: "transfer",
-      account: "chase-checking",
-      source: "manual"
-    }
-  ]
-
-};
+let DASHBOARD_DATA = window.BotlerFinanceData
+  ? window.BotlerFinanceData.getMockDashboardData()
+  : { accounts: [], bills: [], incomeEvents: [], transactions: [] };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -658,11 +418,11 @@ function billStatus(bill) {
 // ─── Render: Net Position ────────────────────────────────────────────────────
 
 function renderNet() {
-  const txs = MOCK_DATA.transactions;
+  const txs = DASHBOARD_DATA.transactions;
   const inAmt  = txs.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
   const outAmt = txs.filter(t => t.amount < 0).reduce((s, t) => s + t.amount, 0);
   const net    = inAmt + outAmt;
-  const due    = MOCK_DATA.bills.filter(b => !b.paid).reduce((s, b) => s + b.amount, 0);
+  const due    = DASHBOARD_DATA.bills.filter(b => !b.paid).reduce((s, b) => s + b.amount, 0);
 
   document.getElementById('net-in').textContent    = fmtUSD(inAmt);
   document.getElementById('net-out').textContent   = fmtUSD(Math.abs(outAmt));
@@ -676,7 +436,7 @@ function renderNet() {
 // ─── Render: Bills ───────────────────────────────────────────────────────────
 
 function renderBills() {
-  const sorted = [...MOCK_DATA.bills].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+  const sorted = [...DASHBOARD_DATA.bills].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
   document.getElementById('bills-body').innerHTML = sorted.map(b => {
     const st  = billStatus(b);
     const dt  = b.paid ? `Paid ${fmtDate(b.paidDate)}` : `Due ${fmtDate(b.dueDate)}`;
@@ -701,7 +461,7 @@ function renderBills() {
 // ─── Render: Income ──────────────────────────────────────────────────────────
 
 function renderIncome() {
-  document.getElementById('income-body').innerHTML = MOCK_DATA.incomeEvents.map(ev => {
+  document.getElementById('income-body').innerHTML = DASHBOARD_DATA.incomeEvents.map(ev => {
     const zero   = ev.amount === 0;
     const detail = ev.receivedDate
       ? `Received ${fmtDate(ev.receivedDate)}`
@@ -726,7 +486,7 @@ function renderIncome() {
 // ─── Render: Assets ──────────────────────────────────────────────────────────
 
 function renderAssets() {
-  document.getElementById('assets-body').innerHTML = MOCK_DATA.accounts.map(acc => {
+  document.getElementById('assets-body').innerHTML = DASHBOARD_DATA.accounts.map(acc => {
     const bal = acc.currency === 'USD'
       ? fmtUSD(acc.balance)
       : `${acc.balance.toFixed(4)} ${acc.currency}`;
@@ -748,7 +508,7 @@ function renderAssets() {
 // ─── Render: Spending ────────────────────────────────────────────────────────
 
 function renderSpending() {
-  const sorted  = [...MOCK_DATA.transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const sorted  = [...DASHBOARD_DATA.transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
   const totalIn = sorted.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
   const totalOut= sorted.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
 
@@ -790,11 +550,14 @@ function renderAll() {
 
 // ─── Refresh (Phase 2: replace with live fetch + re-render) ─────────────────
 
-function refreshPanel(id, btn) {
+async function refreshPanel(id, btn) {
   btn.textContent = '…';
   btn.disabled = true;
-  // Simulate async fetch delay
-  setTimeout(() => {
+  try {
+    if (window.BotlerFinanceData) {
+      const result = await window.BotlerFinanceData.refreshPanel(id, DASHBOARD_DATA, { useLive: false });
+      DASHBOARD_DATA = result.data;
+    }
     switch (id) {
       case 'net-position': renderNet();      break;
       case 'bills':        renderBills();    break;
@@ -802,9 +565,12 @@ function refreshPanel(id, btn) {
       case 'assets':       renderAssets();   break;
       case 'spending':     renderSpending(); break;
     }
+  } catch (err) {
+    console.error('Finance panel refresh failed', id, err);
+  } finally {
     btn.textContent = 'Refresh';
     btn.disabled = false;
-  }, 420);
+  }
 }
 
 // ─── PIN Auth ────────────────────────────────────────────────────────────────
@@ -830,10 +596,13 @@ function pinFail() {
   }, 1300);
 }
 
-function pinOK() {
+async function pinOK() {
   sessionStorage.setItem('botler_authed', 'true');
   document.getElementById('pin-overlay').style.display = 'none';
   document.getElementById('dashboard').style.display   = 'block';
+  if (window.BotlerFinanceData) {
+    DASHBOARD_DATA = await window.BotlerFinanceData.fetchDashboardData({ useLive: false });
+  }
   renderAll();
 }
 
@@ -861,11 +630,18 @@ document.addEventListener('keydown', e => {
 
 // ─── Init ────────────────────────────────────────────────────────────────────
 
-if (sessionStorage.getItem('botler_authed') === 'true') {
-  document.getElementById('pin-overlay').style.display = 'none';
-  document.getElementById('dashboard').style.display   = 'block';
-  renderAll();
+async function bootDashboard() {
+  if (window.BotlerFinanceData) {
+    DASHBOARD_DATA = await window.BotlerFinanceData.fetchDashboardData({ useLive: false });
+  }
+  if (sessionStorage.getItem('botler_authed') === 'true') {
+    document.getElementById('pin-overlay').style.display = 'none';
+    document.getElementById('dashboard').style.display   = 'block';
+    renderAll();
+  }
 }
+
+bootDashboard();
 </script>
 </body>
 </html>
