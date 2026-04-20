@@ -15,3 +15,13 @@
   from = "/finance/*"
   to = "/finance/:splat"
   status = 200
+
+[[redirects]]
+  from = "/homeschool"
+  to = "/homeschool/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/homeschool/*"
+  to = "/homeschool/:splat"
+  status = 200

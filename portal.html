@@ -30,9 +30,9 @@
 </head>
 <body>
   <div class="topbar">
-    <button class="btn active" data-src="./index.html">Botler</button>
+    <button class="btn" data-src="./index.html">Botler</button>
     <button class="btn" data-src="https://family-binder.netlify.app">Binder</button>
-    <button class="btn" data-src="https://homeschool-board.netlify.app">School</button>
+    <button class="btn" data-src="./homeschool/index.html">School</button>
     <button class="btn" data-src="./finance/index.html">Finance</button>
     <button class="btn" data-src="./voice.html">Voice</button>
   </div>
@@ -46,6 +46,19 @@
     const host = window.location.hostname || '127.0.0.1';
 
     buttons.forEach(btn => {
+      if (btn.dataset.src.includes('https://') || btn.dataset.src.includes('http://')) {
+        // Remote URL, use as is
+      } else {
+        // Local URL, rewrite to be relative to the current host
+        const pathParts = btn.dataset.src.split('/');
+        let newPath = '';
+        if (pathParts[0] === '.') {
+          newPath = window.location.origin + window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/')) + btn.dataset.src.substring(1);
+        } else {
+          newPath = window.location.origin + '/' + btn.dataset.src;
+        }
+        btn.dataset.src = newPath;
+      }
       if (btn.dataset.srcTemplate) btn.dataset.src = btn.dataset.srcTemplate.replace('{host}', host);
       btn.addEventListener('click', () => {
         buttons.forEach(b => b.classList.remove('active'));
