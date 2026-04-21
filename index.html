@@ -414,7 +414,6 @@ function _onChatEvent(p) {
     stopTTS();
     setTranscript('Something went wrong. Try again.', true);
     setState('idle');
-    resumeSTT();
   }
 }
 
@@ -533,7 +532,8 @@ function _browserTTS(text) {
 async function _drainTTS() {
   if (ttsSpeaking) return;
   ttsSpeaking = true;
-  pauseSTT();
+  // Don't abort recognition — the `if (ttsSpeaking) return` guard in onresult
+  // already suppresses echo. Aborting breaks the restart loop.
   while (ttsQueue.length) {
     const chunk = ttsQueue.shift();
     setState('speaking');
@@ -542,7 +542,6 @@ async function _drainTTS() {
   }
   ttsSpeaking = false;
   setState('idle');
-  resumeSTT();
 }
 
 function enqueueTTS(text) {
@@ -701,8 +700,9 @@ function startSTT() {
     };
 
     r.onend = () => {
-      // Restart unless we paused for TTS or stopped intentionally
-      if (sttActive && !ttsSpeaking) {
+      // Always restart while sttActive — onresult already ignores results
+      // during TTS via the ttsSpeaking guard.
+      if (sttActive) {
         setTimeout(() => { try { recognition.start(); } catch {} }, 300);
       }
     };
