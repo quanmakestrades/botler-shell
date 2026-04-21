@@ -365,9 +365,29 @@ function parseCmds(text) {
 }
 
 // ─── Chat event handler ───────────────────────────────────────────────────────
+let sentenceBuf = '';
+
 function _resetStream() {
   streamBuf = '';
   streamFinal = false;
+  sentenceBuf = '';
+}
+
+// Flush complete sentences from sentenceBuf to TTS queue as they accumulate.
+function _flushSentences(incoming, forceAll) {
+  sentenceBuf += incoming;
+  const re = /[^.!?]*[.!?]+["'\u201d]?\s*/g;
+  let last = 0, m;
+  while ((m = re.exec(sentenceBuf)) !== null) {
+    const s = m[0].trim();
+    if (s.length > 3) enqueueTTS(s);
+    last = m.index + m[0].length;
+  }
+  sentenceBuf = sentenceBuf.slice(last);
+  if (forceAll && sentenceBuf.trim().length > 2) {
+    enqueueTTS(sentenceBuf.trim());
+    sentenceBuf = '';
+  }
 }
 
 function _onChatEvent(p) {
@@ -378,20 +398,23 @@ function _onChatEvent(p) {
     const { clean, cmds } = parseCmds(p.delta || '');
     streamBuf += clean;
     setTranscript(streamBuf, false);
-    if (state !== 'speaking') setState('speaking');
+    if (state === 'thinking') setState('thinking'); // stay thinking until first sentence queued
     cmds.forEach(executeTool);
+    _flushSentences(clean, false);
   }
   else if (st === 'final') {
     const { clean, cmds } = parseCmds(p.text || streamBuf);
     streamBuf = '';
     setTranscript(clean, true);
     cmds.forEach(executeTool);
-    speakText(clean);
+    _flushSentences('', true); // flush any leftover partial sentence
   }
   else if (st === 'error' || st === 'aborted') {
     _resetStream();
+    stopTTS();
     setTranscript('Something went wrong. Try again.', true);
     setState('idle');
+    resumeSTT();
   }
 }
 
@@ -459,23 +482,87 @@ textInput.addEventListener('keydown', (e) => {
   }
 });
 
-// ─── TTS with lip sync ────────────────────────────────────────────────────────
-let ttsUtter = null;
+// ─── TTS system: bridge (macOS say) → speechSynthesis fallback ───────────────
+const BRIDGE = 'http://localhost:8780';
+let ttsUtter   = null;
+let ttsQueue   = [];
+let ttsSpeaking = false;
+
+function pauseSTT() {
+  if (recognition) { try { recognition.abort(); } catch {} }
+}
+function resumeSTT() {
+  if (sttActive) { try { recognition && recognition.start(); } catch {} }
+}
+
+async function _tryBridgeTTS(text) {
+  try {
+    const r = await fetch(`${BRIDGE}/api/speak`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, voice: 'Daniel' }),
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!r.ok) return false;
+    const d = await r.json();
+    if (d.audio?.mode === 'file' && d.audio?.url) {
+      return await new Promise((res) => {
+        const a = new Audio(BRIDGE + d.audio.url);
+        a.onended = () => res(true);
+        a.onerror = () => res(false);
+        a.play().catch(() => res(false));
+      });
+    }
+  } catch { /* bridge not running */ }
+  return false;
+}
+
+function _browserTTS(text) {
+  return new Promise((res) => {
+    if (!window.speechSynthesis) { res(); return; }
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 0.92; u.pitch = 0.88; u.volume = 1;
+    ttsUtter = u;
+    u.onboundary = (ev) => { if (ev.name === 'word') speakPhase += 0.35; };
+    u.onend = u.onerror = () => { ttsUtter = null; res(); };
+    window.speechSynthesis.speak(u);
+  });
+}
+
+async function _drainTTS() {
+  if (ttsSpeaking) return;
+  ttsSpeaking = true;
+  pauseSTT();
+  while (ttsQueue.length) {
+    const chunk = ttsQueue.shift();
+    setState('speaking');
+    const ok = await _tryBridgeTTS(chunk);
+    if (!ok) await _browserTTS(chunk);
+  }
+  ttsSpeaking = false;
+  setState('idle');
+  resumeSTT();
+}
+
+function enqueueTTS(text) {
+  if (!text || !text.trim()) return;
+  ttsQueue.push(text.trim());
+  _drainTTS();
+}
+
 function speakText(text) {
-  if (!text || !window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.rate  = 0.92;
-  u.pitch = 0.88;
-  u.volume = 1;
-  ttsUtter = u;
-  u.onstart = () => setState('speaking');
-  u.onend   = () => { setState('idle'); ttsUtter = null; };
-  u.onerror  = () => { setState('idle'); ttsUtter = null; };
-  u.onboundary = (ev) => {
-    if (ev.name === 'word') speakPhase += 0.35;
-  };
-  window.speechSynthesis.speak(u);
+  // Used by legacy callers — queue the whole thing.
+  if (!text || !text.trim()) return;
+  ttsQueue.push(text.trim());
+  _drainTTS();
+}
+
+function stopTTS() {
+  ttsQueue = [];
+  ttsSpeaking = false;
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  ttsUtter = null;
 }
 
 // ─── STT wake word ────────────────────────────────────────────────────────────
@@ -515,76 +602,172 @@ function handleVoiceCommand(query) {
   return null; // Not a direct voice command
 }
 
-// ─── STT wake word ────────────────────────────────────────────────────────────
+// ─── Wake chime ───────────────────────────────────────────────────────────────
+function playWakeChime() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type = 'sine';
+    o.frequency.setValueAtTime(880, ctx.currentTime);
+    o.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.1);
+    g.gain.setValueAtTime(0.15, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
+    o.start(); o.stop(ctx.currentTime + 0.22);
+  } catch {}
+}
+
+// ─── STT ──────────────────────────────────────────────────────────────────────
 let sttActive = false;
 let recognition = null;
 const WAKE_WORDS = ['botler', 'hey botler', 'butler'];
+const VOICE_MODEL = 'anthropic/claude-haiku-4-5';
 
 function startSTT() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) return;
-  recognition = new SR();
-  recognition.continuous = true;
-  recognition.interimResults = true;
-  recognition.lang = 'en-US';
+  if (!SR) {
+    console.warn('SpeechRecognition not available in this browser.');
+    return;
+  }
 
   let woke = false;
   let wakeTimer = null;
 
-  recognition.onresult = (ev) => {
-    let interim = '', final = '';
-    for (let i = ev.resultIndex; i < ev.results.length; i++) {
-      const t = ev.results[i][0].transcript.toLowerCase().trim();
-      if (ev.results[i].isFinal) final += t + ' ';
-      else interim += t + ' ';
-    }
-    const combined = (interim + final).toLowerCase();
+  function makeRecognition() {
+    const r = new SR();
+    r.continuous = true;
+    r.interimResults = true;
+    r.lang = 'en-US';
 
-    if (!woke) {
-      if (WAKE_WORDS.some(w => combined.includes(w))) {
-        woke = true;
-        setState('listening');
-        setTranscript('Listening…', false, 'tool');
-        clearTimeout(wakeTimer);
-        wakeTimer = setTimeout(() => { woke = false; setState('idle'); }, 8000);
+    r.onresult = (ev) => {
+      // Don't process STT while Botler is speaking (echo prevention)
+      if (ttsSpeaking) return;
+
+      let interim = '', final = '';
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        const t = ev.results[i][0].transcript;
+        if (ev.results[i].isFinal) final += t + ' ';
+        else interim += t + ' ';
       }
-      return;
-    }
+      const combined = (interim + final).toLowerCase();
 
-    if (final.trim() && woke) {
-      let query = final.trim();
-      WAKE_WORDS.forEach(w => { query = query.replace(w, '').trim(); });
-      if (query.length > 2) {
-        woke = false;
-        clearTimeout(wakeTimer);
-        // Try to handle as a direct voice command first
-        const voiceResponse = handleVoiceCommand(query);
-        if (voiceResponse) {
-            askBotler(voiceResponse, 'openrouter/anthropic/claude-3-haiku');
-        } else {
-            askBotler(query, 'openrouter/anthropic/claude-3-haiku');
+      if (!woke) {
+        if (WAKE_WORDS.some(w => combined.includes(w))) {
+          woke = true;
+          stopTTS(); // interrupt Botler if he's mid-sentence
+          setState('listening');
+          playWakeChime();
+          setTranscript('Listening…', false, 'tool');
+          clearTimeout(wakeTimer);
+          wakeTimer = setTimeout(() => {
+            woke = false;
+            if (state === 'listening') setState('idle');
+            setTranscript('', false);
+          }, 12000);
+        }
+        return;
+      }
+
+      // Show live interim transcript while user is speaking
+      if (interim.trim()) {
+        setTranscript(interim.trim(), false, 'tool');
+      }
+
+      if (final.trim()) {
+        let query = final.trim();
+        // Strip wake words from start of utterance
+        WAKE_WORDS.forEach(w => {
+          query = query.replace(new RegExp('^' + w + '[,\\s]*', 'i'), '').trim();
+        });
+        if (query.length > 2) {
+          woke = false;
+          clearTimeout(wakeTimer);
+          const localResponse = handleVoiceCommand(query);
+          if (localResponse) {
+            enqueueTTS(localResponse);
+          } else {
+            askBotler(query, VOICE_MODEL);
+          }
         }
       }
-    }
-  };
+    };
 
-  recognition.onerror = (e) => {
-    if (e.error !== 'no-speech') console.warn('STT error', e.error);
-  };
-  recognition.onend = () => {
-    if (sttActive) setTimeout(() => recognition.start(), 500);
-  };
+    r.onerror = (e) => {
+      if (e.error === 'not-allowed') {
+        setTranscript('Microphone access denied.', true, 'tool');
+        sttActive = false;
+      }
+    };
+
+    r.onend = () => {
+      // Restart unless we paused for TTS or stopped intentionally
+      if (sttActive && !ttsSpeaking) {
+        setTimeout(() => { try { recognition.start(); } catch {} }, 300);
+      }
+    };
+
+    return r;
+  }
+
+  recognition = makeRecognition();
   recognition.start();
   sttActive = true;
 }
 
-// Auto-start STT on first user interaction (needed for iOS/mobile permission)
+// Push-to-talk: click the face canvas to activate listening immediately
+function pushToTalk() {
+  if (!sttActive) { startSTT(); return; }
+  if (ttsSpeaking) { stopTTS(); resumeSTT(); }
+  // Treat as wake — skip wake word requirement for this turn
+  if (recognition) {
+    try { recognition.abort(); } catch {}
+  }
+  recognition = (function() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return null;
+    const r = new SR();
+    r.continuous = false; r.interimResults = true; r.lang = 'en-US';
+    r.onresult = (ev) => {
+      if (ttsSpeaking) return;
+      let final = '';
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        if (ev.results[i].isFinal) final += ev.results[i][0].transcript + ' ';
+        else setTranscript(ev.results[i][0].transcript, false, 'tool');
+      }
+      if (final.trim()) {
+        setTranscript(final.trim(), false, 'tool');
+        const local = handleVoiceCommand(final.trim());
+        if (local) enqueueTTS(local);
+        else askBotler(final.trim(), VOICE_MODEL);
+      }
+    };
+    r.onerror = () => {};
+    r.onend = () => {
+      // hand back to the persistent wake-word listener
+      sttActive = false;
+      startSTT();
+    };
+    return r;
+  })();
+  if (!recognition) return;
+  setState('listening');
+  playWakeChime();
+  setTranscript('Listening…', false, 'tool');
+  recognition.start();
+}
+
+// First click starts persistent STT (mic permission); also wires face tap
 let sttStarted = false;
 function ensureSTT() {
   if (!sttStarted) { sttStarted = true; startSTT(); }
 }
 document.addEventListener('click', ensureSTT, { once: true });
 document.addEventListener('touchstart', ensureSTT, { once: true });
+// Tap the Three.js canvas (face) to push-to-talk
+document.addEventListener('click', (e) => {
+  if (e.target === renderer?.domElement) pushToTalk();
+});
 
 // ─── executeTool (client-side cmd dispatch) ───────────────────────────────────
 function executeTool(cmd) {
