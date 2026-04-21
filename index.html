@@ -7,7 +7,7 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { width: 100vw; height: 100vh; overflow: hidden; background: #1a0800; font-family: 'Georgia', serif; }
-  canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; }
+  body > canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; }
   #hud, #controls, #edit-btn, #edit-ui, #gw-dot, #transcript-panel, #text-input-wrap, #tool-panel { z-index: 1; }
 
   #hud { position: fixed; inset: 0; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 32px 0 28px; }
@@ -18,7 +18,7 @@
   #gw-dot {
     position: fixed; top: 20px; left: 24px; width: 8px; height: 8px;
     border-radius: 50%; background: #442200; border: 1px solid rgba(255,160,40,0.2);
-    transition: background 0.4s, box-shadow 0.4s; pointer-events: none;
+    transition: background 0.4s, box-shadow 0.4s; cursor: pointer; z-index: 5;
   }
   #gw-dot.connected { background: #44cc44; box-shadow: 0 0 6px #44cc44; }
   #gw-dot.connecting { background: #cc8800; box-shadow: 0 0 6px #cc8800; animation: pulse-dot 1s infinite; }
@@ -624,7 +624,45 @@ function openBrowser(cmd) {
   if (cmd.url) window.open(cmd.url, '_blank', 'noopener');
 }
 
-function openFinance(cmd) {\n  const stored = localStorage.getItem(\'botler:finance:pass\');\n  // Check if a PIN was provided in the command, otherwise use stored or prompt\n  let pinToUse = cmd.pin || stored;\n\n  if (!pinToUse) {\n    const pass = prompt(\'Finance panel passphrase:\');\n    if (!pass) return;\n    pinToUse = pass;\n  }\n\n  localStorage.setItem(\'botler:finance:pass\', pinToUse);\n  renderComponent({ title: cmd.title || \'Finance\', html: \`<iframe src=\"./finance/index.html\" style=\"width:100%; height:100%; border:none;\"></iframe>\` });\n}\n\nfunction openToolPanel() {\n  const body = document.getElementById(\'tool-panel-body\');\n  document.getElementById(\'tool-panel-title\').textContent = \'Available Tools\';\n  body.innerHTML = `\n    <div class=\"tool-list-item\"><span class=\"tool-item-check\">⬡</span><span class=\"tool-item-text\">render_component — display rich UI cards</span></div>\n    <div class=\"tool-list-item\"><span class=\"tool-item-check\">⬡</span><span class=\"tool-item-text\">shopping_list — checklist panels</span></div>\n    <div class=\"tool-list-item\"><span class=\"tool-item-check\">⬡</span><span class=\"tool-item-text\">browser — open URLs</span></div>\n    <div class=\"tool-list-item\"><span class=\"tool-item-check\">⬡</span><span class=\"tool-item-text finance-locked\">finance — passphrase protected</span></div>\n    <div class=\"tool-list-item\"><span class=\"tool-item-check\">⬡</span><span class=\"tool-item-text\">homeschool — open homeschool board</span></div>\n    <div class=\"tool-list-item\"><span class=\"tool-item-check\">⬡</span><span class=\"tool-item-text\">change_color — change Botler background color</span></div>\n  `;\n  document.getElementById(\'tool-panel\').classList.add(\'open\');\n}\n\n// New: Function to apply background color from voice commands\nfunction applyColor(hex) {\n  // Assuming bgMat uniform is accessible globally or can be set via a function\n  if (window.bgMat && window.THREE) {\n    const c = new window.THREE.Color(hex);\n    window.bgMat.uniforms.tint.value.set(c);\n    setTranscript(`Background color changed to ${hex}.`, true, \'tool\');\n  } else {\n    setTranscript(\'Could not change color. Background material not ready.\', true, \'tool\');\n  }\n}\n
+function openFinance(cmd) {
+  const stored = localStorage.getItem('botler:finance:pass');
+  let pinToUse = cmd.pin || stored;
+  if (!pinToUse) {
+    const pass = prompt('Finance panel passphrase:');
+    if (!pass) return;
+    pinToUse = pass;
+  }
+  localStorage.setItem('botler:finance:pass', pinToUse);
+  renderComponent({
+    title: cmd.title || 'Finance',
+    html: `<iframe src="./finance/index.html" style="width:100%; height:100%; border:none;"></iframe>`,
+  });
+}
+
+function openToolPanel() {
+  const body = document.getElementById('tool-panel-body');
+  document.getElementById('tool-panel-title').textContent = 'Available Tools';
+  body.innerHTML = `
+    <div class="tool-list-item"><span class="tool-item-check">⬡</span><span class="tool-item-text">render_component — display rich UI cards</span></div>
+    <div class="tool-list-item"><span class="tool-item-check">⬡</span><span class="tool-item-text">shopping_list — checklist panels</span></div>
+    <div class="tool-list-item"><span class="tool-item-check">⬡</span><span class="tool-item-text">browser — open URLs</span></div>
+    <div class="tool-list-item"><span class="tool-item-check finance-locked">⬡</span><span class="tool-item-text">finance — passphrase protected</span></div>
+    <div class="tool-list-item"><span class="tool-item-check">⬡</span><span class="tool-item-text">homeschool — open homeschool board</span></div>
+    <div class="tool-list-item"><span class="tool-item-check">⬡</span><span class="tool-item-text">change_color — change Botler background color</span></div>
+  `;
+  document.getElementById('tool-panel').classList.add('open');
+}
+
+function applyColor(hex) {
+  if (window.bgMat && window.THREE) {
+    const c = new window.THREE.Color(hex);
+    window.bgMat.uniforms.tint.value.set(c);
+    setTranscript(`Background color changed to ${hex}.`, true, 'tool');
+  } else {
+    setTranscript('Could not change color. Background material not ready.', true, 'tool');
+  }
+}
+
 function closeToolPanel() {
   document.getElementById('tool-panel').classList.remove('open');
 }
