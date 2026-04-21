@@ -132,7 +132,7 @@
 </head>
 <body>
 
-<div id="gw-dot" title="Gateway"></div>
+<div id="gw-dot" title="Gateway" onclick="setGatewayUrl()"></div>
 
 <div id="hud">
   <div id="status">Standby</div>
@@ -155,6 +155,7 @@
       <a href="#" data-state="thinking"  onclick="setState('thinking'); return false;">Think</a>
       <a href="#" data-state="speaking"  onclick="setState('speaking'); return false;">Speak</a>
       <a href="#" data-state="pleased"   onclick="setState('pleased'); return false;">Pleased</a>
+      <a href="#" onclick="setGatewayUrl(); return false;">Set Gateway…</a>
     </div>
   </div>
 
@@ -204,7 +205,27 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 // ─── Constants ────────────────────────────────────────────────────────────────
-const GW_URL     = 'ws://10.0.0.189:18789'; // Updated for local network access
+function resolveGatewayUrl() {
+  // Priority: ?gw=... query param (persists), then localStorage, then host-aware default.
+  try {
+    const qs = new URLSearchParams(location.search);
+    const fromQuery = qs.get('gw');
+    if (fromQuery) {
+      localStorage.setItem('botler:gw:url', fromQuery);
+      return fromQuery;
+    }
+  } catch {}
+  const saved = localStorage.getItem('botler:gw:url');
+  if (saved) return saved;
+  // Netlify/remote host → fall back to loopback (user must override via UI or ?gw=).
+  // Local host → same host on :18789.
+  const h = location.hostname;
+  if (!h || h === 'localhost' || h === '127.0.0.1' || /^\d+\.\d+\.\d+\.\d+$/.test(h)) {
+    return `ws://${h || 'localhost'}:18789`;
+  }
+  return 'ws://localhost:18789';
+}
+const GW_URL     = resolveGatewayUrl();
 const SESSION_KEY = 'agent:botler:main';
 const FINANCE_PASSPHRASE = localStorage.getItem('botler:finance:pass') || null;
 
@@ -291,11 +312,29 @@ class GatewayClient {
 
 // ─── Gateway dot ─────────────────────────────────────────────────────────────
 const gwDot = document.getElementById('gw-dot');
+gwDot.title = `Gateway: ${GW_URL} (click to change)`;
+gwDot.style.cursor = 'pointer';
 function setDot(s) {
   gwDot.className = '';
   if (s === 'connected')   gwDot.classList.add('connected');
   if (s === 'connecting')  gwDot.classList.add('connecting');
 }
+
+// ─── Gateway URL override (used by Voice > Set Gateway…) ─────────────────────
+window.setGatewayUrl = function () {
+  const current = localStorage.getItem('botler:gw:url') || GW_URL;
+  const next = prompt(
+    'Gateway WebSocket URL\n(e.g. ws://192.168.x.y:18789 or ws://localhost:18789).\nLeave blank to clear.',
+    current
+  );
+  if (next === null) return;
+  if (!next.trim()) {
+    localStorage.removeItem('botler:gw:url');
+  } else {
+    localStorage.setItem('botler:gw:url', next.trim());
+  }
+  location.reload();
+};
 
 // ─── Gateway instance ─────────────────────────────────────────────────────────
 const gw = new GatewayClient(GW_URL);
