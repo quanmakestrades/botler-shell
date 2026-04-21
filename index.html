@@ -387,18 +387,20 @@ function setTranscript(text, fade, type) {
 }
 
 // ─── Send query to Botler ─────────────────────────────────────────────────────
-async function askBotler(query) {
+async function askBotler(query, model = '') {
   if (!query || !query.trim()) return;
   _resetStream();
   setState('thinking');
   setTranscript(query, false, 'tool');
   try {
-    await gw.request('chat.send', {
+    const payload = {
       sessionKey: SESSION_KEY,
       agentId: 'botler',
       message: query,
       idempotencyKey: crypto.randomUUID(),
-    });
+    };
+    if (model) payload.model = model; // Add model override if provided
+    await gw.request('chat.send', payload);
   } catch (err) {
     setTranscript('Gateway unavailable. Is the OpenClaw app running?', true);
     setState('idle');
@@ -435,6 +437,43 @@ function speakText(text) {
     if (ev.name === 'word') speakPhase += 0.35;
   };
   window.speechSynthesis.speak(u);
+}
+
+// ─── STT wake word ────────────────────────────────────────────────────────────
+function handleVoiceCommand(query) {
+  const lowerQuery = query.toLowerCase();
+  if (lowerQuery.includes("open homeschool board") || lowerQuery.includes("open the homeschool board")) {
+    executeTool({action: "homeschool", title: "Homeschool Board"});
+    return "Homeschool board opened.";
+  } else if (lowerQuery.includes("open finances")) {
+    const match = lowerQuery.match(/pin\s*(\d{4})/);
+    if (match && match[1]) {
+        // Store pin to localStorage for promptless access
+        localStorage.setItem('botler:finance:pass', match[1]);
+        executeTool({action: "finance", title: "Finance Dashboard"});
+        return "Finance dashboard opened and pin automatically set.";
+    } else {
+        executeTool({action: "finance", title: "Finance Dashboard"});
+        return "Finance dashboard opened.";
+    }
+  } else if (lowerQuery.includes("change the color to")) {
+    const colorMatch = lowerQuery.match(/change the color to\s*(\w+)/);
+    if (colorMatch && colorMatch[1]) {
+        let hex = '#ff8800'; // Default to orange
+        switch(colorMatch[1]) {
+            case 'blue': hex = '#0000ff'; break;
+            case 'green': hex = '#00ff00'; break;
+            case 'orange': hex = '#ff8800'; break;
+            case 'red': hex = '#ff0000'; break;
+            case 'purple': hex = '#800080'; break;
+            case 'white': hex = '#ffffff'; break;
+            case 'black': hex = '#000000'; break;
+        }
+        executeTool({action: "change_color", hex: hex});
+        return `Color changed to ${colorMatch[1]}.`;
+    }
+  }
+  return null; // Not a direct voice command
 }
 
 // ─── STT wake word ────────────────────────────────────────────────────────────
@@ -479,7 +518,13 @@ function startSTT() {
       if (query.length > 2) {
         woke = false;
         clearTimeout(wakeTimer);
-        askBotler(query);
+        // Try to handle as a direct voice command first
+        const voiceResponse = handleVoiceCommand(query);
+        if (voiceResponse) {
+            askBotler(voiceResponse, 'openrouter/anthropic/claude-3-haiku');
+        } else {
+            askBotler(query, 'openrouter/anthropic/claude-3-haiku');
+        }
       }
     }
   };
@@ -510,6 +555,7 @@ function executeTool(cmd) {
     case 'shopping_list':    renderShoppingList(cmd); break;
     case 'browser':          openBrowser(cmd); break;
     case 'finance':          openFinance(cmd); break;
+    case 'homeschool':       openHomeschool(cmd); break; // New: Open Homeschool tab
     case 'close_panel':      closeToolPanel(); break;
     default: console.log('Unknown cmd action:', cmd.action, cmd);
   }
@@ -539,28 +585,7 @@ function openBrowser(cmd) {
   if (cmd.url) window.open(cmd.url, '_blank', 'noopener');
 }
 
-function openFinance(cmd) {
-  const stored = localStorage.getItem('botler:finance:pass');
-  if (!stored) {
-    const pass = prompt('Finance panel passphrase:');
-    if (!pass) return;
-    localStorage.setItem('botler:finance:pass', pass);
-  }
-  renderComponent({ title: cmd.title || 'Finance', html: cmd.html || '<p style="color:rgba(255,215,120,0.7)">Finance panel loading…</p>' });
-}
-
-function openToolPanel() {
-  const body = document.getElementById('tool-panel-body');
-  document.getElementById('tool-panel-title').textContent = 'Available Tools';
-  body.innerHTML = `
-    <div class="tool-list-item"><span class="tool-item-check">⬡</span><span class="tool-item-text">render_component — display rich UI cards</span></div>
-    <div class="tool-list-item"><span class="tool-item-check">⬡</span><span class="tool-item-text">shopping_list — checklist panels</span></div>
-    <div class="tool-list-item"><span class="tool-item-check">⬡</span><span class="tool-item-text">browser — open URLs</span></div>
-    <div class="tool-list-item"><span class="tool-item-check">⬡</span><span class="tool-item-text finance-locked">finance — passphrase protected</span></div>
-  `;
-  document.getElementById('tool-panel').classList.add('open');
-}
-
+function openFinance(cmd) {\n  const stored = localStorage.getItem(\'botler:finance:pass\');\n  // Check if a PIN was provided in the command, otherwise use stored or prompt\n  let pinToUse = cmd.pin || stored;\n\n  if (!pinToUse) {\n    const pass = prompt(\'Finance panel passphrase:\');\n    if (!pass) return;\n    pinToUse = pass;\n  }\n\n  localStorage.setItem(\'botler:finance:pass\', pinToUse);\n  renderComponent({ title: cmd.title || \'Finance\', html: \`<iframe src=\"./finance/index.html\" style=\"width:100%; height:100%; border:none;\"></iframe>\` });\n}\n\nfunction openToolPanel() {\n  const body = document.getElementById(\'tool-panel-body\');\n  document.getElementById(\'tool-panel-title\').textContent = \'Available Tools\';\n  body.innerHTML = `\n    <div class=\"tool-list-item\"><span class=\"tool-item-check\">⬡</span><span class=\"tool-item-text\">render_component — display rich UI cards</span></div>\n    <div class=\"tool-list-item\"><span class=\"tool-item-check\">⬡</span><span class=\"tool-item-text\">shopping_list — checklist panels</span></div>\n    <div class=\"tool-list-item\"><span class=\"tool-item-check\">⬡</span><span class=\"tool-item-text\">browser — open URLs</span></div>\n    <div class=\"tool-list-item\"><span class=\"tool-item-check\">⬡</span><span class=\"tool-item-text finance-locked\">finance — passphrase protected</span></div>\n    <div class=\"tool-list-item\"><span class=\"tool-item-check\">⬡</span><span class=\"tool-item-text\">homeschool — open homeschool board</span></div>\n    <div class=\"tool-list-item\"><span class=\"tool-item-check\">⬡</span><span class=\"tool-item-text\">change_color — change Botler background color</span></div>\n  `;\n  document.getElementById(\'tool-panel\').classList.add(\'open\');\n}\n\n// New: Function to apply background color from voice commands\nfunction applyColor(hex) {\n  // Assuming bgMat uniform is accessible globally or can be set via a function\n  if (window.bgMat && window.THREE) {\n    const c = new window.THREE.Color(hex);\n    window.bgMat.uniforms.tint.value.set(c);\n    setTranscript(`Background color changed to ${hex}.`, true, \'tool\');\n  } else {\n    setTranscript(\'Could not change color. Background material not ready.\', true, \'tool\');\n  }\n}\n
 function closeToolPanel() {
   document.getElementById('tool-panel').classList.remove('open');
 }
