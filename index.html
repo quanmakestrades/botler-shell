@@ -817,7 +817,7 @@ const _h = location.hostname;
 const _isLoopback = _h === 'localhost' || _h === '127.0.0.1';
 const DEFAULT_GW_URL   = _isLoopback
   ? 'ws://localhost:18789'
-  : `ws://${location.host}/gw`;
+  : 'wss://stewartos-core.tail2d5e46.ts.net';
 const DEFAULT_GW_TOKEN = 'c59a2ebef7764318eabc4736411c085c5c3c912cc62e64a639c03b05f705b815';
 const SESSION_KEY      = 'agent:botler:main';
 const DIRECT_API_URL   = `${location.origin}/api/stream`; // Anthropic proxy in botler-serve
