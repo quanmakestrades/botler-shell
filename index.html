@@ -455,8 +455,8 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
   </div>
 </div>
 
-<!-- First-run setup -->
-<div id="setup-overlay">
+<!-- First-run setup (hidden by default — auto-connects on load) -->
+<div id="setup-overlay" class="hidden">
   <div class="setup-card">
     <div class="setup-logo">Botler</div>
     <h2>Connect to Gateway</h2>
@@ -1177,14 +1177,12 @@ function completeSetup() {
 }
 
 function checkSetup() {
-  // Pre-fill defaults so user can just click Activate
+  // Pre-fill defaults so user can just click Activate if needed
   document.getElementById('setup-url').value   = gatewayUrl;
   document.getElementById('setup-token').value = gatewayToken;
-  // Auto-connect if we have stored credentials
-  if (sessionStorage.getItem('botler_gtoken')) {
-    setTranscript('Connecting to gateway…');
-    gw = new GatewayClient(gatewayUrl, gatewayToken);
-  }
+  // Always auto-connect on load
+  setTranscript('Connecting to gateway…');
+  gw = new GatewayClient(gatewayUrl, gatewayToken);
 }
 
 // ─── Transcript display ───────────────────────────────────────────────────────

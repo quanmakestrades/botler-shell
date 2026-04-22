@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stewart Inc. — Agent System Map</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0400; font-family: 'Georgia', serif; color: rgba(255,215,120,0.8); padding: 24px 20px 40px; min-height: 100vh; }
+
+  h1 { font-size: 10px; letter-spacing: 0.55em; text-transform: uppercase; color: rgba(255,200,100,0.25); margin-bottom: 28px; text-align: center; }
+
+  .section-label { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: rgba(255,180,60,0.3); margin: 24px 0 10px; }
+
+  .agent-card {
+    background: rgba(255,140,20,0.04); border: 1px solid rgba(255,160,40,0.14);
+    border-radius: 3px; padding: 14px 16px; margin-bottom: 10px;
+  }
+  .agent-card.orchestrator { border-color: rgba(255,200,80,0.28); background: rgba(255,160,40,0.07); }
+  .agent-card.worker       { border-color: rgba(255,160,40,0.08); opacity: 0.75; }
+
+  .agent-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .agent-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,160,40,0.35); flex-shrink: 0; }
+  .agent-dot.active { background: #44cc44; box-shadow: 0 0 5px #44cc44; }
+  .agent-name { font-size: 12px; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(255,220,120,0.85); }
+  .agent-role { margin-left: auto; font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase; color: rgba(255,180,60,0.35); }
+
+  .agent-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .tag {
+    font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 2px;
+    background: rgba(255,160,40,0.07); border: 1px solid rgba(255,160,40,0.15);
+    color: rgba(255,200,100,0.45);
+  }
+  .tag.model  { border-color: rgba(100,180,255,0.2); color: rgba(140,200,255,0.5); }
+  .tag.schedule { border-color: rgba(180,255,160,0.18); color: rgba(160,220,140,0.5); }
+  .tag.worker-tag { border-color: rgba(255,160,40,0.1); color: rgba(255,180,60,0.3); }
+
+  .gap-note { font-size: 10px; color: rgba(255,180,60,0.4); line-height: 1.7; margin-bottom: 8px; }
+  .gap-item { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 6px; }
+  .gap-num { color: rgba(255,160,40,0.3); font-size: 9px; letter-spacing: 0.2em; flex-shrink: 0; margin-top: 1px; }
+  .gap-text { font-size: 10px; color: rgba(255,200,100,0.4); letter-spacing: 0.05em; line-height: 1.6; }
+
+  .divider { border: none; border-top: 1px solid rgba(255,160,40,0.08); margin: 20px 0; }
+
+  .status-bar { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+  .stat { text-align: center; }
+  .stat-val { font-size: 18px; color: rgba(255,220,120,0.7); letter-spacing: 0.05em; }
+  .stat-lbl { font-size: 8px; letter-spacing: 0.35em; text-transform: uppercase; color: rgba(255,180,60,0.3); margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<h1>Stewart Inc. · Agent System Map</h1>
+
+<div class="status-bar">
+  <div class="stat"><div class="stat-val">6</div><div class="stat-lbl">Agents</div></div>
+  <div class="stat"><div class="stat-val">7</div><div class="stat-lbl">Cron Jobs</div></div>
+  <div class="stat"><div class="stat-val">4</div><div class="stat-lbl">Telegram Bots</div></div>
+  <div class="stat"><div class="stat-val">2h</div><div class="stat-lbl">Botler Heartbeat</div></div>
+</div>
+
+<div class="section-label">Orchestration Layer</div>
+
+<div class="agent-card orchestrator">
+  <div class="agent-header">
+    <div class="agent-dot active"></div>
+    <div class="agent-name">Botler</div>
+    <div class="agent-role">Orchestrator · Default</div>
+  </div>
+  <div class="agent-row">
+    <span class="tag model">Claude Sonnet 4.6</span>
+    <span class="tag model" style="opacity:0.6">→ Opus on request</span>
+    <span class="tag schedule">Heartbeat · every 2h</span>
+    <span class="tag">Telegram</span>
+    <span class="tag">Voice</span>
+    <span class="tag">Web UI</span>
+  </div>
+</div>
+
+<hr class="divider">
+<div class="section-label">Core Workers</div>
+
+<div class="agent-card worker">
+  <div class="agent-header">
+    <div class="agent-dot"></div>
+    <div class="agent-name">Cash</div>
+    <div class="agent-role">Financial · Worker</div>
+  </div>
+  <div class="agent-row">
+    <span class="tag model">Claude Sonnet 4.6</span>
+    <span class="tag model" style="opacity:0.6">+ Codex fallback</span>
+    <span class="tag worker-tag">Task-triggered only</span>
+  </div>
+</div>
+
+<div class="agent-card worker">
+  <div class="agent-header">
+    <div class="agent-dot"></div>
+    <div class="agent-name">Dev</div>
+    <div class="agent-role">Engineering · Worker</div>
+  </div>
+  <div class="agent-row">
+    <span class="tag model">Claude Sonnet 4.6</span>
+    <span class="tag model" style="opacity:0.6">+ Codex fallback</span>
+    <span class="tag worker-tag">Task-triggered only</span>
+  </div>
+</div>
+
+<hr class="divider">
+<div class="section-label">Autonomous Agents</div>
+
+<div class="agent-card">
+  <div class="agent-header">
+    <div class="agent-dot active"></div>
+    <div class="agent-name">Impulse</div>
+    <div class="agent-role">Trading · ICT/IFVG</div>
+  </div>
+  <div class="agent-row">
+    <span class="tag model">Sonnet (tools)</span>
+    <span class="tag model" style="opacity:0.6">Haiku (comms)</span>
+    <span class="tag schedule">Every 30m · 7:30–3:30 CT · Mon–Fri</span>
+    <span class="tag">Telegram</span>
+  </div>
+</div>
+
+<div class="agent-card">
+  <div class="agent-header">
+    <div class="agent-dot active"></div>
+    <div class="agent-name">Jim</div>
+    <div class="agent-role">Music · Social · Orders</div>
+  </div>
+  <div class="agent-row">
+    <span class="tag model">GPT-5.4</span>
+    <span class="tag schedule">9am · IG check</span>
+    <span class="tag schedule">1pm · Site check</span>
+    <span class="tag schedule">7pm · Music / Orders</span>
+    <span class="tag">Telegram</span>
+  </div>
+</div>
+
+<div class="agent-card">
+  <div class="agent-header">
+    <div class="agent-dot active"></div>
+    <div class="agent-name">Loki</div>
+    <div class="agent-role">TideFlow · Contracts</div>
+  </div>
+  <div class="agent-row">
+    <span class="tag model">GPT-5.4</span>
+    <span class="tag schedule">8am · New contracts</span>
+    <span class="tag schedule">6pm · App QA</span>
+    <span class="tag">Telegram</span>
+  </div>
+</div>
+
+<hr class="divider">
+<div class="section-label">Enterprise Gaps — In Progress</div>
+
+<div class="gap-item">
+  <div class="gap-num">01</div>
+  <div class="gap-text">Escalation paths — sub-agents need a defined route to surface critical findings to Botler's inbox automatically</div>
+</div>
+<div class="gap-item">
+  <div class="gap-num">02</div>
+  <div class="gap-text">Botler synthesis layer — Cash, Loki, Impulse should file reports Botler digests into the morning brief</div>
+</div>
+<div class="gap-item">
+  <div class="gap-num">03</div>
+  <div class="gap-text">Watchdog — external health check that pages if gateway goes silent</div>
+</div>
+<div class="gap-item">
+  <div class="gap-num">04</div>
+  <div class="gap-text">Cross-agent memory — Botler currently has no consolidated view across all agent stores</div>
+</div>
+<div class="gap-item">
+  <div class="gap-num">05</div>
+  <div class="gap-text">Tailscale Serve — gateway needs full MagicDNS exposure for remote device access</div>
+</div>
+
+</body>
+</html>
