@@ -1,6 +1,20 @@
 [build]
   publish = "."
 
+[build.environment]
+  NODE_VERSION = "20"
+
+# Edge function for Anthropic streaming (SSE requires edge runtime)
+[[edge_functions]]
+  path = "/api/stream"
+  function = "stream"
+
+# Netlify Function for YouTube search
+[[redirects]]
+  from = "/api/yt-search"
+  to = "/.netlify/functions/yt-search"
+  status = 200
+
 [[redirects]]
   from = "/"
   to = "/index.html"
@@ -25,3 +39,14 @@
   from = "/homeschool/*"
   to = "/homeschool/:splat"
   status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"

@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YouTube Panel</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #1a0800;
+  font-family: 'Georgia', serif;
+  color: rgba(255,200,100,0.85);
+  min-height: 100vh;
+}
+
+/* ── Top bar ── */
+#topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(14,5,0,0.97);
+  border-bottom: 1px solid rgba(255,160,40,0.18);
+  padding: 10px 16px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  backdrop-filter: blur(12px);
+}
+
+#topbar-logo {
+  color: rgba(255,200,100,0.55);
+  font-size: 11px;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+#search-input {
+  flex: 1;
+  background: rgba(255,160,40,0.06);
+  border: 1px solid rgba(255,160,40,0.22);
+  border-radius: 3px;
+  color: rgba(255,220,120,0.9);
+  font-family: 'Georgia', serif;
+  font-size: 13px;
+  padding: 7px 12px;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+#search-input::placeholder { color: rgba(255,200,100,0.28); }
+#search-input:focus {
+  border-color: rgba(255,160,40,0.55);
+  background: rgba(255,160,40,0.1);
+}
+
+#search-btn {
+  background: rgba(255,160,40,0.1);
+  border: 1px solid rgba(255,160,40,0.3);
+  color: rgba(255,200,100,0.75);
+  font-family: 'Georgia', serif;
+  font-size: 11px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  padding: 7px 14px;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s, color 0.2s;
+  flex-shrink: 0;
+}
+#search-btn:hover {
+  background: rgba(255,160,40,0.2);
+  color: rgba(255,220,120,1);
+}
+
+/* ── Player area ── */
+#player-section {
+  display: none;
+  padding: 16px;
+  border-bottom: 1px solid rgba(255,160,40,0.12);
+}
+
+#player-section.visible { display: block; }
+
+#player-wrap {
+  position: relative;
+  padding-bottom: 56.25%;
+  height: 0;
+  background: #000;
+  border: 1px solid rgba(255,160,40,0.18);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+#player-iframe {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  border: none;
+}
+
+#player-meta {
+  margin-top: 10px;
+}
+
+#player-title {
+  font-size: 15px;
+  color: rgba(255,220,120,0.92);
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+#player-channel {
+  font-size: 11px;
+  color: rgba(255,200,100,0.45);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+/* ── Layout below topbar ── */
+#main-layout {
+  display: flex;
+  gap: 0;
+}
+
+/* ── Content column ── */
+#content-col {
+  flex: 1;
+  min-width: 0;
+  padding: 16px;
+}
+
+/* ── Sidebar ── */
+#sidebar {
+  width: 280px;
+  flex-shrink: 0;
+  border-left: 1px solid rgba(255,160,40,0.1);
+  padding: 16px;
+}
+
+/* ── Section headers ── */
+.section-header {
+  font-size: 10px;
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  color: rgba(255,200,100,0.38);
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255,160,40,0.1);
+}
+
+/* ── Results grid ── */
+#results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.result-card {
+  cursor: pointer;
+  border: 1px solid rgba(255,160,40,0.12);
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgba(255,140,20,0.03);
+  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+}
+
+.result-card:hover {
+  border-color: rgba(255,160,40,0.38);
+  background: rgba(255,140,20,0.07);
+  transform: translateY(-2px);
+}
+
+.card-thumb-wrap {
+  position: relative;
+  padding-bottom: 56.25%;
+  background: rgba(0,0,0,0.4);
+}
+
+.card-thumb {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.card-duration {
+  position: absolute;
+  bottom: 5px;
+  right: 6px;
+  background: rgba(0,0,0,0.82);
+  color: rgba(255,220,120,0.9);
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 2px;
+  font-family: monospace;
+  letter-spacing: 0.05em;
+}
+
+.card-info {
+  padding: 8px 10px 10px;
+}
+
+.card-title {
+  font-size: 12px;
+  color: rgba(255,215,100,0.88);
+  line-height: 1.4;
+  margin-bottom: 5px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-channel {
+  font-size: 10px;
+  color: rgba(255,200,100,0.4);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── History list (sidebar) ── */
+.sidebar-card {
+  display: flex;
+  gap: 9px;
+  cursor: pointer;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(255,160,40,0.07);
+  transition: opacity 0.2s;
+  align-items: flex-start;
+}
+
+.sidebar-card:last-child { border-bottom: none; }
+
+.sidebar-card:hover { opacity: 0.8; }
+
+.sidebar-thumb-wrap {
+  position: relative;
+  width: 72px;
+  flex-shrink: 0;
+}
+
+.sidebar-thumb {
+  width: 72px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 2px;
+  display: block;
+  background: rgba(0,0,0,0.4);
+}
+
+.sidebar-duration {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  background: rgba(0,0,0,0.82);
+  color: rgba(255,220,120,0.9);
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-family: monospace;
+}
+
+.sidebar-info { flex: 1; min-width: 0; }
+
+.sidebar-title {
+  font-size: 11px;
+  color: rgba(255,215,100,0.85);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 3px;
+}
+
+.sidebar-channel {
+  font-size: 9px;
+  color: rgba(255,200,100,0.38);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Status / loading / error states ── */
+#status-msg {
+  color: rgba(255,200,100,0.32);
+  font-size: 12px;
+  letter-spacing: 0.22em;
+  text-align: center;
+  padding: 40px 0;
+  display: none;
+}
+
+#status-msg.visible { display: block; }
+
+.spinner {
+  display: inline-block;
+  width: 18px; height: 18px;
+  border: 2px solid rgba(255,160,40,0.15);
+  border-top-color: rgba(255,160,40,0.6);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.fallback-link {
+  display: inline-block;
+  margin-top: 10px;
+  color: rgba(255,160,40,0.65);
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.fallback-link:hover { color: rgba(255,220,120,0.9); }
+
+#sidebar-related-section { margin-top: 24px; }
+
+/* ── Responsive ── */
+@media (max-width: 720px) {
+  #main-layout { flex-direction: column; }
+  #sidebar {
+    width: 100%;
+    border-left: none;
+    border-top: 1px solid rgba(255,160,40,0.1);
+    padding: 12px 16px;
+  }
+  #results-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  #topbar-logo { display: none; }
+}
+
+@media (max-width: 480px) {
+  #results-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+}
+
+/* ── Empty sidebar placeholder ── */
+.sidebar-empty {
+  color: rgba(255,200,100,0.2);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  font-style: italic;
+  padding: 6px 0;
+}
+
+/* ── Scrollbar styling ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: rgba(255,160,40,0.03); }
+::-webkit-scrollbar-thumb { background: rgba(255,160,40,0.18); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,160,40,0.35); }
+
+/* ── "Now playing" highlight ── */
+.result-card.playing {
+  border-color: rgba(255,160,40,0.6);
+  background: rgba(255,140,20,0.1);
+  box-shadow: 0 0 14px rgba(255,130,20,0.15);
+}
+</style>
+</head>
+<body>
+
+<!-- Top search bar -->
+<div id="topbar">
+  <span id="topbar-logo">&#9654; YT Panel</span>
+  <input id="search-input" type="text" placeholder="Search YouTube…" autocomplete="off" />
+  <button id="search-btn">Search</button>
+</div>
+
+<!-- Player -->
+<div id="player-section">
+  <div id="player-wrap">
+    <iframe id="player-iframe" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+  </div>
+  <div id="player-meta">
+    <div id="player-title"></div>
+    <div id="player-channel"></div>
+  </div>
+</div>
+
+<!-- Main layout -->
+<div id="main-layout">
+  <div id="content-col">
+    <div id="status-msg"></div>
+    <div id="results-section" style="display:none;">
+      <div class="section-header" id="results-header">Results</div>
+      <div id="results-grid"></div>
+    </div>
+  </div>
+
+  <div id="sidebar">
+    <div id="sidebar-history-section">
+      <div class="section-header">Watch History</div>
+      <div id="history-list"><div class="sidebar-empty">No history yet.</div></div>
+    </div>
+    <div id="sidebar-related-section" style="display:none;">
+      <div class="section-header">Up Next / Related</div>
+      <div id="related-list"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── Invidious instance list (direct fallback if server proxy fails) ──
+  const INSTANCES = [
+    'https://vid.puffyan.us',
+    'https://yewtu.be',
+    'https://invidious.tiekoetter.com',
+    'https://inv.riverside.rocks',
+    'https://y.com.sb',
+    'https://inv.tux.pizza',
+    'https://yt.artemislena.eu',
+  ];
+
+  // ── localStorage key ──
+  const HISTORY_KEY = 'yt_panel_history';
+
+  // ── DOM refs ──
+  const searchInput   = document.getElementById('search-input');
+  const searchBtn     = document.getElementById('search-btn');
+  const playerSection = document.getElementById('player-section');
+  const playerIframe  = document.getElementById('player-iframe');
+  const playerTitle   = document.getElementById('player-title');
+  const playerChannel = document.getElementById('player-channel');
+  const statusMsg     = document.getElementById('status-msg');
+  const resultsSection= document.getElementById('results-section');
+  const resultsHeader = document.getElementById('results-header');
+  const resultsGrid   = document.getElementById('results-grid');
+  const historyList   = document.getElementById('history-list');
+  const relatedSection= document.getElementById('sidebar-related-section');
+  const relatedList   = document.getElementById('related-list');
+
+  // ── Helpers ──
+
+  function formatDuration(secs) {
+    if (!secs) return '';
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
+    const s = secs % 60;
+    const mm = String(m).padStart(h ? 2 : 1, '0');
+    const ss = String(s).padStart(2, '0');
+    return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+  }
+
+  function getBestThumb(thumbs) {
+    if (!thumbs || !thumbs.length) return '';
+    // prefer medium quality (mqdefault ~320px) for performance
+    const pref = ['medium', 'high', 'default', 'maxres'];
+    for (const q of pref) {
+      const t = thumbs.find(t => t.quality === q);
+      if (t) return t.url;
+    }
+    return thumbs[0].url;
+  }
+
+  function setStatus(html, show) {
+    statusMsg.innerHTML = html;
+    statusMsg.classList.toggle('visible', !!show);
+  }
+
+  // ── History ──
+
+  function loadHistory() {
+    try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; }
+  }
+
+  function saveHistory(items) {
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(items)); } catch {}
+  }
+
+  function addToHistory(video) {
+    let h = loadHistory().filter(v => v.videoId !== video.videoId);
+    h.unshift(video);
+    if (h.length > 10) h = h.slice(0, 10);
+    saveHistory(h);
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const h = loadHistory();
+    if (!h.length) {
+      historyList.innerHTML = '<div class="sidebar-empty">No history yet.</div>';
+      return;
+    }
+    historyList.innerHTML = h.map(v => sidebarCardHTML(v, 'history')).join('');
+    historyList.querySelectorAll('.sidebar-card').forEach(el => {
+      el.addEventListener('click', () => playVideo(JSON.parse(el.dataset.video)));
+    });
+  }
+
+  // ── Sidebar card HTML (shared for history & related) ──
+
+  function sidebarCardHTML(v, ctx) {
+    const thumb = getBestThumb(v.videoThumbnails) || '';
+    const dur   = formatDuration(v.lengthSeconds);
+    const safeV = JSON.stringify(v).replace(/'/g, '&#39;');
+    return `<div class="sidebar-card" data-video='${safeV}' data-ctx="${ctx}">
+      <div class="sidebar-thumb-wrap">
+        <img class="sidebar-thumb" src="${thumb}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+        ${dur ? `<span class="sidebar-duration">${dur}</span>` : ''}
+      </div>
+      <div class="sidebar-info">
+        <div class="sidebar-title">${escHtml(v.title || '')}</div>
+        <div class="sidebar-channel">${escHtml(v.author || '')}</div>
+      </div>
+    </div>`;
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── API fetch: server proxy first, then direct Invidious fallback ──
+
+  async function apiFetch(query) {
+    const fields = 'videoId,title,author,lengthSeconds,videoThumbnails';
+    const qs = encodeURIComponent(query);
+
+    // 1. Try the botler-serve server proxy (avoids CORS, server can reach more instances)
+    try {
+      const res = await fetch(`/api/yt-search?q=${qs}`, { signal: AbortSignal.timeout(10000) });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) return data;
+      }
+    } catch { /* fall through */ }
+
+    // 2. Direct Invidious fallback (tries multiple instances)
+    let lastErr;
+    for (const base of INSTANCES) {
+      try {
+        const url = `${base}/api/v1/search?q=${qs}&type=video&fields=${fields}`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) return data;
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+    throw lastErr || new Error('All instances failed');
+  }
+
+  // ── Search ──
+
+  let autoplayFirst = false; // set by ?autoplay=1 URL param
+
+  async function doSearch(query) {
+    if (!query.trim()) return;
+    searchInput.value = query;
+    setStatus('<span class="spinner"></span> Searching…', true);
+    resultsSection.style.display = 'none';
+    relatedSection.style.display = 'none';
+
+    const qs = encodeURIComponent(query.trim()); // kept for fallback-link URL
+
+    try {
+      const data = await apiFetch(query.trim());
+      setStatus('', false);
+      if (!data || !data.length) {
+        setStatus('No results found.', true);
+        return;
+      }
+      renderResults(data, `Results for "${query.trim()}"`);
+      if (autoplayFirst && data[0]?.videoId) {
+        autoplayFirst = false; // one-shot
+        playVideo(data[0]);
+      }
+    } catch (e) {
+      // Fallback: show link to YouTube search
+      setStatus(
+        `<div>Could not reach Invidious API.</div>
+         <a class="fallback-link" href="https://www.youtube.com/results?search_query=${qs}" target="_blank" rel="noopener">
+           Open search on YouTube &#8599;
+         </a>`,
+        true
+      );
+    }
+  }
+
+  function renderResults(items, label) {
+    resultsHeader.textContent = label || 'Results';
+    resultsGrid.innerHTML = items.map(v => resultCardHTML(v)).join('');
+    resultsSection.style.display = 'block';
+    resultsGrid.querySelectorAll('.result-card').forEach(el => {
+      el.addEventListener('click', () => {
+        document.querySelectorAll('.result-card.playing').forEach(c => c.classList.remove('playing'));
+        el.classList.add('playing');
+        playVideo(JSON.parse(el.dataset.video));
+      });
+    });
+  }
+
+  function resultCardHTML(v) {
+    const thumb = getBestThumb(v.videoThumbnails) || '';
+    const dur   = formatDuration(v.lengthSeconds);
+    const safeV = JSON.stringify(v).replace(/'/g, '&#39;');
+    return `<div class="result-card" data-video='${safeV}'>
+      <div class="card-thumb-wrap">
+        <img class="card-thumb" src="${thumb}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+        ${dur ? `<span class="card-duration">${dur}</span>` : ''}
+      </div>
+      <div class="card-info">
+        <div class="card-title">${escHtml(v.title || '')}</div>
+        <div class="card-channel">${escHtml(v.author || '')}</div>
+      </div>
+    </div>`;
+  }
+
+  // ── Play video ──
+
+  function playVideo(v) {
+    const embedUrl = `https://www.youtube.com/embed/${v.videoId}?autoplay=1`;
+    playerIframe.src = embedUrl;
+    playerTitle.textContent = v.title || '';
+    playerChannel.textContent = v.author || '';
+    playerSection.classList.add('visible');
+    // Scroll to top so player is visible
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    addToHistory(v);
+    fetchRelated(v);
+  }
+
+  // ── Related / Up Next (same channel) ──
+
+  async function fetchRelated(v) {
+    relatedList.innerHTML = '<div class="sidebar-empty"><span class="spinner"></span></div>';
+    relatedSection.style.display = 'block';
+
+    const author = v.author || '';
+    if (!author) {
+      relatedList.innerHTML = '<div class="sidebar-empty">No related available.</div>';
+      return;
+    }
+
+    const qs = encodeURIComponent(author); // kept for fallback-link URL
+
+    try {
+      const data = await apiFetch(author);
+      const filtered = (data || []).filter(r => r.videoId !== v.videoId).slice(0, 8);
+      if (!filtered.length) {
+        relatedList.innerHTML = '<div class="sidebar-empty">Nothing found.</div>';
+        return;
+      }
+      relatedList.innerHTML = filtered.map(r => sidebarCardHTML(r, 'related')).join('');
+      relatedList.querySelectorAll('.sidebar-card').forEach(el => {
+        el.addEventListener('click', () => playVideo(JSON.parse(el.dataset.video)));
+      });
+    } catch {
+      relatedList.innerHTML = `<div class="sidebar-empty">Invidious unavailable.<br>
+        <a class="fallback-link" href="https://www.youtube.com/results?search_query=${encodeURIComponent(author)}" target="_blank" rel="noopener">
+          Search channel on YouTube &#8599;
+        </a></div>`;
+    }
+  }
+
+  // ── Event listeners ──
+
+  searchBtn.addEventListener('click', () => doSearch(searchInput.value));
+  searchInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') doSearch(searchInput.value);
+  });
+
+  // ── Init: read ?q= from URL ──
+
+  function init() {
+    renderHistory();
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get('q');
+    if (params.get('autoplay') === '1') autoplayFirst = true;
+    if (q) {
+      doSearch(q);
+    } else {
+      setStatus('Enter a search query above.', true);
+    }
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

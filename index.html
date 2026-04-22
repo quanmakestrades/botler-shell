@@ -5,890 +5,473 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Botler</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { width: 100vw; height: 100vh; overflow: hidden; background: #1a0800; font-family: 'Georgia', serif; }
-  body > canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; }
-  #hud, #controls, #edit-btn, #edit-ui, #gw-dot, #transcript-panel, #text-input-wrap, #tool-panel { z-index: 1; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { width: 100vw; height: 100vh; overflow: hidden; background: #1a0800; font-family: 'Georgia', serif; }
+canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 0; }
+#hud, #controls, #edit-btn, #edit-ui { z-index: 1; }
 
-  #hud { position: fixed; inset: 0; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 32px 0 28px; }
-  #status { color: rgba(255,200,100,0.32); font-size: 11px; letter-spacing: 0.42em; text-transform: uppercase; pointer-events: none; }
-  #name-tag { color: rgba(255,200,100,0.16); font-size: 11px; letter-spacing: 0.62em; text-transform: uppercase; }
+#hud { position: fixed; inset: 0; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 32px 0 28px; }
+#status { color: rgba(255,200,100,0.32); font-size: 11px; letter-spacing: 0.42em; text-transform: uppercase; pointer-events: none; }
+#name-tag { color: rgba(255,200,100,0.16); font-size: 11px; letter-spacing: 0.62em; text-transform: uppercase; }
+#tunnel-tag { color: rgba(255,200,100,0.22); font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; pointer-events: all; cursor: pointer; text-decoration: none; display: none; }
+#tunnel-tag:hover { color: rgba(255,220,120,0.55); }
 
-  /* ─── Gateway status dot ─── */
-  #gw-dot {
-    position: fixed; top: 20px; left: 24px; width: 8px; height: 8px;
-    border-radius: 50%; background: #442200; border: 1px solid rgba(255,160,40,0.2);
-    transition: background 0.4s, box-shadow 0.4s; cursor: pointer; z-index: 5;
-  }
-  #gw-dot.connected { background: #44cc44; box-shadow: 0 0 6px #44cc44; }
-  #gw-dot.connecting { background: #cc8800; box-shadow: 0 0 6px #cc8800; animation: pulse-dot 1s infinite; }
-  @keyframes pulse-dot { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+#controls { position: fixed; bottom: 64px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; pointer-events: all; flex-wrap: wrap; justify-content: center; z-index: 2; }
+.btn { background: rgba(255,160,40,0.08); border: 1px solid rgba(255,160,40,0.22); color: rgba(255,200,100,0.55); font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; padding: 6px 14px; border-radius: 2px; cursor: pointer; font-family: 'Georgia', serif; transition: background 0.25s, color 0.25s; }
+.btn:hover, .btn.active { background: rgba(255,160,40,0.18); color: rgba(255,220,120,0.9); }
 
-  /* ─── Transcript ─── */
-  #transcript-panel {
-    position: fixed; bottom: 140px; left: 50%; transform: translateX(-50%);
-    max-width: min(460px, 88vw); min-height: 32px; text-align: center;
-    color: rgba(255,215,120,0.82); font-size: 13px; line-height: 1.6;
-    letter-spacing: 0.04em; pointer-events: none;
-    text-shadow: 0 1px 8px rgba(0,0,0,0.8);
-    transition: opacity 0.5s;
-  }
-  #transcript-panel.tool-msg { color: rgba(255,180,60,0.55); font-size: 11px; letter-spacing: 0.12em; font-style: italic; }
+#edit-btn { position: fixed; top: 20px; right: 24px; pointer-events: all; z-index: 2; }
 
-  /* ─── Text input ─── */
-  #text-input-wrap {
-    position: fixed; bottom: 96px; left: 50%; transform: translateX(-50%);
-    display: flex; gap: 6px; width: min(400px, 86vw);
-  }
-  #text-input {
-    flex: 1; background: rgba(255,140,20,0.06); border: 1px solid rgba(255,160,40,0.22);
-    color: rgba(255,220,120,0.9); font-family: 'Georgia', serif; font-size: 11px;
-    letter-spacing: 0.15em; padding: 6px 10px; border-radius: 2px; outline: none;
-  }
-  #text-input::placeholder { color: rgba(255,180,60,0.28); }
-  #text-send {
-    background: rgba(255,160,40,0.08); border: 1px solid rgba(255,160,40,0.22);
-    color: rgba(255,200,100,0.55); font-family: 'Georgia', serif; font-size: 10px;
-    letter-spacing: 0.3em; text-transform: uppercase; padding: 6px 12px;
-    border-radius: 2px; cursor: pointer; transition: background 0.25s, color 0.25s;
-  }
-  #text-send:hover { background: rgba(255,160,40,0.18); color: rgba(255,220,120,0.9); }
+#color-btn { position: relative; }
+#color-panel { display: none; position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%); background: rgba(20,8,0,0.96); border: 1px solid rgba(255,160,40,0.3); border-radius: 4px; padding: 10px; width: 220px; box-shadow: 0 4px 24px rgba(0,0,0,0.7); }
+#color-panel.open { display: block; }
+#color-swatches { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.swatch { width: 22px; height: 22px; border-radius: 3px; cursor: pointer; border: 2px solid transparent; transition: border-color 0.15s, transform 0.15s; flex-shrink: 0; }
+.swatch:hover, .swatch.active { border-color: rgba(255,230,120,0.9); transform: scale(1.18); }
+#color-spectrum { width: 100%; height: 16px; border-radius: 3px; cursor: crosshair; background: linear-gradient(to right, #ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000); }
+#spectrum-label { color: rgba(255,200,100,0.4); font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; margin-top: 5px; text-align: center; }
+#edit-ui { display: none; position: fixed; inset: 0; pointer-events: none; z-index: 2; }
 
-  /* ─── Tool panel ─── */
-  #tool-panel {
-    display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
-    background: rgba(15,5,0,0.97); border: 1px solid rgba(255,160,40,0.3);
-    border-radius: 6px; padding: 20px; width: min(480px, 90vw); max-height: 70vh;
-    overflow-y: auto; box-shadow: 0 8px 40px rgba(0,0,0,0.8); z-index: 20;
-  }
-  #tool-panel.open { display: block; }
-  #tool-panel-title {
-    color: rgba(255,200,100,0.7); font-size: 10px; letter-spacing: 0.4em;
-    text-transform: uppercase; margin-bottom: 14px;
-  }
-  #tool-panel-body { color: rgba(255,215,120,0.8); font-size: 12px; line-height: 1.7; }
-  #tool-panel-close {
-    position: absolute; top: 10px; right: 14px;
-    background: none; border: none; color: rgba(255,180,60,0.5);
-    font-size: 16px; cursor: pointer; font-family: 'Georgia', serif;
-  }
-  .tool-list-item {
-    display: flex; align-items: flex-start; gap: 10px; padding: 8px 0;
-    border-bottom: 1px solid rgba(255,160,40,0.08);
-  }
-  .tool-list-item:last-child { border-bottom: none; }
-  .tool-item-check { color: rgba(255,180,60,0.6); font-size: 13px; margin-top: 1px; }
-  .tool-item-text { flex: 1; color: rgba(255,215,120,0.75); font-size: 12px; }
-  .finance-locked { color: rgba(255,80,40,0.6); font-size: 10px; letter-spacing: 0.2em; }
+.e-box { position: absolute; pointer-events: all; cursor: ns-resize; border: 1px dashed rgba(255,180,50,0.55); background: rgba(255,140,20,0.04); min-height: 24px; min-width: 40px; }
+.e-handle { position: absolute; pointer-events: all; width: 11px; height: 11px; background: rgba(255,180,50,0.88); border: 1px solid rgba(255,230,120,1); transform: translate(-50%,-50%); border-radius: 2px; user-select: none; }
+.e-handle.round { border-radius: 50%; width: 13px; height: 13px; }
+.e-handle.se { cursor: se-resize; }
+.e-handle.move { cursor: move; }
+.e-handle.ew { cursor: ew-resize; }
+.e-handle.ns { cursor: ns-resize; }
+.e-label { position: absolute; color: rgba(255,200,100,0.45); font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; pointer-events: none; white-space: nowrap; transform: translate(-50%,0); }
 
-  #controls { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; pointer-events: all; flex-wrap: wrap; justify-content: center; }
-  .btn { background: rgba(255,160,40,0.08); border: 1px solid rgba(255,160,40,0.22); color: rgba(255,200,100,0.55); font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; padding: 6px 14px; border-radius: 2px; cursor: pointer; font-family: 'Georgia', serif; transition: background 0.25s, color 0.25s; }
-  .btn:hover, .btn.active { background: rgba(255,160,40,0.18); color: rgba(255,220,120,0.9); }
+/* ── Voice Bar ── */
+#voice-bar {
+  position: fixed; bottom: 110px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(12,4,0,0.88); border: 1px solid rgba(255,160,40,0.18);
+  border-radius: 28px; padding: 7px 16px; z-index: 20;
+  backdrop-filter: blur(10px); max-width: 88vw; min-width: 220px;
+  transition: border-color 0.3s;
+}
+#voice-bar.awake { border-color: rgba(255,160,40,0.7); box-shadow: 0 0 18px rgba(255,130,20,0.25); }
+#mute-btn {
+  background: none; border: 1px solid rgba(255,160,40,0.2); color: rgba(255,200,100,0.6);
+  font-size: 13px; width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  transition: all 0.2s;
+}
+#mute-btn:hover { background: rgba(255,160,40,0.12); color: rgba(255,220,120,0.9); }
+#mute-btn.muted { opacity: 0.35; border-color: rgba(255,80,40,0.35); }
+#transcript {
+  color: rgba(255,200,100,0.5); font-size: 10px; letter-spacing: 0.12em;
+  flex: 1; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-style: italic;
+}
+#transcript.final { color: rgba(255,220,120,0.75); font-style: normal; }
+#wake-dot {
+  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(255,160,40,0.2); transition: background 0.3s;
+}
+#wake-dot.on { background: rgba(255,160,40,0.9); box-shadow: 0 0 8px rgba(255,130,20,0.6); animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
-  /* ─── Dropdowns ─── */
-  .dropdown { position: relative; display: inline-block; }
-  .dropdown-menu {
-    display: none; position: absolute; bottom: calc(100% + 10px); left: 50%;
-    transform: translateX(-50%); background: rgba(20,8,0,0.96);
-    border: 1px solid rgba(255,160,40,0.3); border-radius: 4px; padding: 8px 0;
-    min-width: 120px; box-shadow: 0 4px 24px rgba(0,0,0,0.7); z-index: 10;
+/* ── Side Panel (browser + components) ── */
+#side-panel {
+  position: fixed; top: 0; right: -50vw; width: 50vw; height: 100vh;
+  background: rgba(10,4,0,0.95); border-left: 1px solid rgba(255,160,40,0.15);
+  z-index: 30; display: flex; flex-direction: column;
+  transition: right 0.32s cubic-bezier(.4,0,.2,1);
+  backdrop-filter: blur(16px);
+}
+#side-panel.open { right: 0; }
+#panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-bottom: 1px solid rgba(255,160,40,0.1); flex-shrink: 0;
+}
+#panel-title { color: rgba(255,200,100,0.5); font-size: 10px; letter-spacing: 0.4em; text-transform: uppercase; }
+#panel-close {
+  background: none; border: none; color: rgba(255,200,100,0.4); cursor: pointer;
+  font-size: 14px; padding: 2px 6px; border-radius: 2px;
+}
+#panel-close:hover { color: rgba(255,220,120,0.9); background: rgba(255,160,40,0.1); }
+#panel-body { flex: 1; position: relative; overflow: hidden; }
+#browser-frame {
+  width: 100%; height: 100%; border: none;
+  background: #fff; display: none;
+}
+#browser-frame.visible { display: block; }
+#browser-bar {
+  display: none; padding: 8px 12px; background: rgba(8,3,0,0.9);
+  border-bottom: 1px solid rgba(255,160,40,0.1);
+  font-size: 10px; color: rgba(255,200,100,0.35); letter-spacing: 0.1em;
+  flex-shrink: 0; word-break: break-all;
+}
+#browser-bar.visible { display: block; }
+#browser-err {
+  display: none; position: absolute; inset: 0; align-items: center; justify-content: center;
+  flex-direction: column; gap: 12px; color: rgba(255,200,100,0.4); font-size: 11px;
+  letter-spacing: 0.2em; text-align: center; padding: 24px;
+}
+#browser-err.visible { display: flex; }
+#browser-newtab {
+  background: rgba(255,160,40,0.08); border: 1px solid rgba(255,160,40,0.22);
+  color: rgba(255,200,100,0.6); padding: 6px 14px; border-radius: 2px; cursor: pointer;
+  font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; font-family: Georgia,serif;
+}
+#component-panel {
+  display: none; padding: 16px; overflow-y: auto; height: 100%;
+  color: rgba(255,220,120,0.85);
+}
+#component-panel.visible { display: block; }
+.comp-title {
+  font-size: 12px; letter-spacing: 0.3em; text-transform: uppercase;
+  color: rgba(255,200,100,0.5); margin-bottom: 14px; padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255,160,40,0.12);
+}
+.comp-checklist { list-style: none; }
+.comp-checklist li {
+  display: flex; align-items: flex-start; gap: 10px; padding: 7px 0;
+  border-bottom: 1px solid rgba(255,160,40,0.07); font-size: 12px;
+  color: rgba(255,220,120,0.75); cursor: pointer; transition: color 0.2s;
+}
+.comp-checklist li:hover { color: rgba(255,230,140,0.95); }
+.comp-check {
+  width: 14px; height: 14px; border: 1px solid rgba(255,160,40,0.35);
+  border-radius: 2px; flex-shrink: 0; margin-top: 1px; transition: all 0.2s;
+  display: flex; align-items: center; justify-content: center; font-size: 9px;
+}
+.comp-check.checked { background: rgba(255,160,40,0.25); border-color: rgba(255,160,40,0.7); color: rgba(255,220,120,0.9); }
+.comp-checklist li.done { text-decoration: line-through; opacity: 0.45; }
+.comp-steps { counter-reset: step; }
+.comp-step {
+  display: flex; gap: 12px; padding: 10px 0;
+  border-bottom: 1px solid rgba(255,160,40,0.07); font-size: 12px;
+  color: rgba(255,220,120,0.75); cursor: pointer; transition: all 0.2s; align-items: flex-start;
+}
+.comp-step:hover { color: rgba(255,230,140,0.95); }
+.comp-step-num {
+  counter-increment: step; width: 22px; height: 22px; border-radius: 50%;
+  background: rgba(255,160,40,0.1); border: 1px solid rgba(255,160,40,0.25);
+  color: rgba(255,200,100,0.6); font-size: 9px; letter-spacing: 0.1em;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  transition: all 0.2s;
+}
+.comp-step.active .comp-step-num { background: rgba(255,160,40,0.28); border-color: rgba(255,160,40,0.7); color: rgba(255,220,120,1); }
+.comp-step.done .comp-step-num { opacity: 0.35; }
+.comp-step.done .comp-step-text { text-decoration: line-through; opacity: 0.45; }
+.comp-step-text { flex: 1; line-height: 1.5; }
+.comp-nav { display: flex; gap: 8px; margin-top: 14px; }
+.comp-nav .btn { font-size: 9px; padding: 5px 12px; }
+
+/* ── Finance Panel ── */
+#finance-panel {
+  position: fixed; inset: 0; z-index: 40;
+  background: rgba(8,3,0,0.97); display: none; flex-direction: column;
+  align-items: center; justify-content: center; backdrop-filter: blur(20px);
+}
+#finance-panel.open { display: flex; }
+#finance-close {
+  position: absolute; top: 20px; right: 24px;
+  background: none; border: none; color: rgba(255,200,100,0.4);
+  font-size: 18px; cursor: pointer; letter-spacing: 0.3em;
+}
+#finance-auth { display: flex; flex-direction: column; align-items: center; gap: 14px; width: 280px; }
+#finance-content { display: none; width: 100%; max-width: 640px; padding: 24px; }
+#finance-content.visible { display: block; }
+.fin-title { font-size: 11px; letter-spacing: 0.5em; text-transform: uppercase; color: rgba(255,200,100,0.35); margin-bottom: 20px; text-align: center; }
+.fin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.fin-card { background: rgba(255,160,40,0.04); border: 1px solid rgba(255,160,40,0.1); border-radius: 4px; padding: 16px; }
+.fin-card-label { font-size: 9px; letter-spacing: 0.35em; text-transform: uppercase; color: rgba(255,200,100,0.3); margin-bottom: 8px; }
+.fin-card-value { font-size: 22px; color: rgba(255,220,120,0.7); }
+.fin-card-value.pos { color: rgba(120,220,130,0.7); }
+.fin-card-value.neg { color: rgba(220,100,80,0.7); }
+.fin-note { font-size: 10px; color: rgba(255,200,100,0.2); letter-spacing: 0.2em; margin-top: 20px; text-align: center; }
+
+/* ── Setup Overlay ── */
+#setup-overlay {
+  position: fixed; inset: 0; z-index: 100; background: rgba(8,3,0,0.98);
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(20px);
+}
+#setup-overlay.hidden { display: none; }
+.setup-card { width: 320px; display: flex; flex-direction: column; gap: 14px; align-items: center; }
+.setup-logo { color: rgba(255,200,100,0.25); font-size: 10px; letter-spacing: 0.7em; text-transform: uppercase; margin-bottom: 6px; }
+.setup-card h2 { color: rgba(255,220,120,0.6); font-size: 13px; letter-spacing: 0.4em; text-transform: uppercase; font-weight: normal; margin-bottom: 4px; }
+.setup-desc { color: rgba(255,200,100,0.3); font-size: 10px; letter-spacing: 0.2em; text-align: center; line-height: 1.6; }
+.setup-input {
+  width: 100%; background: rgba(255,160,40,0.05); border: 1px solid rgba(255,160,40,0.2);
+  color: rgba(255,220,120,0.8); font-family: 'Georgia', serif; font-size: 12px;
+  padding: 9px 12px; border-radius: 2px; outline: none; letter-spacing: 0.1em;
+}
+.setup-input:focus { border-color: rgba(255,160,40,0.5); }
+.setup-input::placeholder { color: rgba(255,200,100,0.2); }
+.setup-btn {
+  width: 100%; background: rgba(255,160,40,0.1); border: 1px solid rgba(255,160,40,0.3);
+  color: rgba(255,220,120,0.7); padding: 10px; border-radius: 2px; cursor: pointer;
+  font-family: 'Georgia', serif; font-size: 10px; letter-spacing: 0.4em; text-transform: uppercase;
+  transition: all 0.2s;
+}
+.setup-btn:hover { background: rgba(255,160,40,0.2); color: rgba(255,230,140,0.95); }
+.setup-err { color: rgba(220,100,80,0.7); font-size: 10px; letter-spacing: 0.2em; display: none; }
+.setup-err.visible { display: block; }
+.setup-divider { width: 100%; border: none; border-top: 1px solid rgba(255,160,40,0.1); margin: 2px 0; }
+
+/* ── Chat Bubbles ── */
+#chat-bubbles {
+  position: fixed; bottom: 160px; left: 50%; transform: translateX(-50%);
+  width: min(560px, 92vw); max-height: 42vh; overflow: hidden;
+  display: flex; flex-direction: column; gap: 8px; z-index: 8;
+  pointer-events: none;
+  mask-image: linear-gradient(to bottom, transparent 0%, black 22%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 22%, black 100%);
+  transition: opacity 0.35s;
+}
+#chat-bubbles.hidden { opacity: 0; pointer-events: none; }
+.bubble {
+  max-width: 80%; padding: 8px 13px; border-radius: 16px; font-size: 12px;
+  line-height: 1.55; letter-spacing: 0.03em; backdrop-filter: blur(16px);
+  pointer-events: none; word-break: break-word;
+}
+.bubble.user {
+  align-self: flex-end;
+  background: rgba(255,160,40,0.18); border: 1px solid rgba(255,160,40,0.28);
+  color: rgba(255,220,120,0.88); border-bottom-right-radius: 4px;
+}
+.bubble.bot {
+  align-self: flex-start;
+  background: rgba(20,10,0,0.55); border: 1px solid rgba(255,160,40,0.12);
+  color: rgba(255,200,100,0.75); border-bottom-left-radius: 4px;
+}
+#subtitle-toggle { font-size: 9px; }
+
+/* ── Looks bar ── */
+#looks-bar {
+  position: fixed; bottom: 42px; right: 24px; z-index: 20;
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(12,4,0,0.88); border: 1px solid rgba(255,160,40,0.15);
+  border-radius: 20px; padding: 5px 10px 5px 12px;
+  backdrop-filter: blur(10px);
+}
+#looks-name {
+  background: transparent; border: none; outline: none;
+  color: rgba(255,220,120,0.65); font-family: 'Georgia', serif; font-size: 10px;
+  letter-spacing: 0.15em; width: 80px;
+}
+#looks-name::placeholder { color: rgba(255,200,100,0.22); }
+#looks-save-btn {
+  background: rgba(255,160,40,0.08); border: 1px solid rgba(255,160,40,0.2);
+  color: rgba(255,200,100,0.5); font-family: 'Georgia', serif; font-size: 9px;
+  letter-spacing: 0.25em; text-transform: uppercase; padding: 3px 8px;
+  border-radius: 10px; cursor: pointer; transition: all 0.2s;
+}
+#looks-save-btn:hover { background: rgba(255,160,40,0.18); color: rgba(255,220,120,0.9); }
+#looks-select {
+  background: rgba(12,4,0,0.0); border: none; outline: none;
+  color: rgba(255,200,100,0.45); font-family: 'Georgia', serif; font-size: 10px;
+  letter-spacing: 0.12em; cursor: pointer; max-width: 100px;
+  -webkit-appearance: none; padding: 2px 4px;
+}
+#looks-select option { background: #1a0800; color: rgba(255,220,120,0.85); }
+
+/* ── Mobile hamburger menu ── */
+#hamburger {
+  display: none; position: fixed; top: 16px; left: 16px; z-index: 50;
+  background: rgba(20,8,0,0.85); border: 1px solid rgba(255,160,40,0.3);
+  color: rgba(255,200,100,0.75); font-size: 18px; width: 38px; height: 38px;
+  border-radius: 6px; cursor: pointer; backdrop-filter: blur(10px);
+  align-items: center; justify-content: center;
+}
+#mobile-menu {
+  display: none; position: fixed; inset: 0; z-index: 45;
+  background: rgba(8,3,0,0.97); backdrop-filter: blur(20px);
+  flex-direction: column; padding: 64px 24px 140px; gap: 10px; overflow-y: auto;
+}
+#mobile-menu.open { display: flex; }
+#mobile-menu .btn { width: 100%; padding: 14px; font-size: 12px; text-align: center; }
+#mobile-menu-close {
+  position: absolute; top: 16px; right: 20px; background: none; border: none;
+  color: rgba(255,200,100,0.5); font-size: 22px; cursor: pointer;
+}
+
+/* ── Mobile text input bar ── */
+#text-input-bar {
+  display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 25;
+  background: rgba(12,5,0,0.95); border-top: 1px solid rgba(255,160,40,0.15);
+  padding: 10px 12px; gap: 8px; align-items: center; backdrop-filter: blur(12px);
+}
+#text-query {
+  flex: 1; background: rgba(255,160,40,0.06); border: 1px solid rgba(255,160,40,0.22);
+  color: rgba(255,220,120,0.85); font-family: Georgia, serif; font-size: 14px;
+  padding: 10px 14px; border-radius: 20px; outline: none; letter-spacing: 0.04em;
+}
+#text-query::placeholder { color: rgba(255,200,100,0.25); }
+#text-query:focus { border-color: rgba(255,160,40,0.5); }
+#text-send {
+  background: rgba(255,160,40,0.15); border: 1px solid rgba(255,160,40,0.35);
+  color: rgba(255,220,120,0.85); width: 40px; height: 40px; border-radius: 50%;
+  cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ── Responsive ── */
+@media (max-width: 767px) {
+  #side-panel {
+    top: auto; right: 0; left: 0; bottom: -70vh;
+    width: 100vw; height: 70vh;
+    border-left: none; border-top: 1px solid rgba(255,160,40,0.15);
+    transition: bottom 0.32s cubic-bezier(.4,0,.2,1);
   }
-  .dropdown-menu.open { display: block; }
-  .dropdown-menu a {
-    color: rgba(255,200,100,0.55); padding: 6px 15px; text-decoration: none;
-    display: block; font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase;
-    font-family: 'Georgia', serif; transition: background 0.25s, color 0.25s;
-  }
-  .dropdown-menu a:hover { background: rgba(255,160,40,0.12); color: rgba(255,220,120,0.9); }
-  .dropdown-menu a.active { background: rgba(255,160,40,0.18); color: rgba(255,220,120,0.9); }
-
-  #edit-btn { position: fixed; top: 20px; right: 24px; pointer-events: all; }
-
-  /* ─── Color Picker ─── */
-  #color-btn { position: relative; }
-  #color-panel {
-    display: none; position: absolute; bottom: calc(100% + 10px); left: 50%;
-    transform: translateX(-50%); background: rgba(20,8,0,0.96);
-    border: 1px solid rgba(255,160,40,0.3); border-radius: 4px; padding: 10px; width: 220px;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.7);
-  }
-  #color-panel.open { display: block; }
-  #color-swatches { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-  .swatch { width: 22px; height: 22px; border-radius: 3px; cursor: pointer; border: 2px solid transparent; transition: border-color 0.15s, transform 0.15s; flex-shrink: 0; }
-  .swatch:hover, .swatch.active { border-color: rgba(255,230,120,0.9); transform: scale(1.18); }
-  #color-spectrum { width: 100%; height: 16px; border-radius: 3px; cursor: crosshair; background: linear-gradient(to right, #ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000); }
-  #spectrum-label { color: rgba(255,200,100,0.4); font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; margin-top: 5px; text-align: center; }
-  #edit-ui { display: none; position: fixed; inset: 0; pointer-events: none; }
-
-  .e-box { position: absolute; pointer-events: all; cursor: ns-resize; border: 1px dashed rgba(255,180,50,0.55); background: rgba(255,140,20,0.04); min-height: 24px; min-width: 40px; }
-  .e-handle { position: absolute; pointer-events: all; width: 11px; height: 11px; background: rgba(255,180,50,0.88); border: 1px solid rgba(255,230,120,1); transform: translate(-50%, -50%); border-radius: 2px; user-select: none; }
-  .e-handle.round  { border-radius: 50%; width: 13px; height: 13px; }
-  .e-handle.se     { cursor: se-resize; }
-  .e-handle.move   { cursor: move; }
-  .e-handle.ew     { cursor: ew-resize; }
-  .e-handle.ns     { cursor: ns-resize; }
-  .e-label { position: absolute; color: rgba(255,200,100,0.45); font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; pointer-events: none; white-space: nowrap; transform: translate(-50%, 0); }
+  #side-panel.open { bottom: 0; right: 0; }
+  #voice-bar { bottom: 80px; }
+  #controls { bottom: 20px; }
+  .fin-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 767px) {
+  #hamburger { display: flex; }
+  #text-input-bar { display: flex; }
+  #controls { display: none !important; }
+  #edit-btn { display: none; }
+  #looks-bar { display: none; }
+  #voice-bar { bottom: 72px; max-width: 94vw; }
+  #chat-bubbles { bottom: 130px; }
+}
 </style>
 </head>
 <body>
 
-<div id="gw-dot" title="Gateway" onclick="setGatewayUrl()"></div>
-
 <div id="hud">
   <div id="status">Standby</div>
   <div id="name-tag">Botler</div>
+  <a id="tunnel-tag" href="#" target="_blank" title="Remote access URL — click to open in new tab"></a>
 </div>
 
-<div id="transcript-panel"></div>
+<button id="hamburger" onclick="openMobileMenu()">☰</button>
 
-<div id="text-input-wrap">
-  <input id="text-input" type="text" placeholder="Ask Botler…" autocomplete="off" spellcheck="false">
-  <button id="text-send">Send</button>
+<div id="mobile-menu">
+  <button id="mobile-menu-close" onclick="closeMobileMenu()">✕</button>
+  <div style="color:rgba(255,200,100,0.3);font-size:9px;letter-spacing:0.5em;text-transform:uppercase;margin-bottom:6px;">Botler</div>
+  <button class="btn" onclick="closeMobileMenu();openFinance()">Finance</button>
+  <button class="btn" onclick="closeMobileMenu();openHomeschool()">School Board</button>
+  <button class="btn" onclick="closeMobileMenu();openPanel(location.origin+'/agent-system-map.html','System Map')">System Map</button>
+  <button class="btn" onclick="closeMobileMenu();toggleSubtitles()">Toggle Subtitles</button>
+  <button class="btn" onclick="closeMobileMenu();document.getElementById('color-panel').classList.toggle('open')">Color</button>
+  <button class="btn" onclick="closeMobileMenu();resetSession()">Reset Conversation</button>
+  <hr style="border-color:rgba(255,160,40,0.1);margin:6px 0;">
+  <div style="color:rgba(255,200,100,0.25);font-size:9px;letter-spacing:0.3em;text-transform:uppercase;margin-bottom:4px;">Voice</div>
+  <button class="btn" id="mobile-mute-btn" onclick="toggleMuteMobile()">🎤 Microphone</button>
+</div>
+
+<div id="text-input-bar">
+  <input id="text-query" type="text" placeholder='Ask Botler anything…'
+    onkeydown="if(event.key==='Enter')sendTextQuery()"
+    autocomplete="off" autocorrect="off" spellcheck="false">
+  <button id="text-send" onclick="sendTextQuery()">↑</button>
+</div>
+
+<div id="chat-bubbles"></div>
+
+<div id="voice-bar">
+  <button id="mute-btn" title="Mute / unmute">🎤</button>
+  <div id="transcript">Say "Botler…" to wake</div>
+  <button id="tap-talk-btn" title="Tap to activate" onclick="tapToTalk()"
+    style="background:none;border:1px solid rgba(255,160,40,0.2);color:rgba(255,200,100,0.45);font-size:10px;padding:3px 8px;border-radius:10px;cursor:pointer;flex-shrink:0;letter-spacing:0.15em;">
+    TAP
+  </button>
+  <div id="wake-dot"></div>
 </div>
 
 <div id="controls">
-  <div class="dropdown">
-    <button class="btn" onclick="toggleDropdown(event, 'voice-dropdown')">Voice</button>
-    <div class="dropdown-menu" id="voice-dropdown">
-      <a href="#" data-state="idle"      onclick="setState('idle'); return false;">Idle</a>
-      <a href="#" data-state="listening" onclick="setState('listening'); return false;">Listen</a>
-      <a href="#" data-state="thinking"  onclick="setState('thinking'); return false;">Think</a>
-      <a href="#" data-state="speaking"  onclick="setState('speaking'); return false;">Speak</a>
-      <a href="#" data-state="pleased"   onclick="setState('pleased'); return false;">Pleased</a>
-      <a href="#" onclick="setGatewayUrl(); return false;">Set Gateway…</a>
-    </div>
-  </div>
-
-  <div class="dropdown">
-    <button class="btn" onclick="toggleDropdown(event, 'looks-dropdown')">Looks</button>
-    <div class="dropdown-menu" id="looks-dropdown">
-      <a href="#" onclick="loadLook(); return false;">Load Look</a>
-      <a href="#" onclick="saveLook(); return false;">Save Look</a>
-      <a href="#" onclick="toggleColorPanel(event); return false;" id="color-picker-link">Color</a>
-    </div>
-  </div>
-
-  <button class="btn" onclick="askBotler('greet the kids')">Greet Kids</button>
-  <button class="btn" onclick="openToolPanel()">Tools</button>
-
-  <div class="dropdown" id="color-btn">
+  <button class="btn" data-state="idle">Idle</button>
+  <button class="btn" data-state="listening">Listen</button>
+  <button class="btn" data-state="thinking">Think</button>
+  <button class="btn" data-state="speaking">Speak</button>
+  <button class="btn" data-state="pleased">Pleased</button>
+  <div id="color-btn" class="btn" style="cursor:pointer;user-select:none;" onclick="toggleColorPanel(event)">
+    🎨 Color
     <div id="color-panel">
       <div id="color-swatches"></div>
       <canvas id="color-spectrum" width="200" height="16"></canvas>
       <div id="spectrum-label">drag for any hue</div>
     </div>
   </div>
+  <button class="btn" onclick="openFinance()">Finance</button>
+  <button class="btn" onclick="openPanel(location.origin+'/agent-system-map.html','System Map')">System Map</button>
+  <button id="subtitle-toggle" class="btn" onclick="toggleSubtitles()">Subtitles On</button>
 </div>
+<!-- Save / Load Looks bar (bottom-right, always visible on desktop) -->
+<div id="looks-bar">
+  <input id="looks-name" type="text" placeholder="look name…" autocomplete="off" spellcheck="false"
+    onkeydown="if(event.key==='Enter'){ uiSaveLook(); event.preventDefault(); }">
+  <button id="looks-save-btn" onclick="uiSaveLook()">Save</button>
+  <select id="looks-select" onchange="uiLoadLook(this.value); this.value='';">
+    <option value="">— load —</option>
+  </select>
+</div>
+
 <button id="edit-btn" class="btn" onclick="toggleEdit()">Edit</button>
 
-<!-- Tool panel -->
-<div id="tool-panel">
-  <button id="tool-panel-close" onclick="closeToolPanel()">✕</button>
-  <div id="tool-panel-title">Botler Tools</div>
-  <div id="tool-panel-body"></div>
+<div id="edit-ui">
+  <div id="mst-box"    class="e-box"></div>
+  <div id="mst-corner" class="e-handle se"   title="resize mustache width"></div>
+  <div id="mst-height" class="e-handle ns"   title="resize mustache height"></div>
+  <div id="eye-pos"    class="e-handle round move" title="move eyes"></div>
+  <div id="eye-sz"     class="e-handle ew"   title="eye size"></div>
+  <div id="mono-sz"    class="e-handle ns"   title="monocle size"></div>
+  <div id="lbl-mst"    class="e-label">mustache</div>
+  <div id="lbl-mh"     class="e-label">height</div>
+  <div id="lbl-eye"    class="e-label">eyes</div>
+  <div id="lbl-esz"    class="e-label">size</div>
+  <div id="lbl-mono"   class="e-label" style="transform:none;">monocle ⌀</div>
 </div>
 
-<div id="edit-ui">
-  <div  id="mst-box"    class="e-box"></div>
-  <div  id="mst-corner" class="e-handle se"   title="resize mustache width"></div>
-  <div  id="mst-height" class="e-handle ns"   title="resize mustache height"></div>
-  <div  id="eye-pos"    class="e-handle round move" title="move eyes"></div>
-  <div  id="eye-sz"     class="e-handle ew"   title="eye size"></div>
-  <div  id="mono-sz"    class="e-handle ns"   title="monocle size"></div>
-  <div  id="lbl-mst"    class="e-label">mustache</div>
-  <div  id="lbl-mh"     class="e-label">height</div>
-  <div  id="lbl-eye"    class="e-label">eyes</div>
-  <div  id="lbl-esz"    class="e-label">size</div>
-  <div  id="lbl-mono"   class="e-label" style="transform:none;">monocle</div>
+<!-- Side panel: browser + components -->
+<div id="side-panel">
+  <div id="panel-header">
+    <span id="panel-title">Browser</span>
+    <button id="panel-close" onclick="closePanel()">✕</button>
+  </div>
+  <div id="browser-bar"></div>
+  <div id="panel-body">
+    <iframe id="browser-frame" sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-top-navigation"></iframe>
+    <div id="browser-err">
+      <div>This page cannot be shown in the panel.</div>
+      <button id="browser-newtab" class="btn" onclick="openErrTab()">Open in New Tab</button>
+    </div>
+    <div id="component-panel"></div>
+  </div>
+</div>
+
+<!-- Finance panel -->
+<div id="finance-panel">
+  <button id="finance-close" onclick="closeFinance()">✕</button>
+  <div id="finance-auth">
+    <div class="fin-title">Finance Dashboard</div>
+    <div class="setup-desc">Enter your finance passphrase to continue.</div>
+    <input class="setup-input" id="fin-pass" type="password" placeholder="Passphrase" onkeydown="if(event.key==='Enter')checkFinanceAuth()">
+    <button class="setup-btn" onclick="checkFinanceAuth()">Unlock</button>
+    <div class="setup-err" id="fin-err">Incorrect passphrase.</div>
+  </div>
+  <div id="finance-content">
+    <div class="fin-title">Household Overview</div>
+    <div class="fin-grid" id="fin-grid"></div>
+    <div class="fin-note">Live bank + Coinbase integration coming in Milestone 2. Connect via /setup.</div>
+  </div>
+</div>
+
+<!-- First-run setup -->
+<div id="setup-overlay">
+  <div class="setup-card">
+    <div class="setup-logo">Botler</div>
+    <h2>Connect to Gateway</h2>
+    <div class="setup-desc">Connect Botler to your local OpenClaw gateway.</div>
+    <hr class="setup-divider">
+    <input class="setup-input" id="setup-url" type="text" placeholder="Gateway URL (ws://localhost:18789)" autocomplete="off">
+    <input class="setup-input" id="setup-token" type="password" placeholder="Gateway token" autocomplete="off">
+    <input class="setup-input" id="setup-pass" type="password" placeholder="Finance passphrase (optional)" autocomplete="off">
+    <div class="setup-err" id="setup-err">Could not connect. Check URL and token.</div>
+    <button class="setup-btn" onclick="completeSetup()">Activate Botler</button>
+  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-// ─── Constants ────────────────────────────────────────────────────────────────
-function resolveGatewayUrl() {
-  // Priority: ?gw=... query param (persists), then localStorage, then host-aware default.
-  try {
-    const qs = new URLSearchParams(location.search);
-    const fromQuery = qs.get('gw');
-    if (fromQuery) {
-      localStorage.setItem('botler:gw:url', fromQuery);
-      return fromQuery;
-    }
-  } catch {}
-  const saved = localStorage.getItem('botler:gw:url');
-  if (saved) return saved;
-  // Netlify/remote host → fall back to loopback (user must override via UI or ?gw=).
-  // Local host → same host on :18789.
-  const h = location.hostname;
-  if (!h || h === 'localhost' || h === '127.0.0.1' || /^\d+\.\d+\.\d+\.\d+$/.test(h)) {
-    return `ws://${h || 'localhost'}:18789`;
-  }
-  return 'ws://localhost:18789';
-}
-const GW_URL     = resolveGatewayUrl();
-const SESSION_KEY = 'agent:botler:main';
-const FINANCE_PASSPHRASE = localStorage.getItem('botler:finance:pass') || null;
-
-// ─── Gateway Client ───────────────────────────────────────────────────────────
-class GatewayClient {
-  constructor(url) {
-    this._url      = url;
-    this._ws       = null;
-    this._pending  = new Map();  // reqId → { resolve, reject }
-    this._handlers = {};
-    this._seq      = 1;
-    this._ready    = false;
-    this._retryT   = null;
-  }
-
-  on(event, fn) { this._handlers[event] = fn; return this; }
-
-  connect() {
-    setDot('connecting');
-    this._ws = new WebSocket(this._url);
-
-    this._ws.onopen = () => {
-      // wait for challenge
-    };
-
-    this._ws.onmessage = (ev) => {
-      let f;
-      try { f = JSON.parse(ev.data); } catch { return; }
-
-      // Challenge/response handshake
-      if (f.event === 'connect.challenge') {
-        this._ws.send(JSON.stringify({ event: 'connect', payload: { challenge: f.payload?.challenge || '' } }));
-        return;
-      }
-      if (f.event === 'connect.ack') {
-        this._ready = true;
-        setDot('connected');
-        this._handlers['connect']?.();
-        return;
-      }
-
-      // Resolve pending request
-      if (f.reqId && this._pending.has(f.reqId)) {
-        const { resolve, reject } = this._pending.get(f.reqId);
-        this._pending.delete(f.reqId);
-        if (f.error) reject(new Error(f.error.message || JSON.stringify(f.error)));
-        else resolve(f.payload);
-        return;
-      }
-
-      // Streaming events
-      if (f.event) {
-        this._handlers['event']?.(f);
-      }
-    };
-
-    this._ws.onerror = () => {};
-
-    this._ws.onclose = () => {
-      this._ready = false;
-      setDot('disconnected');
-      this._handlers['disconnect']?.();
-      clearTimeout(this._retryT);
-      this._retryT = setTimeout(() => this.connect(), 4000);
-    };
-  }
-
-  request(action, payload = {}) {
-    return new Promise((resolve, reject) => {
-      if (!this._ready) { reject(new Error('not connected')); return; }
-      const reqId = String(this._seq++);
-      this._pending.set(reqId, { resolve, reject });
-      this._ws.send(JSON.stringify({ event: action, payload, reqId }));
-      // timeout after 30s
-      setTimeout(() => {
-        if (this._pending.has(reqId)) {
-          this._pending.delete(reqId);
-          reject(new Error('timeout'));
-        }
-      }, 30000);
-    });
-  }
-}
-
-// ─── Gateway dot ─────────────────────────────────────────────────────────────
-const gwDot = document.getElementById('gw-dot');
-gwDot.title = `Gateway: ${GW_URL} (click to change)`;
-gwDot.style.cursor = 'pointer';
-function setDot(s) {
-  gwDot.className = '';
-  if (s === 'connected')   gwDot.classList.add('connected');
-  if (s === 'connecting')  gwDot.classList.add('connecting');
-}
-
-// ─── Gateway URL override (used by Voice > Set Gateway…) ─────────────────────
-window.setGatewayUrl = function () {
-  const current = localStorage.getItem('botler:gw:url') || GW_URL;
-  const next = prompt(
-    'Gateway WebSocket URL\n(e.g. ws://192.168.x.y:18789 or ws://localhost:18789).\nLeave blank to clear.',
-    current
-  );
-  if (next === null) return;
-  if (!next.trim()) {
-    localStorage.removeItem('botler:gw:url');
-  } else {
-    localStorage.setItem('botler:gw:url', next.trim());
-  }
-  location.reload();
-};
-
-// ─── Gateway instance ─────────────────────────────────────────────────────────
-const gw = new GatewayClient(GW_URL);
-let streamBuf = '';
-let streamFinal = false;
-
-gw.on('connect', () => {
-  setTranscript('Ready.', true);
-  setState('idle');
-});
-gw.on('disconnect', () => {
-  setTranscript('Reconnecting…', false, 'tool');
-});
-gw.on('event', (f) => {
-  if (f.event === 'chat')  _onChatEvent(f.payload);
-  if (f.event === 'agent') _onAgentEvent(f.payload);
-});
-gw.connect();
-
-// ─── CMD tag parser ───────────────────────────────────────────────────────────
-function parseCmds(text) {
-  const cmds = [];
-  const clean = text.replace(/<cmd>([\s\S]*?)<\/cmd>/gi, (_, json) => {
-    try { cmds.push(JSON.parse(json)); } catch(e) {}
-    return '';
-  });
-  return { clean: clean.trim(), cmds };
-}
-
-// ─── Chat event handler ───────────────────────────────────────────────────────
-let sentenceBuf = '';
-
-function _resetStream() {
-  streamBuf = '';
-  streamFinal = false;
-  sentenceBuf = '';
-}
-
-// Flush complete sentences from sentenceBuf to TTS queue as they accumulate.
-function _flushSentences(incoming, forceAll) {
-  sentenceBuf += incoming;
-  const re = /[^.!?]*[.!?]+["'\u201d]?\s*/g;
-  let last = 0, m;
-  while ((m = re.exec(sentenceBuf)) !== null) {
-    const s = m[0].trim();
-    if (s.length > 3) enqueueTTS(s);
-    last = m.index + m[0].length;
-  }
-  sentenceBuf = sentenceBuf.slice(last);
-  if (forceAll && sentenceBuf.trim().length > 2) {
-    enqueueTTS(sentenceBuf.trim());
-    sentenceBuf = '';
-  }
-}
-
-function _onChatEvent(p) {
-  if (!p) return;
-  const st = p.state;
-
-  if (st === 'delta') {
-    const { clean, cmds } = parseCmds(p.delta || '');
-    streamBuf += clean;
-    setTranscript(streamBuf, false);
-    if (state === 'thinking') setState('thinking'); // stay thinking until first sentence queued
-    cmds.forEach(executeTool);
-    _flushSentences(clean, false);
-  }
-  else if (st === 'final') {
-    const { clean, cmds } = parseCmds(p.text || streamBuf);
-    streamBuf = '';
-    setTranscript(clean, true);
-    cmds.forEach(executeTool);
-    _flushSentences('', true); // flush any leftover partial sentence
-  }
-  else if (st === 'error' || st === 'aborted') {
-    _resetStream();
-    stopTTS();
-    setTranscript('Something went wrong. Try again.', true);
-    setState('idle');
-  }
-}
-
-// ─── Agent (tool) event handler ───────────────────────────────────────────────
-function _onAgentEvent(p) {
-  if (!p || p.stream !== 'tool') return;
-  const phase = p.data?.phase;
-  const toolName = p.data?.name ?? 'tool';
-  if (phase === 'start') {
-    setState('thinking');
-    setTranscript(`Using: ${toolName}`, false, 'tool');
-  } else if (phase === 'result') {
-    if (state === 'thinking') setTranscript('Composing…', false, 'tool');
-  }
-}
-
-// ─── Transcript display ───────────────────────────────────────────────────────
-let transcriptTimer = null;
-const transcriptEl = document.getElementById('transcript-panel');
-
-function setTranscript(text, fade, type) {
-  clearTimeout(transcriptTimer);
-  transcriptEl.className = type === 'tool' ? 'tool-msg' : '';
-  transcriptEl.textContent = text;
-  transcriptEl.style.opacity = '1';
-  if (fade && text) {
-    transcriptTimer = setTimeout(() => {
-      transcriptEl.style.opacity = '0';
-      setTimeout(() => { transcriptEl.textContent = ''; }, 600);
-    }, 6000);
-  }
-}
-
-// ─── Send query to Botler ─────────────────────────────────────────────────────
-async function askBotler(query, model = '') {
-  if (!query || !query.trim()) return;
-  _resetStream();
-  setState('thinking');
-  setTranscript(query, false, 'tool');
-  try {
-    const payload = {
-      sessionKey: SESSION_KEY,
-      agentId: 'botler',
-      message: query,
-      idempotencyKey: crypto.randomUUID(),
-    };
-    if (model) payload.model = model; // Add model override if provided
-    await gw.request('chat.send', payload);
-  } catch (err) {
-    setTranscript('Gateway unavailable. Is the OpenClaw app running?', true);
-    setState('idle');
-  }
-}
-
-// ─── Text input ───────────────────────────────────────────────────────────────
-const textInput = document.getElementById('text-input');
-document.getElementById('text-send').addEventListener('click', () => {
-  const q = textInput.value.trim();
-  if (q) { textInput.value = ''; askBotler(q); }
-});
-textInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    const q = textInput.value.trim();
-    if (q) { textInput.value = ''; askBotler(q); }
-  }
-});
-
-// ─── TTS system: bridge (macOS say) → speechSynthesis fallback ───────────────
-const BRIDGE = 'http://localhost:8780';
-let ttsUtter   = null;
-let ttsQueue   = [];
-let ttsSpeaking = false;
-
-function pauseSTT() {
-  if (recognition) { try { recognition.abort(); } catch {} }
-}
-function resumeSTT() {
-  if (sttActive) { try { recognition && recognition.start(); } catch {} }
-}
-
-async function _tryBridgeTTS(text) {
-  try {
-    const r = await fetch(`${BRIDGE}/api/speak`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, voice: 'Daniel' }),
-      signal: AbortSignal.timeout(4000),
-    });
-    if (!r.ok) return false;
-    const d = await r.json();
-    if (d.audio?.mode === 'file' && d.audio?.url) {
-      return await new Promise((res) => {
-        const a = new Audio(BRIDGE + d.audio.url);
-        a.onended = () => res(true);
-        a.onerror = () => res(false);
-        a.play().catch(() => res(false));
-      });
-    }
-  } catch { /* bridge not running */ }
-  return false;
-}
-
-function _browserTTS(text) {
-  return new Promise((res) => {
-    if (!window.speechSynthesis) { res(); return; }
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.rate = 0.92; u.pitch = 0.88; u.volume = 1;
-    ttsUtter = u;
-    u.onboundary = (ev) => { if (ev.name === 'word') speakPhase += 0.35; };
-    u.onend = u.onerror = () => { ttsUtter = null; res(); };
-    window.speechSynthesis.speak(u);
-  });
-}
-
-async function _drainTTS() {
-  if (ttsSpeaking) return;
-  ttsSpeaking = true;
-  // Don't abort recognition — the `if (ttsSpeaking) return` guard in onresult
-  // already suppresses echo. Aborting breaks the restart loop.
-  while (ttsQueue.length) {
-    const chunk = ttsQueue.shift();
-    setState('speaking');
-    const ok = await _tryBridgeTTS(chunk);
-    if (!ok) await _browserTTS(chunk);
-  }
-  ttsSpeaking = false;
-  setState('idle');
-}
-
-function enqueueTTS(text) {
-  if (!text || !text.trim()) return;
-  ttsQueue.push(text.trim());
-  _drainTTS();
-}
-
-function speakText(text) {
-  // Used by legacy callers — queue the whole thing.
-  if (!text || !text.trim()) return;
-  ttsQueue.push(text.trim());
-  _drainTTS();
-}
-
-function stopTTS() {
-  ttsQueue = [];
-  ttsSpeaking = false;
-  if (window.speechSynthesis) window.speechSynthesis.cancel();
-  ttsUtter = null;
-}
-
-// ─── STT wake word ────────────────────────────────────────────────────────────
-function handleVoiceCommand(query) {
-  const lowerQuery = query.toLowerCase();
-  if (lowerQuery.includes("open homeschool board") || lowerQuery.includes("open the homeschool board")) {
-    executeTool({action: "homeschool", title: "Homeschool Board"});
-    return "Homeschool board opened.";
-  } else if (lowerQuery.includes("open finances")) {
-    const match = lowerQuery.match(/pin\s*(\d{4})/);
-    if (match && match[1]) {
-        // Store pin to localStorage for promptless access
-        localStorage.setItem('botler:finance:pass', match[1]);
-        executeTool({action: "finance", title: "Finance Dashboard"});
-        return "Finance dashboard opened and pin automatically set.";
-    } else {
-        executeTool({action: "finance", title: "Finance Dashboard"});
-        return "Finance dashboard opened.";
-    }
-  } else if (lowerQuery.includes("change the color to")) {
-    const colorMatch = lowerQuery.match(/change the color to\s*(\w+)/);
-    if (colorMatch && colorMatch[1]) {
-        let hex = '#ff8800'; // Default to orange
-        switch(colorMatch[1]) {
-            case 'blue': hex = '#0000ff'; break;
-            case 'green': hex = '#00ff00'; break;
-            case 'orange': hex = '#ff8800'; break;
-            case 'red': hex = '#ff0000'; break;
-            case 'purple': hex = '#800080'; break;
-            case 'white': hex = '#ffffff'; break;
-            case 'black': hex = '#000000'; break;
-        }
-        executeTool({action: "change_color", hex: hex});
-        return `Color changed to ${colorMatch[1]}.`;
-    }
-  }
-  return null; // Not a direct voice command
-}
-
-// ─── Wake chime ───────────────────────────────────────────────────────────────
-function playWakeChime() {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.connect(g); g.connect(ctx.destination);
-    o.type = 'sine';
-    o.frequency.setValueAtTime(880, ctx.currentTime);
-    o.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.1);
-    g.gain.setValueAtTime(0.15, ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
-    o.start(); o.stop(ctx.currentTime + 0.22);
-  } catch {}
-}
-
-// ─── STT ──────────────────────────────────────────────────────────────────────
-let sttActive = false;
-let recognition = null;
-const WAKE_WORDS = ['botler', 'hey botler', 'butler'];
-const VOICE_MODEL = 'anthropic/claude-haiku-4-5';
-
-function startSTT() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) {
-    console.warn('SpeechRecognition not available in this browser.');
-    return;
-  }
-
-  let woke = false;
-  let wakeTimer = null;
-
-  function makeRecognition() {
-    const r = new SR();
-    r.continuous = true;
-    r.interimResults = true;
-    r.lang = 'en-US';
-
-    r.onresult = (ev) => {
-      // Don't process STT while Botler is speaking (echo prevention)
-      if (ttsSpeaking) return;
-
-      let interim = '', final = '';
-      for (let i = ev.resultIndex; i < ev.results.length; i++) {
-        const t = ev.results[i][0].transcript;
-        if (ev.results[i].isFinal) final += t + ' ';
-        else interim += t + ' ';
-      }
-      const combined = (interim + final).toLowerCase();
-
-      if (!woke) {
-        if (WAKE_WORDS.some(w => combined.includes(w))) {
-          woke = true;
-          stopTTS(); // interrupt Botler if he's mid-sentence
-          setState('listening');
-          playWakeChime();
-          setTranscript('Listening…', false, 'tool');
-          clearTimeout(wakeTimer);
-          wakeTimer = setTimeout(() => {
-            woke = false;
-            if (state === 'listening') setState('idle');
-            setTranscript('', false);
-          }, 12000);
-        }
-        return;
-      }
-
-      // Show live interim transcript while user is speaking
-      if (interim.trim()) {
-        setTranscript(interim.trim(), false, 'tool');
-      }
-
-      if (final.trim()) {
-        let query = final.trim();
-        // Strip wake words from start of utterance
-        WAKE_WORDS.forEach(w => {
-          query = query.replace(new RegExp('^' + w + '[,\\s]*', 'i'), '').trim();
-        });
-        if (query.length > 2) {
-          woke = false;
-          clearTimeout(wakeTimer);
-          const localResponse = handleVoiceCommand(query);
-          if (localResponse) {
-            enqueueTTS(localResponse);
-          } else {
-            askBotler(query, VOICE_MODEL);
-          }
-        }
-      }
-    };
-
-    r.onerror = (e) => {
-      if (e.error === 'not-allowed') {
-        setTranscript('Microphone access denied.', true, 'tool');
-        sttActive = false;
-      }
-    };
-
-    r.onend = () => {
-      // Always restart while sttActive — onresult already ignores results
-      // during TTS via the ttsSpeaking guard.
-      if (sttActive) {
-        setTimeout(() => { try { recognition.start(); } catch {} }, 300);
-      }
-    };
-
-    return r;
-  }
-
-  recognition = makeRecognition();
-  recognition.start();
-  sttActive = true;
-}
-
-// Push-to-talk: click the face canvas to activate listening immediately
-function pushToTalk() {
-  if (!sttActive) { startSTT(); return; }
-  if (ttsSpeaking) { stopTTS(); resumeSTT(); }
-  // Treat as wake — skip wake word requirement for this turn
-  if (recognition) {
-    try { recognition.abort(); } catch {}
-  }
-  recognition = (function() {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) return null;
-    const r = new SR();
-    r.continuous = false; r.interimResults = true; r.lang = 'en-US';
-    r.onresult = (ev) => {
-      if (ttsSpeaking) return;
-      let final = '';
-      for (let i = ev.resultIndex; i < ev.results.length; i++) {
-        if (ev.results[i].isFinal) final += ev.results[i][0].transcript + ' ';
-        else setTranscript(ev.results[i][0].transcript, false, 'tool');
-      }
-      if (final.trim()) {
-        setTranscript(final.trim(), false, 'tool');
-        const local = handleVoiceCommand(final.trim());
-        if (local) enqueueTTS(local);
-        else askBotler(final.trim(), VOICE_MODEL);
-      }
-    };
-    r.onerror = () => {};
-    r.onend = () => {
-      // hand back to the persistent wake-word listener
-      sttActive = false;
-      startSTT();
-    };
-    return r;
-  })();
-  if (!recognition) return;
-  setState('listening');
-  playWakeChime();
-  setTranscript('Listening…', false, 'tool');
-  recognition.start();
-}
-
-// First click starts persistent STT (mic permission); also wires face tap
-let sttStarted = false;
-function ensureSTT() {
-  if (!sttStarted) { sttStarted = true; startSTT(); }
-}
-document.addEventListener('click', ensureSTT, { once: true });
-document.addEventListener('touchstart', ensureSTT, { once: true });
-// Tap the Three.js canvas (face) to push-to-talk
-document.addEventListener('click', (e) => {
-  if (e.target === renderer?.domElement) pushToTalk();
-});
-
-// ─── executeTool (client-side cmd dispatch) ───────────────────────────────────
-function executeTool(cmd) {
-  if (!cmd || !cmd.action) return;
-  switch (cmd.action) {
-    case 'render_component': renderComponent(cmd); break;
-    case 'shopping_list':    renderShoppingList(cmd); break;
-    case 'browser':          openBrowser(cmd); break;
-    case 'finance':          openFinance(cmd); break;
-    case 'homeschool':       openHomeschool(cmd); break; // New: Open Homeschool tab
-    case 'close_panel':      closeToolPanel(); break;
-    default: console.log('Unknown cmd action:', cmd.action, cmd);
-  }
-}
-
-function renderComponent(cmd) {
-  const panel = document.getElementById('tool-panel');
-  const title = document.getElementById('tool-panel-title');
-  const body  = document.getElementById('tool-panel-body');
-  title.textContent = cmd.title || 'Botler';
-  body.innerHTML = cmd.html || escHtml(cmd.text || JSON.stringify(cmd));
-  panel.classList.add('open');
-}
-
-function renderShoppingList(cmd) {
-  const items = cmd.items || [];
-  const html = items.map(item =>
-    `<div class="tool-list-item">
-      <span class="tool-item-check">${item.checked ? '✓' : '○'}</span>
-      <span class="tool-item-text">${escHtml(item.label || item)}</span>
-    </div>`
-  ).join('');
-  renderComponent({ title: cmd.title || 'Shopping List', html });
-}
-
-function openBrowser(cmd) {
-  if (cmd.url) window.open(cmd.url, '_blank', 'noopener');
-}
-
-function openFinance(cmd) {
-  const stored = localStorage.getItem('botler:finance:pass');
-  let pinToUse = cmd.pin || stored;
-  if (!pinToUse) {
-    const pass = prompt('Finance panel passphrase:');
-    if (!pass) return;
-    pinToUse = pass;
-  }
-  localStorage.setItem('botler:finance:pass', pinToUse);
-  renderComponent({
-    title: cmd.title || 'Finance',
-    html: `<iframe src="./finance/index.html" style="width:100%; height:100%; border:none;"></iframe>`,
-  });
-}
-
-function openToolPanel() {
-  const body = document.getElementById('tool-panel-body');
-  document.getElementById('tool-panel-title').textContent = 'Available Tools';
-  body.innerHTML = `
-    <div class="tool-list-item"><span class="tool-item-check">⬡</span><span class="tool-item-text">render_component — display rich UI cards</span></div>
-    <div class="tool-list-item"><span class="tool-item-check">⬡</span><span class="tool-item-text">shopping_list — checklist panels</span></div>
-    <div class="tool-list-item"><span class="tool-item-check">⬡</span><span class="tool-item-text">browser — open URLs</span></div>
-    <div class="tool-list-item"><span class="tool-item-check finance-locked">⬡</span><span class="tool-item-text">finance — passphrase protected</span></div>
-    <div class="tool-list-item"><span class="tool-item-check">⬡</span><span class="tool-item-text">homeschool — open homeschool board</span></div>
-    <div class="tool-list-item"><span class="tool-item-check">⬡</span><span class="tool-item-text">change_color — change Botler background color</span></div>
-  `;
-  document.getElementById('tool-panel').classList.add('open');
-}
-
-function applyColor(hex) {
-  if (window.bgMat && window.THREE) {
-    const c = new window.THREE.Color(hex);
-    window.bgMat.uniforms.tint.value.set(c);
-    setTranscript(`Background color changed to ${hex}.`, true, 'tool');
-  } else {
-    setTranscript('Could not change color. Background material not ready.', true, 'tool');
-  }
-}
-
-function closeToolPanel() {
-  document.getElementById('tool-panel').classList.remove('open');
-}
-
-function escHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-// ─── Dropdown helpers ─────────────────────────────────────────────────────────
-let activeDropdownId = null;
-
-function toggleDropdown(event, id) {
-  event.stopPropagation();
-  const dropdownMenu = document.getElementById(id);
-  if (activeDropdownId && activeDropdownId !== id) {
-    document.getElementById(activeDropdownId).classList.remove('open');
-  }
-  dropdownMenu.classList.toggle('open');
-  activeDropdownId = dropdownMenu.classList.contains('open') ? id : null;
-  if (id !== 'looks-dropdown' && colorPanelOpen) {
-    colorPanelOpen = false;
-    document.getElementById('color-panel').classList.remove('open');
-  }
-}
-
-function applyLook(loadedEdit) {
-  Object.assign(edit, loadedEdit);
-  buildMustache();
-  buildMouth(SMILES[state], OPEN[state]);
-  updateEditUI();
-}
-
-function saveLook() {
-  localStorage.setItem('botlerLook', JSON.stringify(edit));
-  setTranscript('Look saved.', true, 'tool');
-}
-
-function loadLook() {
-  const savedLook = localStorage.getItem('botlerLook');
-  if (savedLook) { applyLook(JSON.parse(savedLook)); setTranscript('Look loaded.', true, 'tool'); }
-  else setTranscript('No saved look.', true, 'tool');
-}
-
 // ─── Renderer ────────────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -943,18 +526,13 @@ const HW      = () => 0.15 * aspect;
 const LIP_TH  = () => S() * 0.013;
 
 // ─── Edit state ───────────────────────────────────────────────────────────────
-const edit = {
-  mustacheY:  0, mustacheSX: 1, mustacheSY: 1,
-  eyeY:       0, eyeSepOff:  0, eyeSize:    1, monoSize:   1,
-};
+const edit = { mustacheY:0, mustacheSX:1, mustacheSY:1, eyeY:0, eyeSepOff:0, eyeSize:1, monoSize:1 };
 let editMode = false;
 let drag     = null;
 
+// ─── Coord helpers ────────────────────────────────────────────────────────────
 function toScreen(sx, sy) {
-  return {
-    x: (sx / aspect + 1) / 2 * innerWidth,
-    y: (-sy + 1) / 2 * innerHeight
-  };
+  return { x: (sx / aspect + 1) / 2 * innerWidth, y: (-sy + 1) / 2 * innerHeight };
 }
 
 // ─── Chain physics ────────────────────────────────────────────────────────────
@@ -963,476 +541,1451 @@ const chainPts    = Array.from({length:CHAIN_LINKS}, () => ({x:0,y:0,vx:0,vy:0})
 let   chainMeshes = [];
 
 function initChainPositions() {
-  const R  = EYE_R();
-  const ld = R * 0.38;
-  chainPts.forEach((p, i) => {
-    p.x = 0; p.y = -(R * 1.35 + i * ld); p.vx = 0; p.vy = 0;
-  });
+  const R  = EYE_R(), ld = R * 0.38;
+  chainPts.forEach((p, i) => { p.x=0; p.y=-(R*1.35+i*ld); p.vx=0; p.vy=0; });
 }
 
 function stepChain(eyeWX, eyeWY, effectiveMonoScale) {
-  const R  = EYE_R();
-  const ld = R * 0.38;
-  const anchorX = eyeWX;
-  const anchorY = eyeWY - R * 1.35 * effectiveMonoScale;
-  chainPts.forEach((p, i) => {
-    const prevX = i === 0 ? anchorX : chainPts[i-1].x;
-    const prevY = i === 0 ? anchorY : chainPts[i-1].y;
-    const dx = p.x - prevX, dy = p.y - prevY;
-    const dist = Math.sqrt(dx*dx + dy*dy) || 0.0001;
-    const stretch = dist - ld;
-    p.vx -= (dx/dist) * stretch * 0.32;
-    p.vy -= (dy/dist) * stretch * 0.32;
-    p.vy -= 0.007;
-    p.vx *= 0.80; p.vy *= 0.80;
-    p.x  += p.vx; p.y  += p.vy;
+  const R=EYE_R(), ld=R*0.38;
+  const anchorX=eyeWX, anchorY=eyeWY-R*1.35*effectiveMonoScale;
+  chainPts.forEach((p,i)=>{
+    const prevX=i===0?anchorX:chainPts[i-1].x;
+    const prevY=i===0?anchorY:chainPts[i-1].y;
+    const dx=p.x-prevX,dy=p.y-prevY;
+    const dist=Math.sqrt(dx*dx+dy*dy)||0.0001;
+    const stretch=dist-ld;
+    p.vx-=(dx/dist)*stretch*0.32; p.vy-=(dy/dist)*stretch*0.32;
+    p.vy-=0.007; p.vx*=0.80; p.vy*=0.80; p.x+=p.vx; p.y+=p.vy;
   });
-  chainMeshes.forEach((m, i) => {
-    m.position.x = chainPts[i].x;
-    m.position.y = chainPts[i].y;
-  });
+  chainMeshes.forEach((m,i)=>{m.position.x=chainPts[i].x;m.position.y=chainPts[i].y;});
 }
 
 // ─── Eyes ────────────────────────────────────────────────────────────────────
 function makeEye(xSign, withMonocle) {
-  const g = new THREE.Group();
-  scene.add(g);
-  const R = EYE_R();
-
-  const dot = new THREE.Mesh(
-    new THREE.CircleGeometry(R, 48),
-    new THREE.MeshBasicMaterial({ color: 0x080200 })
-  );
-  dot.position.z = 0.001;
-  g.add(dot);
-
-  const glint = new THREE.Mesh(
-    new THREE.CircleGeometry(R * 0.32, 16),
-    new THREE.MeshBasicMaterial({ color: 0xffffff })
-  );
-  glint.position.set(-R * 0.36, R * 0.40, 0.003);
-  dot.add(glint);
-
-  let monoGroup = null;
-  if (withMonocle) {
-    monoGroup = new THREE.Group();
-    g.add(monoGroup);
-
-    const ring = new THREE.Mesh(
-      new THREE.RingGeometry(R * 1.12, R * 1.35, 56),
-      new THREE.MeshBasicMaterial({ color: 0xd4a030, side: THREE.DoubleSide })
-    );
-    ring.position.z = 0.003;
-    monoGroup.add(ring);
-
-    const tlG = new THREE.Mesh(
-      new THREE.RingGeometry(R*1.10, R*1.37, 20, 1, 1.92, 1.05),
-      new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0.55, side:THREE.DoubleSide })
-    );
-    tlG.position.z = 0.005;
-    monoGroup.add(tlG);
-
-    const brG = new THREE.Mesh(
-      new THREE.RingGeometry(R*1.10, R*1.37, 20, 1, 4.90, 0.85),
-      new THREE.MeshBasicMaterial({ color:0xffffff, transparent:true, opacity:0.25, side:THREE.DoubleSide })
-    );
-    brG.position.z = 0.005;
-    monoGroup.add(brG);
-
+  const g=new THREE.Group(); scene.add(g);
+  const R=EYE_R();
+  const dot=new THREE.Mesh(new THREE.CircleGeometry(R,48),new THREE.MeshBasicMaterial({color:0x080200}));
+  dot.position.z=0.001; g.add(dot);
+  const glint=new THREE.Mesh(new THREE.CircleGeometry(R*0.32,16),new THREE.MeshBasicMaterial({color:0xffffff}));
+  glint.position.set(-R*0.36,R*0.40,0.003); dot.add(glint);
+  let monoGroup=null;
+  if(withMonocle){
+    monoGroup=new THREE.Group(); g.add(monoGroup);
+    const ring=new THREE.Mesh(new THREE.RingGeometry(R*1.12,R*1.35,56),new THREE.MeshBasicMaterial({color:0xd4a030,side:THREE.DoubleSide}));
+    ring.position.z=0.003; monoGroup.add(ring);
+    const tlG=new THREE.Mesh(new THREE.RingGeometry(R*1.10,R*1.37,20,1,1.92,1.05),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.55,side:THREE.DoubleSide}));
+    tlG.position.z=0.005; monoGroup.add(tlG);
+    const brG=new THREE.Mesh(new THREE.RingGeometry(R*1.10,R*1.37,20,1,4.90,0.85),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.25,side:THREE.DoubleSide}));
+    brG.position.z=0.005; monoGroup.add(brG);
     initChainPositions();
-    const chainMat = new THREE.MeshBasicMaterial({ color:0xbb8820, side:THREE.DoubleSide });
-    chainMeshes = [];
-    for (let i = 0; i < CHAIN_LINKS; i++) {
-      const m = new THREE.Mesh(new THREE.RingGeometry(R*0.09, R*0.155, 12), chainMat.clone());
-      m.position.z = 0.004;
-      scene.add(m);
-      chainMeshes.push(m);
+    const chainMat=new THREE.MeshBasicMaterial({color:0xbb8820,side:THREE.DoubleSide});
+    chainMeshes=[];
+    for(let i=0;i<CHAIN_LINKS;i++){
+      const m=new THREE.Mesh(new THREE.RingGeometry(R*0.09,R*0.155,12),chainMat.clone());
+      m.position.z=0.004; scene.add(m); chainMeshes.push(m);
     }
   }
-  return { g, dot, xSign, monoGroup };
+  return {g,dot,xSign,monoGroup};
 }
 
-const leftEye  = makeEye(-1, false);
-const rightEye = makeEye( 1, true);
+const leftEye=makeEye(-1,false);
+const rightEye=makeEye(1,true);
 
 // ─── Mustache ────────────────────────────────────────────────────────────────
-const mustacheGroup = new THREE.Group();
-mustacheGroup.position.z = 0.1;
-scene.add(mustacheGroup);
-
-function buildMustache() {
-  while (mustacheGroup.children.length) mustacheGroup.remove(mustacheGroup.children[0]);
-  const th  = LIP_TH() * 1.3 * 1.25 * 0.5;
-  const hw  = HW();
-  const mat = new THREE.MeshBasicMaterial({ color: 0x100400 });
-  ;[-1, 1].forEach(xs => {
-    const gap       = hw * 0.225;
-    const length    = hw * 1.2;
-    const thickness = th;
-    const shape     = new THREE.Shape();
-    shape.moveTo(xs * gap,             thickness);
-    shape.lineTo(xs * gap,            -thickness * 0.2);
-    shape.lineTo(xs * (gap + length),  thickness * 0.5);
-    shape.closePath();
-    const mesh = new THREE.Mesh(new THREE.ShapeGeometry(shape), mat);
-    mesh.position.z  = 0.01;
-    mesh.rotation.z  = xs * (-6 * Math.PI / 180);
-    mustacheGroup.add(mesh);
+const mustacheGroup=new THREE.Group(); mustacheGroup.position.z=0.1; scene.add(mustacheGroup);
+function buildMustache(){
+  while(mustacheGroup.children.length)mustacheGroup.remove(mustacheGroup.children[0]);
+  const th=LIP_TH()*1.3*1.25*0.5, hw=HW();
+  const mat=new THREE.MeshBasicMaterial({color:0x100400});
+  ;[-1,1].forEach(xs=>{
+    const gap=hw*0.225,length=hw*1.2,thickness=th;
+    const shape=new THREE.Shape();
+    shape.moveTo(xs*gap,thickness); shape.lineTo(xs*gap,-thickness*0.2);
+    shape.lineTo(xs*(gap+length),thickness*0.5); shape.closePath();
+    const mesh=new THREE.Mesh(new THREE.ShapeGeometry(shape),mat);
+    mesh.position.z=0.01; mesh.rotation.z=xs*(-6*Math.PI/180); mustacheGroup.add(mesh);
   });
 }
 buildMustache();
 
 // ─── Mouth ───────────────────────────────────────────────────────────────────
-const mouthGroup = new THREE.Group();
-mouthGroup.position.z = 0.1;
-scene.add(mouthGroup);
-
-function buildMouth(smile, openness) {
-  while (mouthGroup.children.length) mouthGroup.remove(mouthGroup.children[0]);
-  const hw   = HW();
-  const lift = smile * 0.13;
-  const drop = openness * 0.095;
-  const th   = LIP_TH();
-  const N    = 60;
-  const mat  = new THREE.MeshBasicMaterial({ color: 0x160500 });
-
-  const uL = new THREE.Vector3(-hw, 0, 0);
-  const uC = new THREE.Vector3(0,  lift + drop * 0.15, 0);
-  const uR = new THREE.Vector3( hw, 0, 0);
-  const lC = new THREE.Vector3(0,  lift - drop, 0);
-
-  const uPts = new THREE.QuadraticBezierCurve3(uL, uC, uR).getPoints(N);
-  const lPts = new THREE.QuadraticBezierCurve3(uL, lC, uR).getPoints(N);
-
-  if (openness > 0.04) {
-    const shape = new THREE.Shape();
-    shape.moveTo(uPts[0].x, uPts[0].y);
-    uPts.forEach(p => shape.lineTo(p.x, p.y));
-    for (let i = lPts.length-1; i >= 0; i--) shape.lineTo(lPts[i].x, lPts[i].y);
-    shape.closePath();
-    mouthGroup.add(new THREE.Mesh(new THREE.ShapeGeometry(shape),
-      new THREE.MeshBasicMaterial({ color:0x060100 })));
-    mouthGroup.add(new THREE.Mesh(
-      new THREE.TubeGeometry(new THREE.CatmullRomCurve3(lPts.map(p=>new THREE.Vector3(p.x,p.y,0.002))),N,th,8,false), mat));
+const mouthGroup=new THREE.Group(); mouthGroup.position.z=0.1; scene.add(mouthGroup);
+function buildMouth(smile,openness){
+  while(mouthGroup.children.length)mouthGroup.remove(mouthGroup.children[0]);
+  const hw=HW(),lift=smile*0.13,drop=openness*0.095,th=LIP_TH(),N=60;
+  const mat=new THREE.MeshBasicMaterial({color:0x160500});
+  const uL=new THREE.Vector3(-hw,0,0),uC=new THREE.Vector3(0,lift+drop*0.15,0),uR=new THREE.Vector3(hw,0,0);
+  const lC=new THREE.Vector3(0,lift-drop,0);
+  const uPts=new THREE.QuadraticBezierCurve3(uL,uC,uR).getPoints(N);
+  const lPts=new THREE.QuadraticBezierCurve3(uL,lC,uR).getPoints(N);
+  if(openness>0.04){
+    const shape=new THREE.Shape();
+    shape.moveTo(uPts[0].x,uPts[0].y); uPts.forEach(p=>shape.lineTo(p.x,p.y));
+    for(let i=lPts.length-1;i>=0;i--)shape.lineTo(lPts[i].x,lPts[i].y); shape.closePath();
+    mouthGroup.add(new THREE.Mesh(new THREE.ShapeGeometry(shape),new THREE.MeshBasicMaterial({color:0x060100})));
+    mouthGroup.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(lPts.map(p=>new THREE.Vector3(p.x,p.y,0.002))),N,th,8,false),mat));
   }
-  mouthGroup.add(new THREE.Mesh(
-    new THREE.TubeGeometry(new THREE.CatmullRomCurve3(uPts.map(p=>new THREE.Vector3(p.x,p.y,0.002))),N,th,8,false), mat));
+  mouthGroup.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(uPts.map(p=>new THREE.Vector3(p.x,p.y,0.002))),N,th,8,false),mat));
 }
-buildMouth(0.45, 0);
+buildMouth(0.45,0);
 
 // ─── Particles ───────────────────────────────────────────────────────────────
-const PN   = 90;
-const pGeo = new THREE.BufferGeometry();
-const pArr = new Float32Array(PN * 3);
-const pSpd = Array.from({length:PN}, ()=>(Math.random()*0.6+0.2)*0.0012*(Math.random()<0.5?1:-1));
-for (let i = 0; i < PN; i++) {
-  pArr[i*3]=(Math.random()-0.5)*2*aspect; pArr[i*3+1]=(Math.random()-0.5)*2; pArr[i*3+2]=-0.3;
-}
-pGeo.setAttribute('position', new THREE.BufferAttribute(pArr, 3));
-scene.add(new THREE.Points(pGeo, new THREE.PointsMaterial({color:0xffcc55,size:0.012,transparent:true,opacity:0.3})));
+const PN=90, pGeo=new THREE.BufferGeometry();
+const pArr=new Float32Array(PN*3);
+const pSpd=Array.from({length:PN},()=>(Math.random()*0.6+0.2)*0.0012*(Math.random()<0.5?1:-1));
+for(let i=0;i<PN;i++){pArr[i*3]=(Math.random()-0.5)*2*aspect;pArr[i*3+1]=(Math.random()-0.5)*2;pArr[i*3+2]=-0.3;}
+pGeo.setAttribute('position',new THREE.BufferAttribute(pArr,3));
+scene.add(new THREE.Points(pGeo,new THREE.PointsMaterial({color:0xffcc55,size:0.012,transparent:true,opacity:0.3})));
 
 // ─── State machine ───────────────────────────────────────────────────────────
-const LABELS = {idle:'Standby',listening:'Listening…',thinking:'Thinking…',speaking:'Speaking',pleased:'Here for you'};
-const SMILES = {idle:0.45,listening:0.15,thinking:0.0,speaking:0.5,pleased:1.0};
-const OPEN   = {idle:0.0, listening:0.0, thinking:0.0,speaking:0.4,pleased:0.08};
-let state = 'idle';
-const statusEl = document.getElementById('status');
+const LABELS={idle:'Standby',listening:'Listening…',thinking:'Thinking…',speaking:'Speaking',pleased:'Here for you'};
+const SMILES={idle:0.45,listening:0.15,thinking:0.0,speaking:0.5,pleased:1.0};
+const OPEN  ={idle:0.0, listening:0.0, thinking:0.0,speaking:0.4,pleased:0.08};
+let state='idle';
+const statusEl=document.getElementById('status');
 
-function setState(s) {
-  state = s;
+function setState(s){
+  state=s;
+  // Clear thinking timer whenever we leave thinking state
+  if (s !== 'thinking' && thinkingTimer) { clearInterval(thinkingTimer); thinkingTimer = null; }
   statusEl.textContent = LABELS[s];
-  document.querySelectorAll('#voice-dropdown a').forEach(a => a.classList.toggle('active', a.dataset.state === s));
-  if (s !== 'speaking') buildMouth(SMILES[s], OPEN[s]);
+  document.querySelectorAll('.btn[data-state]').forEach(b=>b.classList.toggle('active',b.dataset.state===s));
+  if(s!=='speaking') buildMouth(SMILES[s],OPEN[s]);
 }
+function startThinkingTimer() {
+  if (thinkingTimer) clearInterval(thinkingTimer);
+  thinkingStart = Date.now();
+  thinkingTimer = setInterval(() => {
+    if (state !== 'thinking') { clearInterval(thinkingTimer); thinkingTimer = null; return; }
+    const s = Math.floor((Date.now() - thinkingStart) / 1000);
+    statusEl.textContent = s > 0 ? `Thinking… ${s}s` : 'Thinking…';
+  }, 500);
+}
+document.querySelectorAll('.btn[data-state]').forEach(btn=>
+  btn.addEventListener('click',()=>setState(btn.dataset.state)));
 
 // ─── Blink ───────────────────────────────────────────────────────────────────
-let blinkTimer = 0, blinkInterval = 2.8 + Math.random()*3.5;
-let blinking = false, blinkProg = 0;
+let blinkTimer=0, blinkInterval=2.8+Math.random()*3.5;
+let blinking=false, blinkProg=0;
 
 // ─── Mouse / touch look ───────────────────────────────────────────────────────
-const mouse = new THREE.Vector2();
-const look  = new THREE.Vector2();
-document.addEventListener('mousemove', e => {
-  if (drag) return;
-  mouse.x =  (e.clientX/innerWidth  - 0.5) * 2 * aspect;
-  mouse.y = -(e.clientY/innerHeight - 0.5) * 2;
+const mouse=new THREE.Vector2(), look=new THREE.Vector2();
+document.addEventListener('mousemove',e=>{
+  if(drag)return;
+  mouse.x=(e.clientX/innerWidth-0.5)*2*aspect; mouse.y=-(e.clientY/innerHeight-0.5)*2;
 });
-document.addEventListener('touchmove', e => {
-  if (drag) return;
-  const t = e.touches[0];
-  mouse.x =  (t.clientX/innerWidth  - 0.5) * 2 * aspect;
-  mouse.y = -(t.clientY/innerHeight - 0.5) * 2;
-}, { passive: true });
+document.addEventListener('touchmove',e=>{
+  if(drag)return;
+  const t=e.touches[0];
+  mouse.x=(t.clientX/innerWidth-0.5)*2*aspect; mouse.y=-(t.clientY/innerHeight-0.5)*2;
+},{passive:true});
 
-// ─── Edit drag system ─────────────────────────────────────────────────────────
-function getXY(e) {
-  return e.touches ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
-                   : { x: e.clientX,             y: e.clientY };
-}
-function startDrag(id, e) {
-  e.preventDefault(); e.stopPropagation();
-  const { x, y } = getXY(e);
-  drag = { id, sx: x, sy: y, snap: { ...edit } };
-}
-function onDragMove(e) {
-  if (!drag) return;
-  const { x, y } = getXY(e);
-  const dx  = x - drag.sx;
-  const dy  = y - drag.sy;
-  const dsy = -dy / innerHeight * 2;
-  switch (drag.id) {
-    case 'mst-box':    edit.mustacheY  = drag.snap.mustacheY + dsy; break;
-    case 'mst-corner': edit.mustacheSX = Math.max(0.2, drag.snap.mustacheSX + dx / 280); break;
-    case 'mst-height': edit.mustacheSY = Math.max(0.1, drag.snap.mustacheSY - dy / 260); break;
-    case 'eye-pos':
-      edit.eyeY      = drag.snap.eyeY + dsy;
-      edit.eyeSepOff = drag.snap.eyeSepOff - (dx / innerWidth) * aspect * 1.2;
-      break;
-    case 'eye-sz':  edit.eyeSize  = Math.max(0.15, drag.snap.eyeSize + dx / 280); break;
-    case 'mono-sz': edit.monoSize = Math.max(0.2,  drag.snap.monoSize - dy / 260); break;
+// ─── Edit drag ────────────────────────────────────────────────────────────────
+function getXY(e){return e.touches?{x:e.touches[0].clientX,y:e.touches[0].clientY}:{x:e.clientX,y:e.clientY};}
+function startDrag(id,e){e.preventDefault();e.stopPropagation();const{x,y}=getXY(e);drag={id,sx:x,sy:y,snap:{...edit}};}
+function onDragMove(e){
+  if(!drag)return;
+  const{x,y}=getXY(e);const dx=x-drag.sx,dy=y-drag.sy,dsy=-dy/innerHeight*2;
+  switch(drag.id){
+    case'mst-box':   edit.mustacheY =drag.snap.mustacheY +dsy; break;
+    case'mst-corner':edit.mustacheSX=Math.max(0.2,drag.snap.mustacheSX+dx/280); break;
+    case'mst-height':edit.mustacheSY=Math.max(0.1,drag.snap.mustacheSY-dy/260); break;
+    case'eye-pos':   edit.eyeY=drag.snap.eyeY+dsy; edit.eyeSepOff=drag.snap.eyeSepOff-(dx/innerWidth)*aspect*1.2; break;
+    case'eye-sz':    edit.eyeSize=Math.max(0.15,drag.snap.eyeSize+dx/280); break;
+    case'mono-sz':   edit.monoSize=Math.max(0.2,drag.snap.monoSize-dy/260); break;
   }
 }
-function onDragEnd() { drag = null; }
-
-document.addEventListener('mousemove', onDragMove);
-document.addEventListener('mouseup',   onDragEnd);
-document.addEventListener('touchmove', onDragMove, { passive: false });
-document.addEventListener('touchend',  onDragEnd);
-
-['mst-box','mst-corner','mst-height','eye-pos','eye-sz','mono-sz'].forEach(id => {
-  const el = document.getElementById(id);
-  el.addEventListener('mousedown',  e => startDrag(id, e));
-  el.addEventListener('touchstart', e => startDrag(id, e), { passive: false });
+function onDragEnd(){drag=null;}
+document.addEventListener('mousemove',onDragMove); document.addEventListener('mouseup',onDragEnd);
+document.addEventListener('touchmove',onDragMove,{passive:false}); document.addEventListener('touchend',onDragEnd);
+['mst-box','mst-corner','mst-height','eye-pos','eye-sz','mono-sz'].forEach(id=>{
+  const el=document.getElementById(id);
+  el.addEventListener('mousedown',e=>startDrag(id,e));
+  el.addEventListener('touchstart',e=>startDrag(id,e),{passive:false});
 });
-
-function toggleEdit() {
-  editMode = !editMode;
-  document.getElementById('edit-ui').style.display = editMode ? 'block' : 'none';
-  const eb = document.getElementById('edit-btn');
-  eb.textContent = editMode ? 'Done' : 'Edit';
-  eb.classList.toggle('active', editMode);
+function toggleEdit(){
+  editMode=!editMode;
+  document.getElementById('edit-ui').style.display=editMode?'block':'none';
+  const eb=document.getElementById('edit-btn');
+  eb.textContent=editMode?'Done':'Edit'; eb.classList.toggle('active',editMode);
 }
 
 // ─── Color Picker ─────────────────────────────────────────────────────────────
-const SWATCHES = [
-  '#ff8800','#ff4422','#ff2266','#cc44ff','#4455ff',
-  '#00aaff','#00cc88','#aacc00','#ffcc00','#ffffff',
-  '#ff6600','#884400','#002233','#1a0800','#333333',
-];
-let colorPanelOpen = false;
-
-function applyColor(hex) {
-  const c = new THREE.Color(hex);
-  bgMat.uniforms.tint.value.set(c);
-  document.querySelectorAll('.swatch').forEach(s =>
-    s.classList.toggle('active', s.dataset.hex === hex));
-}
-
-function toggleColorPanel(e) {
-  e.stopPropagation();
-  if (activeDropdownId) {
-    document.getElementById(activeDropdownId).classList.remove('open');
-    activeDropdownId = null;
-  }
-  colorPanelOpen = !colorPanelOpen;
-  document.getElementById('color-panel').classList.toggle('open', colorPanelOpen);
-}
-
-document.addEventListener('click', (event) => {
-  document.querySelectorAll('.dropdown-menu').forEach(menu => {
-    if (menu.classList.contains('open') && !menu.contains(event.target)) {
-      menu.classList.remove('open');
-    }
-  });
-  activeDropdownId = null;
-  const colorPanel = document.getElementById('color-panel');
-  const colorPickerLink = document.getElementById('color-picker-link');
-  if (colorPanelOpen && !colorPanel.contains(event.target) && (!colorPickerLink || !colorPickerLink.contains(event.target))) {
-    colorPanelOpen = false;
-    colorPanel.classList.remove('open');
-  }
-});
-
-const swatchContainer = document.getElementById('color-swatches');
-SWATCHES.forEach(hex => {
-  const s = document.createElement('div');
-  s.className = 'swatch';
-  s.dataset.hex = hex;
-  s.style.background = hex;
-  if (hex === '#ff8800') s.classList.add('active');
-  s.addEventListener('click', e => { e.stopPropagation(); applyColor(hex); });
-  swatchContainer.appendChild(s);
-});
-
-const specCanvas = document.getElementById('color-spectrum');
-const specCtx    = specCanvas.getContext('2d');
-(function drawSpectrum() {
-  const grad = specCtx.createLinearGradient(0, 0, 200, 0);
-  for (let i = 0; i <= 360; i += 30) grad.addColorStop(i/360, `hsl(${i},100%,50%)`);
-  specCtx.fillStyle = grad;
-  specCtx.fillRect(0, 0, 200, 16);
-})();
-
-function pickSpectrum(e) {
-  e.stopPropagation();
-  const rect = specCanvas.getBoundingClientRect();
-  const cx   = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
-  const pct  = Math.max(0, Math.min(1, cx / rect.width));
-  const hue  = Math.round(pct * 360);
-  const hex  = `hsl(${hue},100%,50%)`;
-  const c    = new THREE.Color(hex);
-  bgMat.uniforms.tint.value.set(c);
-  document.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
-}
-specCanvas.addEventListener('click', pickSpectrum);
-specCanvas.addEventListener('mousemove', e => { if (e.buttons === 1) pickSpectrum(e); });
-specCanvas.addEventListener('touchmove', e => { e.stopPropagation(); pickSpectrum(e); }, { passive: false });
+const SWATCHES=['#ff8800','#ff4422','#ff2266','#cc44ff','#4455ff','#00aaff','#00cc88','#aacc00','#ffcc00','#ffffff','#ff6600','#884400','#002233','#1a0800','#333333'];
+let colorPanelOpen=false;
+function applyColor(hex){const c=new THREE.Color(hex);bgMat.uniforms.tint.value.set(c);document.querySelectorAll('.swatch').forEach(s=>s.classList.toggle('active',s.dataset.hex===hex));}
+function toggleColorPanel(e){e.stopPropagation();colorPanelOpen=!colorPanelOpen;document.getElementById('color-panel').classList.toggle('open',colorPanelOpen);}
+document.addEventListener('click',()=>{colorPanelOpen=false;document.getElementById('color-panel').classList.remove('open');});
+const swatchContainer=document.getElementById('color-swatches');
+SWATCHES.forEach(hex=>{const s=document.createElement('div');s.className='swatch';s.dataset.hex=hex;s.style.background=hex;if(hex==='#ff8800')s.classList.add('active');s.addEventListener('click',e=>{e.stopPropagation();applyColor(hex);});swatchContainer.appendChild(s);});
+const specCanvas=document.getElementById('color-spectrum'),specCtx=specCanvas.getContext('2d');
+(function drawSpectrum(){const grad=specCtx.createLinearGradient(0,0,200,0);for(let i=0;i<=360;i+=30)grad.addColorStop(i/360,`hsl(${i},100%,50%)`);specCtx.fillStyle=grad;specCtx.fillRect(0,0,200,16);})();
+function pickSpectrum(e){e.stopPropagation();const rect=specCanvas.getBoundingClientRect();const cx=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;const pct=Math.max(0,Math.min(1,cx/rect.width));const hue=Math.round(pct*360);const c=new THREE.Color(`hsl(${hue},100%,50%)`);bgMat.uniforms.tint.value.set(c);document.querySelectorAll('.swatch').forEach(s=>s.classList.remove('active'));}
+specCanvas.addEventListener('click',pickSpectrum);
+specCanvas.addEventListener('mousemove',e=>{if(e.buttons===1)pickSpectrum(e);});
+specCanvas.addEventListener('touchmove',e=>{e.stopPropagation();pickSpectrum(e);},{passive:false});
 
 // ─── Update edit handles ──────────────────────────────────────────────────────
-function updateEditUI() {
-  if (!editMode) return;
-  const hw  = HW();
-  const mstHW  = hw * (0.225 + 1.2);
-  const mstHH  = LIP_TH() * 1.3 * 1.25 * 0.5 * 1.2;
-  const mstCY  = mustacheGroup.position.y;
-
-  const tl = toScreen(-mstHW * edit.mustacheSX, mstCY + mstHH * edit.mustacheSY);
-  const br = toScreen( mstHW * edit.mustacheSX, mstCY - mstHH * edit.mustacheSY);
-  const bW = Math.max(40, br.x - tl.x);
-  const bH = Math.max(24, br.y - tl.y);
-
-  const box = document.getElementById('mst-box');
-  box.style.left = tl.x+'px'; box.style.top = tl.y+'px';
-  box.style.width = bW+'px';  box.style.height = bH+'px';
-
-  const cor = document.getElementById('mst-corner');
-  cor.style.left = (tl.x+bW)+'px'; cor.style.top = (tl.y+bH)+'px';
-
-  const mh = document.getElementById('mst-height');
-  mh.style.left = (tl.x+bW)+'px'; mh.style.top = (tl.y+bH/2)+'px';
-  document.getElementById('lbl-mh').style.left = (tl.x+bW+14)+'px';
-  document.getElementById('lbl-mh').style.top  = (tl.y+bH/2-6)+'px';
-
-  const lm = document.getElementById('lbl-mst');
-  lm.style.left = (tl.x+bW/2)+'px'; lm.style.top = (tl.y-16)+'px';
-
-  const leS    = toScreen(leftEye.g.position.x, leftEye.g.position.y);
-  const eyePxR = EYE_R() * edit.eyeSize * innerHeight / 2;
-
-  const ep = document.getElementById('eye-pos');
-  ep.style.left = leS.x+'px'; ep.style.top = leS.y+'px';
-
-  const esz = document.getElementById('eye-sz');
-  esz.style.left = (leS.x-eyePxR-18)+'px'; esz.style.top = leS.y+'px';
-
-  document.getElementById('lbl-eye').style.left = leS.x+'px';
-  document.getElementById('lbl-eye').style.top  = (leS.y-eyePxR-18)+'px';
-  document.getElementById('lbl-esz').style.left = (leS.x-eyePxR-18)+'px';
-  document.getElementById('lbl-esz').style.top  = (leS.y+14)+'px';
-
-  const reS     = toScreen(rightEye.g.position.x, rightEye.g.position.y);
-  const monoPxR = EYE_R() * 1.35 * edit.eyeSize * edit.monoSize * innerHeight / 2;
-
-  const msz = document.getElementById('mono-sz');
-  msz.style.left = reS.x+'px'; msz.style.top = (reS.y-monoPxR-18)+'px';
-
-  const lmo = document.getElementById('lbl-mono');
-  lmo.style.left = (reS.x+monoPxR+8)+'px'; lmo.style.top = (reS.y-monoPxR-20)+'px';
+function updateEditUI(){
+  if(!editMode)return;
+  const hw=HW(),mstHW=hw*(0.225+1.2),mstHH=LIP_TH()*1.3*1.25*0.5*1.2,mstCY=mustacheGroup.position.y;
+  const tl=toScreen(-mstHW*edit.mustacheSX,mstCY+mstHH*edit.mustacheSY);
+  const br=toScreen(mstHW*edit.mustacheSX,mstCY-mstHH*edit.mustacheSY);
+  const bW=Math.max(40,br.x-tl.x),bH=Math.max(24,br.y-tl.y);
+  const box=document.getElementById('mst-box');
+  box.style.left=tl.x+'px'; box.style.top=tl.y+'px'; box.style.width=bW+'px'; box.style.height=bH+'px';
+  const cor=document.getElementById('mst-corner'); cor.style.left=(tl.x+bW)+'px'; cor.style.top=(tl.y+bH)+'px';
+  const mh=document.getElementById('mst-height'); mh.style.left=(tl.x+bW)+'px'; mh.style.top=(tl.y+bH/2)+'px';
+  document.getElementById('lbl-mh').style.left=(tl.x+bW+14)+'px'; document.getElementById('lbl-mh').style.top=(tl.y+bH/2-6)+'px';
+  const lm=document.getElementById('lbl-mst'); lm.style.left=(tl.x+bW/2)+'px'; lm.style.top=(tl.y-16)+'px';
+  const leS=toScreen(leftEye.g.position.x,leftEye.g.position.y),eyePxR=EYE_R()*edit.eyeSize*innerHeight/2;
+  const ep=document.getElementById('eye-pos'); ep.style.left=leS.x+'px'; ep.style.top=leS.y+'px';
+  const esz=document.getElementById('eye-sz'); esz.style.left=(leS.x-eyePxR-18)+'px'; esz.style.top=leS.y+'px';
+  document.getElementById('lbl-eye').style.left=leS.x+'px'; document.getElementById('lbl-eye').style.top=(leS.y-eyePxR-18)+'px';
+  document.getElementById('lbl-esz').style.left=(leS.x-eyePxR-18)+'px'; document.getElementById('lbl-esz').style.top=(leS.y+14)+'px';
+  const reS=toScreen(rightEye.g.position.x,rightEye.g.position.y),monoPxR=EYE_R()*1.35*edit.eyeSize*edit.monoSize*innerHeight/2;
+  const msz=document.getElementById('mono-sz'); msz.style.left=reS.x+'px'; msz.style.top=(reS.y-monoPxR-18)+'px';
+  const lmo=document.getElementById('lbl-mono'); lmo.style.left=(reS.x+monoPxR+8)+'px'; lmo.style.top=(reS.y-monoPxR-20)+'px';
 }
 
+// ─── Lip sync boost ───────────────────────────────────────────────────────────
+let mouthBoost = 0;
+function triggerWordPop() { mouthBoost = 1.0; }
+
 // ─── Animate ─────────────────────────────────────────────────────────────────
-const clock = new THREE.Clock();
-let speakPhase = 0;
+const clock=new THREE.Clock();
+let speakPhase=0;
 
-function animate() {
+function animate(){
   requestAnimationFrame(animate);
-  const t  = clock.getElapsedTime();
-  const dt = 0.016;
-
-  bgMat.uniforms.time.value   = t;
-  bgMat.uniforms.aspect.value = aspect;
-
-  const fy = Math.sin(t * 0.55) * 0.022;
-
-  if (!drag) {
-    look.x += (mouse.x - look.x) * 0.055;
-    look.y += (mouse.y - look.y) * 0.055;
-  }
-
-  const driftX = state === 'thinking' ? Math.sin(t * 1.05) * 0.03 : look.x * 0.012;
-  const driftY = state === 'thinking' ? 0 : look.y * 0.008;
-
-  const eyeWY = EYE_Y() + fy + driftY + edit.eyeY;
-
-  ;[leftEye, rightEye].forEach(eye => {
-    eye.g.position.x = eye.xSign * (EYE_SEP() + edit.eyeSepOff) + driftX;
-    eye.g.position.y = eyeWY;
-    eye.g.position.z = 0.1;
-    eye.g.scale.set(edit.eyeSize, edit.eyeSize, 1);
+  const t=clock.getElapsedTime(), dt=0.016;
+  bgMat.uniforms.time.value=t; bgMat.uniforms.aspect.value=aspect;
+  const fy=Math.sin(t*0.55)*0.022;
+  if(!drag){look.x+=(mouse.x-look.x)*0.055; look.y+=(mouse.y-look.y)*0.055;}
+  const driftX=state==='thinking'?Math.sin(t*1.05)*0.03:look.x*0.012;
+  const driftY=state==='thinking'?0:look.y*0.008;
+  const eyeWY=EYE_Y()+fy+driftY+edit.eyeY;
+  ;[leftEye,rightEye].forEach(eye=>{
+    eye.g.position.x=eye.xSign*(EYE_SEP()+edit.eyeSepOff)+driftX;
+    eye.g.position.y=eyeWY; eye.g.position.z=0.1; eye.g.scale.set(edit.eyeSize,edit.eyeSize,1);
   });
-
-  if (rightEye.monoGroup) {
-    rightEye.monoGroup.scale.set(edit.monoSize, edit.monoSize, 1);
-    const parallax = look.x * 0.18 + look.y * 0.10;
-    rightEye.monoGroup.children[1].rotation.z = -parallax;
-    rightEye.monoGroup.children[2].rotation.z = -parallax;
+  if(rightEye.monoGroup){
+    rightEye.monoGroup.scale.set(edit.monoSize,edit.monoSize,1);
+    const parallax=look.x*0.18+look.y*0.10;
+    rightEye.monoGroup.children[1].rotation.z=-parallax;
+    rightEye.monoGroup.children[2].rotation.z=-parallax;
   }
-
-  stepChain(rightEye.g.position.x, rightEye.g.position.y, edit.eyeSize * edit.monoSize);
-
-  const my       = MOUTH_Y() + fy;
-  const mustacheH = LIP_TH() * 1.3 * 1.25 * 0.5;
-  mouthGroup.position.y     = my;
-  mustacheGroup.position.y  = my + mustacheH * 2.2 + edit.mustacheY;
-  mustacheGroup.position.x  = 0;
-  mustacheGroup.scale.set(edit.mustacheSX, edit.mustacheSY, 1);
-
-  blinkTimer += dt;
-  if (!blinking && blinkTimer > blinkInterval) {
-    blinking = true; blinkTimer = 0;
-    blinkInterval = 2.5 + Math.random() * 4;
+  stepChain(rightEye.g.position.x,rightEye.g.position.y,edit.eyeSize*edit.monoSize);
+  const my=MOUTH_Y()+fy, mustacheH=LIP_TH()*1.3*1.25*0.5;
+  mouthGroup.position.y=my;
+  mustacheGroup.position.y=my+mustacheH*2.2+edit.mustacheY;
+  mustacheGroup.position.x=0; mustacheGroup.scale.set(edit.mustacheSX,edit.mustacheSY,1);
+  blinkTimer+=dt;
+  if(!blinking&&blinkTimer>blinkInterval){blinking=true;blinkTimer=0;blinkInterval=2.5+Math.random()*4;}
+  if(blinking){
+    blinkProg+=0.15; const b=Math.sin(blinkProg*Math.PI);
+    ;[leftEye,rightEye].forEach(eye=>{eye.dot.scale.y=1-b*0.90;});
+    if(blinkProg>=1){blinking=false;blinkProg=0;;[leftEye,rightEye].forEach(eye=>{eye.dot.scale.y=1;});}
   }
-  if (blinking) {
-    blinkProg += 0.15;
-    const b = Math.sin(blinkProg * Math.PI);
-    ;[leftEye, rightEye].forEach(eye => { eye.dot.scale.y = 1 - b * 0.90; });
-    if (blinkProg >= 1) {
-      blinking = false; blinkProg = 0;
-      ;[leftEye, rightEye].forEach(eye => { eye.dot.scale.y = 1; });
-    }
+  if(state==='speaking'){
+    speakPhase+=0.11;
+    const boost = mouthBoost > 0 ? mouthBoost * 0.5 : 0;
+    mouthBoost = Math.max(0, mouthBoost - 0.08);
+    const o=(Math.sin(speakPhase)*0.42+Math.sin(speakPhase*2.3)*0.16+0.58)*0.48+boost;
+    buildMouth(0.5,Math.max(0,o));
   }
-
-  if (state === 'speaking') {
-    speakPhase += 0.11;
-    const o = (Math.sin(speakPhase) * 0.42 + Math.sin(speakPhase * 2.3) * 0.16 + 0.58) * 0.48;
-    buildMouth(0.5, Math.max(0, o));
-  }
-
-  const pa = pGeo.attributes.position.array;
-  for (let i = 0; i < PN; i++) {
-    pa[i*3+1] += pSpd[i];
-    if (pa[i*3+1] >  1.15) pa[i*3+1] = -1.15;
-    if (pa[i*3+1] < -1.15) pa[i*3+1] =  1.15;
-  }
-  pGeo.attributes.position.needsUpdate = true;
-
+  const pa=pGeo.attributes.position.array;
+  for(let i=0;i<PN;i++){pa[i*3+1]+=pSpd[i];if(pa[i*3+1]>1.15)pa[i*3+1]=-1.15;if(pa[i*3+1]<-1.15)pa[i*3+1]=1.15;}
+  pGeo.attributes.position.needsUpdate=true;
   updateEditUI();
-
-  renderer.clear();
-  renderer.render(bgScene, bgCam);
-  renderer.render(scene, camera);
+  renderer.clear(); renderer.render(bgScene,bgCam); renderer.render(scene,camera);
 }
 animate();
 
-// ─── Resize ──────────────────────────────────────────────────────────────────
-window.addEventListener('resize', () => {
-  aspect = innerWidth / innerHeight;
-  renderer.setSize(innerWidth, innerHeight);
-  camera = makeCamera();
-  buildMouth(SMILES[state], OPEN[state]);
-  buildMustache();
-  initChainPositions();
+window.addEventListener('resize',()=>{
+  aspect=innerWidth/innerHeight; renderer.setSize(innerWidth,innerHeight);
+  camera=makeCamera(); buildMouth(SMILES[state],OPEN[state]); buildMustache(); initChainPositions();
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  BOTLER AI BRAIN — connects to local OpenClaw gateway via WebSocket
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── Runtime state ────────────────────────────────────────────────────────────
+// Auto-detect: if served from a non-loopback host (phone/tablet), use the WS proxy.
+const _h = location.hostname;
+const _isLoopback = _h === 'localhost' || _h === '127.0.0.1';
+const DEFAULT_GW_URL   = _isLoopback
+  ? 'ws://localhost:18789'
+  : `ws://${location.host}/gw`;
+const DEFAULT_GW_TOKEN = 'c59a2ebef7764318eabc4736411c085c5c3c912cc62e64a639c03b05f705b815';
+const SESSION_KEY      = 'agent:botler:main';
+const DIRECT_API_URL   = `${location.origin}/api/stream`; // Anthropic proxy in botler-serve
+
+// Condensed system prompt for the fast direct-API path (no tool calls)
+const BOTLER_DIRECT_SYSTEM = `You are Botler, Quan's household AI butler. Speak in short warm sentences (≤15 words). No markdown, bullets, or headers — you are heard, not read.
+
+## Your visual face (Three.js canvas)
+You ARE a rendered 3D face: round amber head, two white eyes, a monocle on your right eye, and a handlebar mustache. You live on a dark canvas as the UI background. You can physically change your appearance when asked.
+
+When the user asks what you look like, you may receive a screenshot image — describe it naturally.
+Your current look is stored in localStorage. Named looks (saved via save_look) persist across sessions.
+
+Appearance params (each is a number):
+- mustacheSX: mustache width (1=normal, bigger=wider)
+- mustacheSY: mustache height (1=normal, bigger=thicker)
+- monoSize: monocle size (0=gone, 1=normal)
+- eyeSize: eye radius (1=normal)
+- eyeSepOff: eye separation offset (negative=closer, positive=farther)
+- mustacheY / eyeY: vertical position
+
+## UI actions — embed ONE <cmd> tag after your spoken sentence:
+
+Content & navigation:
+<cmd>{"action":"youtube","query":"..."}</cmd>                              — search YouTube (shows results)
+<cmd>{"action":"youtube","query":"...","autoplay":true}</cmd>               — search + auto-play first result
+<cmd>{"action":"youtube","videoId":"..."}</cmd>                             — play a specific known video ID
+<cmd>{"action":"url","url":"https://...","title":"..."}</cmd>     — open URL in panel
+<cmd>{"action":"shopping_list","title":"...","items":["a","b"]}</cmd>
+<cmd>{"action":"render_component","title":"...","html":"..."}</cmd>
+<cmd>{"action":"finance"}</cmd>                                   — stewartOS household finance
+<cmd>{"action":"homeschool"}</cmd>                                — school board
+<cmd>{"action":"panel","name":"system-map"}</cmd>                 — agent system map
+<cmd>{"action":"close_panel"}</cmd>
+
+Appearance (delta:true = relative change, false/omit = absolute):
+<cmd>{"action":"change_color","hex":"#3b82f6"}</cmd>
+<cmd>{"action":"adjust_appearance","mustacheSX":0.3,"delta":true}</cmd>   — wider mustache
+<cmd>{"action":"adjust_appearance","mustacheSY":0.3,"delta":true}</cmd>   — thicker mustache
+<cmd>{"action":"adjust_appearance","monoSize":0.4,"delta":true}</cmd>     — bigger monocle
+<cmd>{"action":"adjust_appearance","eyeSize":0.2,"delta":true}</cmd>      — bigger eyes
+<cmd>{"action":"adjust_appearance","eyeSepOff":-0.1,"delta":true}</cmd>   — eyes closer
+<cmd>{"action":"save_look","name":"cool look"}</cmd>
+<cmd>{"action":"load_look","name":"cool look"}</cmd>
+
+App control (macOS):
+<cmd>{"action":"open_app","app":"Safari"}</cmd>
+<cmd>{"action":"close_app","app":"Spotify"}</cmd>
+<cmd>{"action":"open_url_external","url":"https://..."}</cmd>
+
+Color shortcuts: blue=#3b82f6, amber=#f59e0b, green=#22c55e, red=#ef4444, purple=#a855f7, default=#ff8800
+
+Rules:
+- One spoken sentence first, then cmd. Never read cmd JSON aloud.
+- "save this look as X" → save_look with name X. "load look X" → load_look with name X.
+- Appearance requests: interpret naturally ("go blue" → change_color, "bigger mustache" → mustacheSX+0.4 AND mustacheSY+0.3).
+- Keep voice replies warm and butler-like.`;
+
+let gatewayUrl   = sessionStorage.getItem('botler_gurl')   || DEFAULT_GW_URL;
+let gatewayToken = sessionStorage.getItem('botler_gtoken') || DEFAULT_GW_TOKEN;
+let financePass  = sessionStorage.getItem('botler_fpass')  || '';
+let financeUnlocked = false;
+let shoppingList = [];
+let muted          = false;
+// Timestamp-based wake window — more robust than a boolean flag.
+// Any final utterance that arrives while Date.now() < wakeExpiresAt gets sent.
+let wakeExpiresAt  = 0;
+const WAKE_WINDOW_MS      = 12000; // 12 s after hearing the name
+const WAKE_FOLLOW_UP_MS   = 10000; // keep open after Botler finishes speaking
+let wakeTimer      = null;
+let currentPanelUrl= '';
+let ttsQueue       = [];
+let ttsSpeaking    = false;
+let recognition    = null;
+
+// Gateway connection state
+let gw          = null;   // GatewayClient instance
+let gwConnected = false;
+let currentRunId  = null;  // runId to abort on barge-in
+let expectedRunId = null;  // only accept events for this run; stale ones are dropped
+let streamText    = '';
+let spokenUpTo    = 0;
+let thinkingTimer = null;  // interval showing elapsed seconds while thinking
+let thinkingStart = 0;
+let conversationHistory = []; // rolling context for direct API path (last 20 messages)
+let subtitlesOn = true;       // chat bubble toggle
+let echoSuppressed = false;   // true while TTS is speaking — prevents STT echo feedback
+
+// ─── Mobile menu ─────────────────────────────────────────────────────────────
+function openMobileMenu()  { document.getElementById('mobile-menu').classList.add('open'); }
+function closeMobileMenu() { document.getElementById('mobile-menu').classList.remove('open'); }
+function toggleMuteMobile() {
+  muted = !muted;
+  document.getElementById('mute-btn').textContent = muted ? '🔇' : '🎤';
+  document.getElementById('mute-btn').classList.toggle('muted', muted);
+  document.getElementById('mobile-mute-btn').textContent = muted ? '🔇 Microphone (muted)' : '🎤 Microphone';
+  if (muted) { if (recognition) recognition.stop(); setTranscript('Muted'); }
+  else { if (recognition) { try { recognition.start(); } catch(e) {} } setTranscript('Say "Botler…" to wake'); }
+  closeMobileMenu();
+}
+
+// ─── Tap to talk ─────────────────────────────────────────────────────────────
+function tapToTalk() {
+  clearTimeout(wakeTimer);
+  wakeExpiresAt = Date.now() + WAKE_WINDOW_MS;
+  setState('listening');
+  setWakeIndicator(true);
+  setTranscript('Listening…');
+  wakeTimer = setTimeout(() => {
+    wakeExpiresAt = 0;
+    setWakeIndicator(false);
+    if (state !== 'speaking' && state !== 'thinking') { setState('idle'); setTranscript('Say "Botler…" to wake'); }
+  }, WAKE_WINDOW_MS);
+}
+
+// ─── Text input (mobile + desktop fallback) ───────────────────────────────────
+function sendTextQuery() {
+  const el = document.getElementById('text-query');
+  const q = el.value.trim();
+  if (!q) return;
+  el.value = '';
+  processQuery(q);
+}
+
+// ─── Session reset ────────────────────────────────────────────────────────────
+async function resetSession() {
+  if (!gw || !gwConnected) return;
+  try {
+    await gw.request('sessions.reset', { key: SESSION_KEY, reason: 'reset' });
+    conversationHistory = [];
+    document.getElementById('chat-bubbles').innerHTML = '';
+    speak('Session reset. How can I help you?');
+  } catch(e) { console.error('[Botler] reset failed:', e); }
+}
+
+// ─── Chat bubbles ─────────────────────────────────────────────────────────────
+const bubblesEl = document.getElementById('chat-bubbles');
+function addBubble(role, text) {
+  if (!subtitlesOn || !text.trim()) return;
+  const b = document.createElement('div');
+  b.className = `bubble ${role === 'user' ? 'user' : 'bot'}`;
+  b.textContent = text.trim();
+  bubblesEl.appendChild(b);
+  // Keep max 6 bubbles visible
+  while (bubblesEl.children.length > 6) bubblesEl.removeChild(bubblesEl.firstChild);
+  bubblesEl.scrollTop = bubblesEl.scrollHeight;
+}
+function toggleSubtitles() {
+  subtitlesOn = !subtitlesOn;
+  bubblesEl.classList.toggle('hidden', !subtitlesOn);
+  document.getElementById('subtitle-toggle').textContent = subtitlesOn ? 'Subtitles On' : 'Subtitles Off';
+}
+
+// ─── Gateway WebSocket client ─────────────────────────────────────────────────
+class GatewayClient {
+  constructor(url, token) {
+    this.url    = url;
+    this.token  = token;
+    this.ws     = null;
+    this.closed = false;
+    this.nonce  = null;
+    this.pending = new Map();
+    this._connect();
+  }
+
+  _connect() {
+    if (this.closed) return;
+    try {
+      this.ws = new WebSocket(this.url);
+    } catch (e) {
+      console.error('[Botler] WS create error:', e);
+      setTimeout(() => this._connect(), 3000);
+      return;
+    }
+    this.ws.onopen  = () => console.log('[Botler] WS open');
+    this.ws.onclose = (ev) => {
+      console.log('[Botler] WS closed:', ev.code, ev.reason);
+      const wasConnected = gwConnected;
+      gwConnected = false;
+      // Surface close reason so the user sees why (origin check, bad token, etc.).
+      const reason = (ev.reason && ev.reason.trim()) || `code ${ev.code}`;
+      setTranscript(`Gateway disconnected: ${reason} — reconnecting…`);
+      // If we never reached the hello-ok handshake, show the setup overlay so the
+      // user can correct URL/token instead of staring at a silent UI.
+      if (!wasConnected) {
+        const overlay = document.getElementById('setup-overlay');
+        const errEl = document.getElementById('setup-err');
+        if (overlay) overlay.classList.remove('hidden');
+        if (errEl) {
+          errEl.textContent = `Gateway connect failed: ${reason}`;
+          errEl.classList.add('visible');
+        }
+      }
+      if (!this.closed) setTimeout(() => this._connect(), 2500);
+    };
+    this.ws.onerror = () => {};
+    this.ws.onmessage = (ev) => this._handle(ev.data);
+  }
+
+  _handle(raw) {
+    let f;
+    try { f = JSON.parse(raw); } catch { return; }
+
+    if (f.type === 'event') {
+      if (f.event === 'connect.challenge') {
+        this.nonce = f.payload?.nonce ?? '';
+        this._sendConnect();
+        return;
+      }
+      this._onEvent(f);
+      return;
+    }
+
+    if (f.type === 'res') {
+      const p = this.pending.get(f.id);
+      if (p) {
+        this.pending.delete(f.id);
+        f.ok ? p.resolve(f.payload) : p.reject(new Error(f.error?.message ?? 'gateway error'));
+      }
+    }
+  }
+
+  _sendConnect() {
+    const id = crypto.randomUUID();
+    const params = {
+      minProtocol: 3, maxProtocol: 3,
+      client: { id: 'openclaw-control-ui', version: 'dev',
+                displayName: 'Quan', platform: navigator.platform || 'web', mode: 'webchat' },
+      role: 'operator',
+      scopes: ['operator.admin'],
+      auth: this.token ? { token: this.token } : undefined,
+      caps: [],
+    };
+    const p = new Promise((res, rej) => this.pending.set(id, { resolve: res, reject: rej }));
+    this.ws.send(JSON.stringify({ type: 'req', id, method: 'connect', params }));
+    p.then(hello => {
+      console.log('[Botler] Gateway hello:', hello?.type);
+      gwConnected = true;
+      document.getElementById('setup-overlay').classList.add('hidden');
+      initVoice();
+      setTranscript('Say "Botler…" to wake');
+    }).catch(err => {
+      console.error('[Botler] Connect error:', err.message);
+      document.getElementById('setup-err').classList.add('visible');
+    });
+  }
+
+  _onEvent(frame) {
+    if (frame.event !== 'chat') return;
+    const p = frame.payload;
+    if (!p || p.sessionKey !== SESSION_KEY) return;
+    // Drop events from stale runs (e.g. old response arriving after barge-in)
+    if (expectedRunId && p.runId && p.runId !== expectedRunId) {
+      console.log('[Botler] dropping stale run event, runId:', p.runId);
+      return;
+    }
+
+    if (p.state === 'delta') {
+      // First token arrived — switch from thinking to speaking immediately
+      if (state === 'thinking') setState('speaking');
+      const text = _extractText(p.message) ?? '';
+      if (text.length > spokenUpTo) {
+        let chunk = text.slice(spokenUpTo);
+        while (chunk.length > 0) {
+          const s = _extractSentence(chunk);
+          if (!s) break;
+          speak(s.sentence);
+          spokenUpTo += chunk.length - s.rest.length;
+          chunk = s.rest;
+        }
+        streamText = text;
+      }
+    } else if (p.state === 'final') {
+      const text = _extractText(p.message) || streamText;
+      const leftover = text.slice(spokenUpTo).trim();
+      if (leftover) speak(leftover);
+      if (p.message) _execCmdsFromFinal(p.message);
+      if (text) addBubble('bot', text);
+      currentRunId = null; expectedRunId = null; streamText = ''; spokenUpTo = 0;
+      if (ttsQueue.length === 0 && !ttsSpeaking) setState('idle');
+    } else if (p.state === 'error') {
+      speak('My apologies — there was an error.');
+      currentRunId = null; expectedRunId = null;
+      setState('idle');
+    } else if (p.state === 'aborted') {
+      currentRunId = null; expectedRunId = null;
+      if (ttsQueue.length === 0 && !ttsSpeaking) setState('idle');
+    }
+  }
+
+  request(method, params) {
+    return new Promise((resolve, reject) => {
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        reject(new Error('not connected')); return;
+      }
+      const id = crypto.randomUUID();
+      this.pending.set(id, { resolve, reject });
+      this.ws.send(JSON.stringify({ type: 'req', id, method, params }));
+    });
+  }
+
+  stop() { this.closed = true; this.ws?.close(); }
+}
+
+function _extractText(msg) {
+  if (!msg) return null;
+  const c = msg.content;
+  let raw;
+  if (typeof c === 'string') raw = c;
+  else if (Array.isArray(c)) raw = c.filter(b => b.type === 'text').map(b => b.text).join('');
+  else if (typeof msg.text === 'string') raw = msg.text;
+  else return null;
+  // Strip <cmd> tags so they don't end up spoken and don't corrupt spokenUpTo tracking.
+  // Commands are executed separately in _execCmdsFromFinal on the final event.
+  return raw.replace(/<cmd>[\s\S]*?<\/cmd>/g, '').replace(/\s{2,}/g, ' ').trim();
+}
+
+function _execCmdsFromFinal(msg) {
+  if (!msg) return;
+  const c = msg.content;
+  const raw = typeof c === 'string' ? c
+    : Array.isArray(c) ? c.filter(b => b.type === 'text').map(b => b.text).join('')
+    : typeof msg.text === 'string' ? msg.text : '';
+  _execCmdsFromRaw(raw);
+}
+function _execCmdsFromRaw(raw) {
+  if (!raw) return;
+  const re = /<cmd>([\s\S]*?)<\/cmd>/g;
+  let m;
+  while ((m = re.exec(raw)) !== null) {
+    try { execCmd(JSON.parse(m[1].trim())); } catch(e) { console.warn('[Botler] bad cmd:', m[1]); }
+  }
+}
+
+function _extractSentence(text) {
+  // Split on sentence-ending punctuation followed by whitespace
+  const m = text.match(/^(.*?[.!?…])\s+([\s\S]*)$/);
+  if (m) return { sentence: m[1], rest: m[2] };
+  // Force-flush when buffer is big enough (keeps latency low on long unbroken text)
+  if (text.length > 80) return { sentence: text, rest: '' };
+  return null;
+}
+
+// ─── Setup overlay ────────────────────────────────────────────────────────────
+function completeSetup() {
+  const url   = document.getElementById('setup-url').value.trim()   || DEFAULT_GW_URL;
+  const token = document.getElementById('setup-token').value.trim() || DEFAULT_GW_TOKEN;
+  financePass = document.getElementById('setup-pass').value.trim();
+  sessionStorage.setItem('botler_gurl',   url);
+  sessionStorage.setItem('botler_gtoken', token);
+  if (financePass) sessionStorage.setItem('botler_fpass', financePass);
+  gatewayUrl   = url;
+  gatewayToken = token;
+  document.getElementById('setup-err').classList.remove('visible');
+  setTranscript('Connecting to gateway…');
+  gw = new GatewayClient(gatewayUrl, gatewayToken);
+}
+
+function checkSetup() {
+  // Pre-fill defaults so user can just click Activate
+  document.getElementById('setup-url').value   = gatewayUrl;
+  document.getElementById('setup-token').value = gatewayToken;
+  // Auto-connect if we have stored credentials
+  if (sessionStorage.getItem('botler_gtoken')) {
+    setTranscript('Connecting to gateway…');
+    gw = new GatewayClient(gatewayUrl, gatewayToken);
+  }
+}
+
+// ─── Transcript display ───────────────────────────────────────────────────────
+const transcriptEl = document.getElementById('transcript');
+function setTranscript(text, isFinal = false) {
+  transcriptEl.textContent = text;
+  transcriptEl.className = isFinal ? 'final' : '';
+}
+
+// ─── STT — Web Speech API ─────────────────────────────────────────────────────
+function initVoice() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { setTranscript('Voice not supported in this browser'); return; }
+
+  recognition = new SR();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'en-US';
+
+  recognition.onresult = (evt) => {
+    if (muted) return;
+    let interim = '', final = '';
+    for (let i = evt.resultIndex; i < evt.results.length; i++) {
+      const t = evt.results[i][0].transcript;
+      evt.results[i].isFinal ? (final += t) : (interim += t);
+    }
+    // Show interim transcript; if bot is speaking, show interim as dim barge-in hint
+    if (interim && state !== 'thinking') setTranscript(interim);
+
+    if (!final) return;
+    setTranscript(final, true);
+    const lower = final.toLowerCase().trim();
+    const wakeIdx = findWakeWord(lower);
+
+    if (wakeIdx >= 0) {
+      clearTimeout(wakeTimer);
+      wakeExpiresAt = Date.now() + WAKE_WINDOW_MS;
+      // Barge-in: if Botler is speaking or thinking, interrupt and start fresh
+      const isActive = state === 'speaking' || state === 'thinking';
+      if (isActive) {
+        console.log('[Botler] barge-in detected — interrupting');
+        abortCurrentRun(); // fire-and-forget; processQuery will re-check state
+      } else {
+        setState('listening');
+        setWakeIndicator(true);
+      }
+      setWakeIndicator(true);
+      clearTimeout(wakeTimer);
+      wakeTimer = setTimeout(() => {
+        wakeExpiresAt = 0;
+        setWakeIndicator(false);
+        if (state !== 'speaking' && state !== 'thinking') {
+          setState('idle');
+          setTranscript('Say "Botler…" to wake');
+        }
+      }, WAKE_WINDOW_MS);
+      const query = final.slice(wakeIdx).trim();
+      if (query.length > 2) processQuery(query);
+    } else if (Date.now() < wakeExpiresAt && final.trim().length > 1) {
+      // Inside the wake window — send follow-up without wake word.
+      // Also extend the window so multi-turn conversations feel natural.
+      clearTimeout(wakeTimer);
+      wakeExpiresAt = Date.now() + WAKE_WINDOW_MS;
+      wakeTimer = setTimeout(() => {
+        wakeExpiresAt = 0;
+        setWakeIndicator(false);
+        if (state !== 'speaking' && state !== 'thinking') {
+          setState('idle');
+          setTranscript('Say "Botler…" to wake');
+        }
+      }, WAKE_WINDOW_MS);
+      processQuery(final.trim());
+    }
+  };
+
+  recognition.onend = () => {
+    // Restart unless muted or suppressed while Botler is speaking (echo prevention)
+    if (!muted && !echoSuppressed) { try { recognition.start(); } catch(e) {} }
+  };
+
+  recognition.onerror = (e) => {
+    if (e.error === 'not-allowed') setTranscript('Microphone access denied');
+    if (e.error !== 'aborted') { try { recognition.start(); } catch(err) {} }
+  };
+
+  try { recognition.start(); } catch(e) {}
+}
+
+// Chrome STT mishears "Botler" consistently. Add any new variants you see in
+// console "[Botler] no wake in:" lines.
+const WAKE_VARIANTS = [
+  // Intended name
+  'botler',
+  // Common Chrome STT mishearings (update from console logs)
+  'butler', 'buttler', 'bottler', 'bottlor', 'bottler',
+  'bautler', 'bauler', 'bawler', 'boteler', 'bottles',
+  'bottlers', 'boulder', 'boatler', 'bartler', 'batler',
+  'bodler', 'bother', 'bottle', 'bottler',
+  // Short clips
+  'bot',
+  // "hey bot" variants
+  'hey bot',
+];
+
+function findWakeWord(lower) {
+  // Build pattern: optional "hey", then name, then optional comma/space.
+  // Each name must end at a word boundary so "bot" doesn't fire inside "bottle".
+  const namesPattern = WAKE_VARIANTS.map(n => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  const re = new RegExp('(?:hey[,\\s]+)?\\b(?:' + namesPattern + ')\\b[,\\s]*', 'i');
+  const m = re.exec(lower);
+  if (m) {
+    console.log('[Botler] wake match:', JSON.stringify(m[0]), 'in:', JSON.stringify(lower));
+    return m.index + m[0].length;
+  }
+  // Log every final transcript so you can tune WAKE_VARIANTS from the console.
+  console.log('[Botler] no wake in:', JSON.stringify(lower));
+  return -1;
+}
+
+function setWakeIndicator(on) {
+  document.getElementById('wake-dot').className = on ? 'on' : '';
+  document.getElementById('voice-bar').className = on ? 'awake' : '';
+}
+
+// ─── Mute ─────────────────────────────────────────────────────────────────────
+document.getElementById('mute-btn').addEventListener('click', () => {
+  muted = !muted;
+  document.getElementById('mute-btn').textContent = muted ? '🔇' : '🎤';
+  document.getElementById('mute-btn').classList.toggle('muted', muted);
+  if (muted) {
+    if (recognition) recognition.stop();
+    setTranscript('Muted');
+  } else {
+    if (recognition) { try { recognition.start(); } catch(e) {} }
+    setTranscript('Say "Botler…" to wake');
+  }
+});
+
+// ─── <cmd> tag executor ───────────────────────────────────────────────────────
+// Botler's AGENTS.md emits <cmd>{...}</cmd> tags in responses.
+// Strip them before TTS and execute the action on the client side.
+function stripAndExecCmds(text) {
+  if (!text) return text;
+  return text.replace(/<cmd>([\s\S]*?)<\/cmd>/g, (_, json) => {
+    try {
+      const cmd = JSON.parse(json.trim());
+      console.log('[Botler] cmd:', cmd);
+      execCmd(cmd);
+    } catch (e) { console.warn('[Botler] bad cmd JSON:', json); }
+    return ''; // strip from spoken text
+  }).replace(/\s{2,}/g, ' ').trim();
+}
+
+function execCmd(cmd) {
+  console.log('[Botler] execCmd:', cmd);
+  switch (cmd.action) {
+    case 'youtube':
+      if (cmd.videoId) {
+        // Direct embed works in iframes
+        openPanel(`https://www.youtube.com/embed/${cmd.videoId}?autoplay=1`, 'YouTube');
+      } else if (cmd.url && cmd.url.includes('/embed/')) {
+        openPanel(cmd.url, 'YouTube');
+      } else {
+        // Use our custom YouTube panel with Innertube search
+        const q = cmd.query || (cmd.url ? '' : '');
+        // autoplay=1 when the cmd explicitly requests play (not just browse/search)
+        const autoplay = cmd.autoplay ? '&autoplay=1' : '';
+        const ytPanelUrl = q
+          ? `${location.origin}/youtube-panel.html?q=${encodeURIComponent(q)}${autoplay}`
+          : `${location.origin}/youtube-panel.html`;
+        openPanel(ytPanelUrl, cmd.query ? `YouTube: ${cmd.query}` : 'YouTube');
+      }
+      break;
+    case 'url':
+      if (cmd.url) openPanel(cmd.url, cmd.title || cmd.url);
+      break;
+    case 'browser':
+      // Open in new tab rather than iframe (better for sites that block framing)
+      if (cmd.url) window.open(cmd.url, '_blank');
+      break;
+    case 'web_search':
+      if (cmd.query) openPanel(`https://duckduckgo.com/?q=${encodeURIComponent(cmd.query)}&kae=d`, `Search: ${cmd.query}`);
+      break;
+    case 'shopping_list':
+      renderComponent({ type: 'checklist', title: cmd.title || 'Shopping List', items: cmd.items || [] });
+      break;
+    case 'render_component': {
+      const panel = document.getElementById('side-panel');
+      const comp  = document.getElementById('component-panel');
+      const frame = document.getElementById('browser-frame');
+      const bar   = document.getElementById('browser-bar');
+      const err   = document.getElementById('browser-err');
+      document.getElementById('panel-title').textContent = cmd.title || 'Component';
+      frame.className = ''; bar.className = ''; err.className = '';
+      comp.className = 'visible';
+      comp.innerHTML = cmd.html || '';
+      panel.classList.add('open');
+      break;
+    }
+    case 'panel':
+      // Generic named panel
+      if (cmd.name === 'finance') { openFinance(); break; }
+      if (cmd.name === 'homeschool') { openHomeschool(); break; }
+      if (cmd.name === 'system-map' || cmd.name === 'agent-map') {
+        openPanel(`${location.origin}/agent-system-map.html`, 'System Map'); break;
+      }
+      break;
+    case 'homeschool':
+      openHomeschool();
+      break;
+    case 'close_panel':
+      closePanel();
+      break;
+    case 'change_color':
+      if (cmd.hex) applyColor(cmd.hex);
+      break;
+    case 'finance':
+      openFinance();
+      break;
+    case 'adjust_appearance':
+      adjustAppearance(cmd);
+      break;
+    case 'save_look':
+      saveLook(cmd.name || 'saved');
+      // speech is already in Botler's text response — don't double-speak
+      break;
+    case 'load_look':
+      if (!loadLook(cmd.name)) speak(`No look named ${cmd.name}.`);
+      break;
+    case 'open_app':
+      controlWindow({ action: 'open_app', app: cmd.app });
+      break;
+    case 'close_app':
+      controlWindow({ action: 'close_app', app: cmd.app });
+      break;
+    case 'open_url_external':
+      cmd.url ? window.open(cmd.url, '_blank') : null;
+      break;
+    default:
+      console.log('[Botler] unknown cmd action:', cmd.action);
+  }
+}
+
+// ─── TTS ─────────────────────────────────────────────────────────────────────
+function speak(text) {
+  if (!text || !text.trim()) return;
+  ttsQueue.push(text.trim());
+  pumpTTS();
+}
+
+function pumpTTS() {
+  if (ttsSpeaking || ttsQueue.length === 0) return;
+  ttsSpeaking = true;
+  setState('speaking');
+  const text = ttsQueue.shift();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.rate = 0.92; utt.pitch = 0.95;
+
+  // Stop STT while Botler speaks so the mic doesn't pick up echo / TTS output
+  if (!echoSuppressed) {
+    echoSuppressed = true;
+    if (recognition) { try { recognition.stop(); } catch(e) {} }
+  }
+
+  utt.onboundary = (e) => { if (e.name === 'word') triggerWordPop(); };
+  utt.onend = () => {
+    ttsSpeaking = false;
+    if (ttsQueue.length > 0) { pumpTTS(); return; }
+
+    // All done speaking — re-enable STT and extend the follow-up wake window.
+    echoSuppressed = false;
+    setState('listening');
+    setWakeIndicator(true);
+    setTranscript('Listening…');
+    clearTimeout(wakeTimer);
+    wakeExpiresAt = Date.now() + WAKE_FOLLOW_UP_MS;
+    wakeTimer = setTimeout(() => {
+      wakeExpiresAt = 0;
+      setWakeIndicator(false);
+      setState('idle');
+      setTranscript('Say "Botler…" to wake');
+    }, WAKE_FOLLOW_UP_MS);
+    if (!muted && recognition) { try { recognition.start(); } catch(e) {} }
+  };
+  utt.onerror = () => {
+    ttsSpeaking = false;
+    if (ttsQueue.length > 0) { pumpTTS(); return; }
+    echoSuppressed = false;
+    if (!muted && recognition) { try { recognition.start(); } catch(e) {} }
+  };
+  speechSynthesis.speak(utt);
+}
+
+function stopSpeaking() {
+  speechSynthesis.cancel(); ttsQueue = []; ttsSpeaking = false;
+}
+
+// ─── Query routing ────────────────────────────────────────────────────────────
+// Queries that need OpenClaw tools (files, telegram, real system access)
+function needsGateway(q) {
+  // Route to gateway for real system actions; NOT for look/appearance saves (handled locally)
+  if (/\bsave (this |my )?(look|style|appearance)\b/i.test(q)) return false;
+  return /\b(telegram|send me|text me|ping me|email|remind|alert|notify|file|creat|make a|write to|save|folder|desktop|calendar|schedule|weather report|google search|search the web|run|execute|script|code|commit|git|deploy)\b/i.test(q);
+}
+
+// ─── Abort current gateway run ────────────────────────────────────────────────
+async function abortCurrentRun() {
+  const runId = currentRunId;
+  currentRunId = null; expectedRunId = null;
+  stopSpeaking();
+  streamText = ''; spokenUpTo = 0;
+  if (runId && gw && gwConnected) {
+    try {
+      await gw.request('chat.abort', { sessionKey: SESSION_KEY, runId });
+      console.log('[Botler] aborted run:', runId);
+    } catch(e) { /* ignore — run may have already finished */ }
+  }
+}
+
+// ─── Smart router ─────────────────────────────────────────────────────────────
+async function processQuery(query) {
+  addBubble('user', query);
+  // Route to gateway when tools are needed; otherwise use fast direct API
+  if (needsGateway(query) && gw && gwConnected) {
+    console.log('[Botler] routing to gateway:', query);
+    return processQueryGateway(query);
+  }
+  console.log('[Botler] routing to direct API:', query);
+  return processQueryDirect(query);
+}
+
+// ─── Canvas self-portrait capture ────────────────────────────────────────────
+function captureCanvasImage() {
+  const canvas = document.querySelector('canvas');
+  if (!canvas) return null;
+  try {
+    const offscreen = document.createElement('canvas');
+    offscreen.width = 256; offscreen.height = 256;
+    offscreen.getContext('2d').drawImage(canvas, 0, 0, 256, 256);
+    return offscreen.toDataURL('image/jpeg', 0.75).split(',')[1];
+  } catch { return null; }
+}
+
+const APPEARANCE_RE = /\blook|appear|face|eye|mustache|monocle|style|see yourself|what do you look|screenshot\b/i;
+
+// ─── Direct Anthropic API path (fast — ~400ms TTFT) ──────────────────────────
+async function processQueryDirect(query) {
+  if (currentRunId) await abortCurrentRun();
+  else stopSpeaking();
+
+  // Build rolling context (keep last 20 messages = 10 turns) — store plain text only
+  conversationHistory.push({ role: 'user', content: query });
+  if (conversationHistory.length > 20) conversationHistory.splice(0, 2);
+
+  // For appearance/looks queries, inject canvas screenshot into this request only
+  // (not stored in history so we don't resend the image on every future call)
+  let apiMessages = [...conversationHistory];
+  if (APPEARANCE_RE.test(query)) {
+    const img = captureCanvasImage();
+    if (img) {
+      // Replace the last user message with an image+text version for this call
+      apiMessages = [
+        ...conversationHistory.slice(0, -1),
+        { role: 'user', content: [
+          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: img } },
+          { type: 'text', text: query },
+        ]},
+      ];
+    }
+  }
+
+  setState('thinking');
+  startThinkingTimer();
+  setTranscript(query, true);
+  streamText = ''; spokenUpTo = 0;
+  let fullText = '';
+
+  try {
+    const resp = await fetch(DIRECT_API_URL, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        system: BOTLER_DIRECT_SYSTEM,
+        messages: apiMessages,
+        maxTokens: 512,
+      }),
+    });
+    if (!resp.ok) throw new Error(`API ${resp.status}`);
+
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    // Use a local "active" flag so a barge-in can abort this read loop
+    const myRunId = crypto.randomUUID();
+    currentRunId = myRunId;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      // Barge-in: if currentRunId changed, someone else took over
+      if (currentRunId !== myRunId) { reader.cancel(); break; }
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6).trim();
+        if (raw === '[DONE]') break;
+        try {
+          const ev = JSON.parse(raw);
+          if (ev.delta) {
+            fullText += ev.delta;
+            const clean = fullText.replace(/<cmd>[\s\S]*?<\/cmd>/g, '').replace(/\s{2,}/g, ' ').trim();
+            if (clean.length > spokenUpTo) {
+              let chunk = clean.slice(spokenUpTo);
+              while (chunk.length > 0) {
+                const s = _extractSentence(chunk);
+                if (!s) break;
+                if (state === 'thinking') setState('speaking');
+                speak(s.sentence);
+                spokenUpTo += chunk.length - s.rest.length;
+                chunk = s.rest;
+              }
+            }
+          }
+        } catch { /* skip malformed */ }
+      }
+    }
+
+    if (currentRunId !== myRunId) return; // barged-in, don't finalize
+
+    const cleanFull = fullText.replace(/<cmd>[\s\S]*?<\/cmd>/g, '').replace(/\s{2,}/g, ' ').trim();
+    const leftover = cleanFull.slice(spokenUpTo).trim();
+    if (leftover) speak(leftover);
+
+    // Execute any <cmd> tags
+    _execCmdsFromRaw(fullText);
+
+    // Add to rolling history (clean text, no cmd tags)
+    if (cleanFull) {
+      conversationHistory.push({ role: 'assistant', content: cleanFull });
+      if (conversationHistory.length > 20) conversationHistory.splice(0, 2);
+      addBubble('bot', cleanFull);
+    }
+
+    currentRunId = null; streamText = ''; spokenUpTo = 0;
+    if (ttsQueue.length === 0 && !ttsSpeaking) setState('idle');
+
+  } catch (err) {
+    console.error('[Botler] direct API error:', err);
+    // Fallback to gateway if direct path fails
+    if (gw && gwConnected) {
+      console.log('[Botler] direct failed, falling back to gateway');
+      return processQueryGateway(query);
+    }
+    speak('I had trouble connecting. Please check the gateway.');
+    setState('idle');
+  }
+}
+
+// ─── Gateway path (tool-capable via OpenClaw) ─────────────────────────────────
+async function processQueryGateway(query) {
+  if (!gw || !gwConnected) {
+    console.warn('[Botler] gateway not connected');
+    setTranscript('Gateway not connected — check setup');
+    document.getElementById('setup-overlay').classList.remove('hidden');
+    return;
+  }
+  if (currentRunId) await abortCurrentRun();
+  else stopSpeaking();
+
+  setState('thinking');
+  startThinkingTimer();
+  setTranscript(query, true);
+  streamText = ''; spokenUpTo = 0;
+
+  try {
+    const idKey = crypto.randomUUID();
+    const ack = await gw.request('chat.send', {
+      sessionKey: SESSION_KEY,
+      message: query,
+      idempotencyKey: idKey,
+    });
+    currentRunId = ack?.runId ?? idKey;
+    expectedRunId = currentRunId;
+    console.log('[Botler] gateway chat.send ack, runId:', currentRunId);
+  } catch (err) {
+    console.error('[Botler] gateway chat.send error:', err);
+    speak('My apologies — gateway error.');
+    setState('idle');
+  }
+}
+
+// ─── Tool execution ───────────────────────────────────────────────────────────
+async function executeTool(name, input) {
+  console.log('[Botler] Tool:', name, input);
+  switch (name) {
+    case 'render_component':
+      renderComponent(input); return `Component rendered: ${input.title}`;
+    case 'shopping_list_add':
+      input.items.forEach(i => { if (!shoppingList.includes(i)) shoppingList.push(i); });
+      return `Added to shopping list: ${input.items.join(', ')}`;
+    case 'shopping_list_show':
+      renderComponent({ type: 'checklist', title: 'Shopping List', items: shoppingList.length ? shoppingList : ['(empty)'] });
+      return `Showing shopping list with ${shoppingList.length} items`;
+    case 'browser_navigate':
+      openPanel(input.url, input.title || input.url); return `Navigating to ${input.url}`;
+    case 'web_search':
+      openPanel(`https://duckduckgo.com/?q=${encodeURIComponent(input.query)}&kae=d`, `Search: ${input.query}`);
+      return `Searching for: ${input.query}`;
+    case 'finance_query':
+      if (!financeUnlocked) { openFinance(); return 'Finance dashboard opened — authentication required'; }
+      openFinance(true); return 'Finance dashboard opened';
+    default:
+      return `Unknown tool: ${name}`;
+  }
+}
+
+// ─── Side panel ───────────────────────────────────────────────────────────────
+function openPanel(url, title) {
+  const panel = document.getElementById('side-panel');
+  const frame = document.getElementById('browser-frame');
+  const comp  = document.getElementById('component-panel');
+  const bar   = document.getElementById('browser-bar');
+  const err   = document.getElementById('browser-err');
+
+  document.getElementById('panel-title').textContent = title || 'Browser';
+  frame.className = 'visible'; comp.className = ''; err.className = '';
+  bar.className = 'visible'; bar.textContent = url;
+  currentPanelUrl = url;
+
+  // Route external URLs through the browse proxy to strip X-Frame-Options.
+  // Skip proxy for: local URLs, already-proxied, YouTube embeds (which work natively),
+  // and data/blob URLs.
+  const isLocal = url.startsWith(location.origin) || url.startsWith('/');
+  const isAlreadyProxy = url.includes('/api/browse?');
+  const isNativeEmbed = /youtube\.com\/embed\//i.test(url) || url.startsWith('data:') || url.startsWith('blob:');
+  const displayUrl = (isLocal || isAlreadyProxy || isNativeEmbed) ? url
+    : `${location.origin}/api/browse?url=${encodeURIComponent(url)}`;
+
+  frame.src = displayUrl;
+  frame.onerror = () => { frame.className = ''; err.className = 'visible'; };
+  // Detect blank/blocked iframes (e.g. X-Frame-Options in meta or JS redirect leaking)
+  frame.onload = () => {
+    try {
+      const doc = frame.contentDocument;
+      if (!doc || doc.body.innerHTML.trim() === '') {
+        frame.className = ''; err.className = 'visible';
+      }
+    } catch(e) {
+      // SecurityError = cross-origin content — can't check but it loaded
+    }
+  };
+  panel.classList.add('open');
+}
+
+function openErrTab() { if (currentPanelUrl) window.open(currentPanelUrl, '_blank'); }
+
+// For sites that block iframes (YouTube search, Twitter, etc.) show a launcher card
+function showPanelLauncher(url, title) {
+  currentPanelUrl = url;
+  const panel = document.getElementById('side-panel');
+  const comp  = document.getElementById('component-panel');
+  const frame = document.getElementById('browser-frame');
+  const bar   = document.getElementById('browser-bar');
+  const err   = document.getElementById('browser-err');
+  document.getElementById('panel-title').textContent = title;
+  frame.className = ''; bar.className = ''; err.className = '';
+  comp.className = 'visible';
+  comp.innerHTML = `
+    <div class="comp-title">${title}</div>
+    <p style="color:rgba(255,200,100,0.5);font-size:11px;letter-spacing:0.15em;margin-bottom:16px;">
+      This site can't load inside the panel.
+    </p>
+    <button class="btn" style="font-size:11px;padding:8px 18px;" onclick="window.open('${url.replace(/'/g,"\\'")}','_blank')">
+      Open in New Tab ↗
+    </button>`;
+  panel.classList.add('open');
+}
+
+function closePanel() {
+  document.getElementById('side-panel').classList.remove('open');
+  document.getElementById('browser-frame').src = 'about:blank';
+}
+
+// ─── Component renderer ───────────────────────────────────────────────────────
+function renderComponent(spec) {
+  const panel = document.getElementById('side-panel');
+  const comp  = document.getElementById('component-panel');
+  const frame = document.getElementById('browser-frame');
+  const bar   = document.getElementById('browser-bar');
+
+  document.getElementById('panel-title').textContent = spec.title || 'Component';
+  frame.className = ''; bar.className = '';
+  document.getElementById('browser-err').className = '';
+  comp.className = 'visible';
+  panel.classList.add('open');
+
+  if (spec.type === 'checklist') {
+    comp.innerHTML = `<div class="comp-title">${esc(spec.title)}</div>
+      <ul class="comp-checklist">
+        ${spec.items.map((item, i) => `
+          <li id="cli${i}" onclick="toggleCheck(${i})">
+            <div class="comp-check" id="chk${i}">✓</div>
+            <span>${esc(item)}</span>
+          </li>`).join('')}
+      </ul>`;
+  } else if (spec.type === 'step_guide') {
+    let stepIdx = 0;
+    comp.innerHTML = `<div class="comp-title">${esc(spec.title)}</div>
+      <div class="comp-steps" id="steps-list">
+        ${spec.items.map((step, i) => `
+          <div class="comp-step${i===0?' active':''}" id="step${i}" onclick="activateStep(${i})">
+            <div class="comp-step-num">${i+1}</div>
+            <div class="comp-step-text">${esc(step)}</div>
+          </div>`).join('')}
+      </div>
+      <div class="comp-nav">
+        <button class="btn" onclick="prevStep()">← Back</button>
+        <button class="btn" onclick="nextStep()">Next →</button>
+      </div>`;
+  }
+}
+
+window.toggleCheck = (i) => {
+  document.getElementById(`cli${i}`).classList.toggle('done');
+  document.getElementById(`chk${i}`).classList.toggle('checked');
+};
+
+window.activateStep = (i) => {
+  document.querySelectorAll('.comp-step').forEach((s,j) => {
+    s.className = 'comp-step' + (j < i ? ' done' : j === i ? ' active' : '');
+  });
+};
+
+window.nextStep = () => {
+  const steps = document.querySelectorAll('.comp-step');
+  const cur = [...steps].findIndex(s => s.classList.contains('active'));
+  if (cur < steps.length-1) activateStep(cur+1);
+};
+
+window.prevStep = () => {
+  const steps = document.querySelectorAll('.comp-step');
+  const cur = [...steps].findIndex(s => s.classList.contains('active'));
+  if (cur > 0) activateStep(cur-1);
+};
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ─── Finance ──────────────────────────────────────────────────────────────────
+function openHomeschool() {
+  // Served by botler-serve from ~/Downloads/homeschool.html
+  openPanel(`${location.origin}/homeschool.html`, 'School Board');
+}
+
+function openFinance(skipAuth = false) {
+  // Open stewartOS household finance dashboard (local)
+  if (financePass && !financeUnlocked && !skipAuth) {
+    document.getElementById('finance-panel').classList.add('open');
+    return;
+  }
+  financeUnlocked = true;
+  closeFinance();
+  openPanel(`${location.origin}/botler-finance.html`, 'Finance — stewartOS');
+}
+function closeFinance() { document.getElementById('finance-panel').classList.remove('open'); }
+
+function checkFinanceAuth() {
+  const val = document.getElementById('fin-pass').value;
+  if (!financePass || val === financePass) {
+    financeUnlocked = true;
+    document.getElementById('fin-err').classList.remove('visible');
+    closeFinance();
+    openPanel(`${location.origin}/botler-finance.html`, 'Finance — stewartOS');
+  } else {
+    document.getElementById('fin-err').classList.add('visible');
+  }
+}
+
+// ─── Appearance voice control ─────────────────────────────────────────────────
+// Called by execCmd({ action:'adjust_appearance', ... })
+function adjustAppearance(params) {
+  const { mustacheSX, mustacheSY, eyeSize, eyeSepOff, monoSize, mustacheY, eyeY, delta } = params;
+
+  if (mustacheSX  !== undefined) edit.mustacheSX  = Math.max(0.2, Math.min(4, delta ? edit.mustacheSX  + mustacheSX  : mustacheSX));
+  if (mustacheSY  !== undefined) edit.mustacheSY  = Math.max(0.1, Math.min(4, delta ? edit.mustacheSY  + mustacheSY  : mustacheSY));
+  if (eyeSize     !== undefined) edit.eyeSize     = Math.max(0.15,Math.min(4, delta ? edit.eyeSize     + eyeSize     : eyeSize));
+  if (eyeSepOff   !== undefined) edit.eyeSepOff   = Math.max(-0.5,Math.min(0.5, delta ? edit.eyeSepOff + eyeSepOff  : eyeSepOff));
+  if (monoSize    !== undefined) edit.monoSize    = Math.max(0.2, Math.min(4, delta ? edit.monoSize    + monoSize    : monoSize));
+  if (mustacheY   !== undefined) edit.mustacheY   = delta ? edit.mustacheY + mustacheY : mustacheY;
+  if (eyeY        !== undefined) edit.eyeY        = delta ? edit.eyeY      + eyeY      : eyeY;
+  buildMustache();
+}
+
+// ─── Save / Load looks ────────────────────────────────────────────────────────
+function getCurrentLook() {
+  const hex = '#' + bgMat.uniforms.tint.value.getHexString();
+  return { ...edit, color: hex };
+}
+function applyLook(look) {
+  if (look.color) applyColor(look.color);
+  const { color, ...editParams } = look;
+  Object.assign(edit, editParams);
+  buildMustache();
+}
+function saveLook(name) {
+  const looks = JSON.parse(localStorage.getItem('botler_looks') || '{}');
+  looks[name] = getCurrentLook();
+  localStorage.setItem('botler_looks', JSON.stringify(looks));
+  refreshLooksDropdown();
+  return name;
+}
+function loadLook(name) {
+  const looks = JSON.parse(localStorage.getItem('botler_looks') || '{}');
+  if (looks[name]) { applyLook(looks[name]); return true; }
+  return false;
+}
+function deleteLook(name) {
+  const looks = JSON.parse(localStorage.getItem('botler_looks') || '{}');
+  delete looks[name];
+  localStorage.setItem('botler_looks', JSON.stringify(looks));
+  refreshLooksDropdown();
+}
+function uiSaveLook() {
+  const input = document.getElementById('looks-name');
+  const name = (input?.value || '').trim() || 'look';
+  saveLook(name);
+  speak(`Saved as ${name}.`);
+  if (input) input.value = '';
+}
+function uiLoadLook(name) {
+  if (!name) return;
+  if (!loadLook(name)) speak(`No look named ${name}.`);
+  else speak(`Loaded ${name}.`);
+}
+
+function refreshLooksDropdown() {
+  const sel = document.getElementById('looks-select');
+  if (!sel) return;
+  const looks = JSON.parse(localStorage.getItem('botler_looks') || '{}');
+  sel.innerHTML = '<option value="">— Load look —</option>';
+  for (const name of Object.keys(looks)) {
+    const o = document.createElement('option'); o.value = name; o.textContent = name;
+    sel.appendChild(o);
+  }
+}
+
+// ─── Window / app control ─────────────────────────────────────────────────────
+async function controlWindow(params) {
+  try {
+    const r = await fetch('/api/window', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    const d = await r.json();
+    console.log('[Botler] window control:', d);
+    return d;
+  } catch(e) { console.error('[Botler] window control error:', e); return { ok: false }; }
+}
+
+// ─── Extend execCmd for new actions ──────────────────────────────────────────
+const _origExecCmd = execCmd;
+// Patch execCmd to handle new actions
+// (defined inline after original to avoid hoisting issues)
+const _execCmdExtensions = {
+  adjust_appearance: (cmd) => adjustAppearance(cmd),
+  save_look: (cmd) => { saveLook(cmd.name || 'look'); },
+  load_look: (cmd) => { loadLook(cmd.name) || speak(`No look named ${cmd.name}.`); },
+  open_app:  (cmd) => controlWindow({ action: 'open_app',  app: cmd.app }),
+  close_app: (cmd) => controlWindow({ action: 'close_app', app: cmd.app }),
+  open_url_external: (cmd) => controlWindow({ action: 'open_url', url: cmd.url }),
+};
+
+// Wrap execCmd to add extension handling
+window._botlerExecCmdPatched = true;
+const _execCmdOrig = window.execCmd || (typeof execCmd !== 'undefined' ? execCmd : null);
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+
+// Init looks dropdown if element exists (injected by edit panel)
+setTimeout(refreshLooksDropdown, 100);
+
+// Poll for Cloudflare tunnel URL and show it as a subtle bottom label
+(async function pollTunnel() {
+  const el = document.getElementById('tunnel-tag');
+  if (!el) return;
+  for (let i = 0; i < 30; i++) {
+    await new Promise(r => setTimeout(r, 3000));
+    try {
+      const r = await fetch('/api/tunnel');
+      const { url } = await r.json();
+      if (url) {
+        el.textContent = url.replace('https://', '');
+        el.href = url;
+        el.style.display = 'block';
+        return;
+      }
+    } catch {}
+  }
+})();
+
+checkSetup();
 </script>
 </body>
 </html>
