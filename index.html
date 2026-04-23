@@ -507,6 +507,7 @@ body.adult-mode #adult-timer { display: block; }
     </div>
   </div>
   <button class="btn" onclick="openFinance()">Finance</button>
+  <button id="family-portal-btn" class="btn" onclick="openFamilyPortal()">Family</button>
   <button class="btn" onclick="openPanel(location.origin+'/agent-system-map.html','System Map')">System Map</button>
   <button id="subtitle-toggle" class="btn" onclick="toggleSubtitles()">Subtitles On</button>
 </div>
@@ -570,6 +571,18 @@ body.adult-mode #adult-timer { display: block; }
     <div class="fin-title">Household Overview</div>
     <div class="fin-grid" id="fin-grid"></div>
     <div class="fin-note">Live bank + Coinbase integration coming in Milestone 2. Connect via /setup.</div>
+  </div>
+</div>
+
+<!-- Family Portal (Quan + Julia only) -->
+<div id="family-portal" style="display:none;position:fixed;inset:0;z-index:60;background:rgba(6,2,0,0.97);overflow-y:auto;padding:24px 20px 40px;">
+  <button onclick="closeFamilyPortal()" style="position:fixed;top:18px;right:20px;background:none;border:1px solid rgba(255,160,40,0.3);color:rgba(255,200,100,0.6);font-size:11px;padding:4px 12px;border-radius:2px;cursor:pointer;font-family:Georgia,serif;letter-spacing:.2em;">✕ CLOSE</button>
+  <div style="max-width:700px;margin:0 auto;">
+    <div style="font-size:9px;letter-spacing:.5em;text-transform:uppercase;color:rgba(255,160,40,.4);margin-bottom:6px;">Stewart Household</div>
+    <h2 style="font-size:22px;color:rgba(255,220,120,.8);font-family:Georgia,serif;margin-bottom:28px;">Family Portal</h2>
+    <div id="family-kids-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-bottom:32px;"></div>
+    <div style="font-size:9px;letter-spacing:.4em;color:rgba(255,160,40,.35);text-transform:uppercase;margin-bottom:12px;">Household Notes</div>
+    <textarea id="family-notes" rows="4" oninput="saveFamilyNotes()" style="width:100%;background:rgba(255,160,40,0.04);border:1px solid rgba(255,160,40,.15);color:rgba(255,220,120,.75);font-family:Georgia,serif;font-size:13px;padding:12px;border-radius:4px;resize:vertical;outline:none;" placeholder="Shared household notes…"></textarea>
   </div>
 </div>
 
@@ -1070,14 +1083,88 @@ const HOUSEHOLD = {
 
 let currentUser = (() => { try { return JSON.parse(localStorage.getItem('botler_current_user') || 'null'); } catch { return null; } })();
 let kidsLocked  = !!(currentUser && !HOUSEHOLD[currentUser.id]?.isAdult);
+// Apply initial visibility of adult-only controls
+document.addEventListener('DOMContentLoaded', () => {
+  const fpBtn = document.getElementById('family-portal-btn');
+  if (fpBtn) fpBtn.style.display = kidsLocked ? 'none' : '';
+});
 
 function setCurrentUser(id) {
   const u = HOUSEHOLD[id]; if (!u) return;
   currentUser = { id, ...u };
   localStorage.setItem('botler_current_user', JSON.stringify(currentUser));
   kidsLocked = !u.isAdult;
-  if (kidsLocked) exitAdultMode();
+  if (kidsLocked) { exitAdultMode(); closeFamilyPortal(); }
+  // Show family portal button only for parents
+  const fpBtn = document.getElementById('family-portal-btn');
+  if (fpBtn) fpBtn.style.display = u.isAdult ? '' : 'none';
 }
+
+// ─── Family Portal ────────────────────────────────────────────────────────────
+const KIDS = ['kage','avonte','ezlynn'];
+
+function openFamilyPortal() {
+  if (kidsLocked) { speak("That area is for parents only."); return; }
+  renderFamilyPortal();
+  document.getElementById('family-portal').style.display = 'block';
+}
+
+function closeFamilyPortal() {
+  document.getElementById('family-portal').style.display = 'none';
+}
+
+function getFamilyData() {
+  try { return JSON.parse(localStorage.getItem('botler_family') || '{}'); } catch { return {}; }
+}
+function saveFamilyData(data) {
+  localStorage.setItem('botler_family', JSON.stringify(data));
+}
+function saveFamilyNotes() {
+  const d = getFamilyData();
+  d.notes = document.getElementById('family-notes').value;
+  saveFamilyData(d);
+}
+
+function renderFamilyPortal() {
+  const data = getFamilyData();
+  document.getElementById('family-notes').value = data.notes || '';
+  const grid = document.getElementById('family-kids-grid');
+  grid.innerHTML = '';
+  for (const kid of KIDS) {
+    const h = HOUSEHOLD[kid];
+    if (!h) continue;
+    const kd = data[kid] || {};
+    const card = document.createElement('div');
+    card.style.cssText = 'background:rgba(255,160,40,0.04);border:1px solid rgba(255,160,40,0.12);border-radius:6px;padding:16px;';
+    card.innerHTML = `
+      <div style="font-size:9px;letter-spacing:.4em;text-transform:uppercase;color:rgba(255,160,40,.35);margin-bottom:4px;">Child</div>
+      <div style="font-size:17px;color:rgba(255,220,120,.8);font-family:Georgia,serif;margin-bottom:14px;">${h.name}</div>
+      <label style="display:block;font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:rgba(255,200,100,.3);margin-bottom:4px;">Schedule</label>
+      <textarea rows="2" data-kid="${kid}" data-field="schedule" onchange="saveFamilyField(this)"
+        style="width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(255,160,40,.1);color:rgba(255,220,120,.65);font-family:Georgia,serif;font-size:12px;padding:8px;border-radius:3px;resize:none;outline:none;margin-bottom:8px;"
+        placeholder="School 8am–3pm, Soccer Tue/Thu…">${e(kd.schedule||'')}</textarea>
+      <label style="display:block;font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:rgba(255,200,100,.3);margin-bottom:4px;">Diet / Allergies</label>
+      <textarea rows="2" data-kid="${kid}" data-field="diet" onchange="saveFamilyField(this)"
+        style="width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(255,160,40,.1);color:rgba(255,220,120,.65);font-family:Georgia,serif;font-size:12px;padding:8px;border-radius:3px;resize:none;outline:none;margin-bottom:8px;"
+        placeholder="No nuts, lactose-free…">${e(kd.diet||'')}</textarea>
+      <label style="display:block;font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:rgba(255,200,100,.3);margin-bottom:4px;">Progress Notes</label>
+      <textarea rows="2" data-kid="${kid}" data-field="progress" onchange="saveFamilyField(this)"
+        style="width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(255,160,40,.1);color:rgba(255,220,120,.65);font-family:Georgia,serif;font-size:12px;padding:8px;border-radius:3px;resize:none;outline:none;"
+        placeholder="Reading level, recent milestones…">${e(kd.progress||'')}</textarea>
+    `;
+    grid.appendChild(card);
+  }
+}
+
+function saveFamilyField(el) {
+  const d = getFamilyData();
+  const kid = el.dataset.kid, field = el.dataset.field;
+  if (!d[kid]) d[kid] = {};
+  d[kid][field] = el.value;
+  saveFamilyData(d);
+}
+
+function e(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function detectUserFromText(text) {
   const t = text.toLowerCase();
@@ -1112,6 +1199,7 @@ ${userLine}
 
 ## Persistent memory
 ${listCtx}
+${(() => { const d = getFamilyData(); const notes = d.notes; const kids = KIDS.map(k => { const kd = d[k]; if (!kd) return ''; const h = HOUSEHOLD[k]; const parts = []; if (kd.schedule) parts.push(`schedule: ${kd.schedule}`); if (kd.diet) parts.push(`diet: ${kd.diet}`); if (kd.progress) parts.push(`progress: ${kd.progress}`); return parts.length ? `${h?.name}: ${parts.join('; ')}` : ''; }).filter(Boolean).join(' | '); const out = []; if (kids) out.push(`Children — ${kids}`); if (notes) out.push(`Household notes: ${notes}`); return out.join('\n'); })()}
 
 ## CRITICAL — Components
 NEVER output raw HTML, CSS, or code in your spoken text. Components render silently in the UI.
@@ -1191,12 +1279,83 @@ let financePass  = sessionStorage.getItem('botler_fpass')  || '';
 let financeUnlocked = false;
 let shoppingList = [];
 let muted          = false;
-// Timestamp-based wake window — more robust than a boolean flag.
-// Any final utterance that arrives while Date.now() < wakeExpiresAt gets sent.
+// Wake + ambient listening state
 let wakeExpiresAt  = 0;
-const WAKE_WINDOW_MS      = 12000; // 12 s after hearing the name
-const WAKE_FOLLOW_UP_MS   = 10000; // keep open after Botler finishes speaking
+const WAKE_WINDOW_MS      = 12000;
+const WAKE_FOLLOW_UP_MS   = 10000;
 let wakeTimer      = null;
+let activeListening = false; // true = in wake window, write speech to UI
+
+// Speech accumulation — hold finals until lull, then send as one query
+let speechBuffer = '';
+let lullTimer    = null;
+const LULL_MS    = 1800;
+
+let wakeTonePlayed = false; // play tone once per wake activation
+
+function playWakeBeep() {
+  if (wakeTonePlayed) return;
+  wakeTonePlayed = true;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator(); const g = ctx.createGain();
+    osc.connect(g); g.connect(ctx.destination);
+    osc.frequency.value = 820; osc.type = 'sine';
+    g.gain.setValueAtTime(0, ctx.currentTime);
+    g.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 0.04);
+    g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.22);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.25);
+    osc.onended = () => ctx.close();
+  } catch(e) {}
+}
+
+function enterActiveListening() {
+  if (activeListening) return;
+  activeListening = true;
+  wakeTonePlayed = false;
+  playWakeBeep();
+  setWakeIndicator(true);
+  setState('listening');
+}
+
+function exitActiveListening() {
+  activeListening = false;
+  wakeTonePlayed = false;
+  speechBuffer = '';
+  clearTimeout(lullTimer);
+  setWakeIndicator(false);
+  const ta = document.getElementById('text-query');
+  if (ta && ta === document.activeElement === false) { ta.value = ''; ta.style.height = '44px'; }
+  if (state !== 'speaking' && state !== 'thinking') {
+    setState('idle');
+    setTranscript('Say "Botler…" to wake');
+  }
+}
+
+function accumulateSpeech(text) {
+  const trimmed = text.trim();
+  if (!trimmed) return;
+  speechBuffer = speechBuffer ? speechBuffer + ' ' + trimmed : trimmed;
+  const ta = document.getElementById('text-query');
+  if (ta && document.activeElement !== ta) {
+    ta.value = speechBuffer;
+    autoExpandTextarea(ta);
+  }
+  clearTimeout(lullTimer);
+  lullTimer = setTimeout(flushSpeechBuffer, LULL_MS);
+}
+
+function flushSpeechBuffer() {
+  const q = speechBuffer.trim();
+  speechBuffer = '';
+  clearTimeout(lullTimer);
+  const ta = document.getElementById('text-query');
+  if (ta && document.activeElement !== ta) { ta.value = ''; ta.style.height = '44px'; }
+  if (q.length > 1) {
+    exitSilentMode();
+    processQuery(q);
+  }
+}
 let currentPanelUrl= '';
 let ttsQueue       = [];
 let ttsSpeaking    = false;
@@ -1240,12 +1399,11 @@ function toggleMuteMobile() {
 function tapToTalk() {
   clearTimeout(wakeTimer);
   wakeExpiresAt = Date.now() + WAKE_WINDOW_MS;
-  setState('listening');
-  setWakeIndicator(true);
+  enterActiveListening();
   setTranscript('Listening…');
   wakeTimer = setTimeout(() => {
     wakeExpiresAt = 0;
-    setWakeIndicator(false);
+    exitActiveListening();
     if (state !== 'speaking' && state !== 'thinking') { setState('idle'); setTranscript('Say "Botler…" to wake'); }
   }, WAKE_WINDOW_MS);
 }
@@ -1509,8 +1667,8 @@ class GatewayClient {
     const id = crypto.randomUUID();
     const params = {
       minProtocol: 3, maxProtocol: 3,
-      client: { id: 'openclaw-control-ui', version: 'dev',
-                displayName: 'Quan', platform: navigator.platform || 'web', mode: 'webchat' },
+      client: { id: `openclaw-control-ui-${DEVICE_ID}`, version: 'dev',
+                displayName: currentUser?.name || 'Botler Shell', platform: navigator.platform || 'web', mode: 'webchat' },
       role: 'operator',
       scopes: ['operator.admin'],
       auth: this.token ? { password: this.token } : undefined,
@@ -1544,6 +1702,8 @@ class GatewayClient {
       if (m) _markAgentUnread(m[1]);
     }
     if (!p || p.sessionKey !== getSessionKey()) return;
+    // Secondary device guard: if gateway echoes deviceId, verify it's ours
+    if (p.deviceId && p.deviceId !== DEVICE_ID) return;
     // Drop events from stale runs (e.g. old response arriving after barge-in)
     if (expectedRunId && p.runId && p.runId !== expectedRunId) {
       console.log('[Botler] dropping stale run event, runId:', p.runId);
@@ -1692,52 +1852,38 @@ function initVoice() {
       const t = evt.results[i][0].transcript;
       evt.results[i].isFinal ? (final += t) : (interim += t);
     }
-    // Show interim transcript; if bot is speaking, show interim as dim barge-in hint
+
+    // Always show interim as a dim hint in the transcript bar (ambient or active)
     if (interim && state !== 'thinking') setTranscript(interim);
 
     if (!final) return;
-    setTranscript(final, true);
+
     const lower = final.toLowerCase().trim();
     const wakeIdx = findWakeWord(lower);
 
     if (wakeIdx >= 0) {
-      clearTimeout(wakeTimer);
-      wakeExpiresAt = Date.now() + WAKE_WINDOW_MS;
-      // Barge-in: if Botler is speaking or thinking, interrupt and start fresh
-      const isActive = state === 'speaking' || state === 'thinking';
-      if (isActive) {
-        console.log('[Botler] barge-in detected — interrupting');
-        abortCurrentRun(); // fire-and-forget; processQuery will re-check state
-      } else {
-        setState('listening');
-        setWakeIndicator(true);
+      // Wake word detected — barge-in if speaking/thinking
+      if (state === 'speaking' || state === 'thinking') {
+        console.log('[Botler] barge-in — interrupting');
+        abortCurrentRun();
       }
-      setWakeIndicator(true);
-      clearTimeout(wakeTimer);
-      wakeTimer = setTimeout(() => {
-        wakeExpiresAt = 0;
-        setWakeIndicator(false);
-        if (state !== 'speaking' && state !== 'thinking') {
-          setState('idle');
-          setTranscript('Say "Botler…" to wake');
-        }
-      }, WAKE_WINDOW_MS);
-      const query = final.slice(wakeIdx).trim();
-      if (query.length > 2) { exitSilentMode(); processQuery(query); }
-    } else if (Date.now() < wakeExpiresAt && final.trim().length > 1) {
-      // Inside the wake window — send follow-up without wake word.
+      if (!activeListening) enterActiveListening();
+      // Reset the exit timer
       clearTimeout(wakeTimer);
       wakeExpiresAt = Date.now() + WAKE_WINDOW_MS;
-      wakeTimer = setTimeout(() => {
-        wakeExpiresAt = 0;
-        setWakeIndicator(false);
-        if (state !== 'speaking' && state !== 'thinking') {
-          setState('idle');
-          setTranscript('Say "Botler…" to wake');
-        }
-      }, WAKE_WINDOW_MS);
-      exitSilentMode(); processQuery(final.trim());
+      wakeTimer = setTimeout(exitActiveListening, WAKE_WINDOW_MS);
+      // Queue any query that came after the wake word in this same utterance
+      const afterWake = final.slice(wakeIdx).trim();
+      if (afterWake.length > 2) accumulateSpeech(afterWake);
+
+    } else if (activeListening) {
+      // Inside wake window — accumulate toward the lull buffer
+      clearTimeout(wakeTimer);
+      wakeExpiresAt = Date.now() + WAKE_WINDOW_MS;
+      wakeTimer = setTimeout(exitActiveListening, WAKE_WINDOW_MS);
+      accumulateSpeech(final.trim());
     }
+    // Ambient mode: do nothing with final (mic is always on, just watching)
   };
 
   recognition.onend = () => {
@@ -2029,12 +2175,30 @@ async function abortCurrentRun() {
 }
 
 // ─── Smart router ─────────────────────────────────────────────────────────────
+const THINK_PHRASES = [
+  q => `Hm, ${q.split(' ').slice(0,3).join(' ')}, let me think.`,
+  () => 'One moment, sir.',
+  () => 'Let me look into that.',
+  () => 'Right — give me just a moment.',
+  () => 'Let me work that out.',
+];
+const NEEDS_THINK_RE = /\b(how|what|why|where|when|who|find|look|search|calc|tell me|explain|show|list|compare|check|weather|news|recipe|schedule|remind|price|cost|convert|translate|define|write|draft|summar)\b/i;
+function maybeThinkFiller(query) {
+  const words = query.trim().split(/\s+/);
+  if (words.length >= 5 && NEEDS_THINK_RE.test(query)) {
+    const fn = THINK_PHRASES[Math.floor(Math.random() * THINK_PHRASES.length)];
+    speak(fn(query));
+  }
+}
+
 async function processQuery(query) {
   // Local UI commands — handled without sending to any model
   if (handleLocalCommand(query)) return;
   // Extend adult mode timeout on any interaction
   if (adultMode) resetAdultTimer();
   addBubble('user', query);
+  // Speak a filler phrase while we fetch, for complex queries
+  maybeThinkFiller(query);
   // Route to gateway when tools are needed; otherwise use fast direct API
   if (needsGateway(query) && gw && gwConnected) {
     console.log('[Botler] routing to gateway:', query);
@@ -2196,6 +2360,7 @@ async function processQueryGateway(query) {
       sessionKey: getSessionKey(),
       message: query,
       idempotencyKey: idKey,
+      metadata: { deviceId: DEVICE_ID, userId: currentUser?.id || 'unknown' },
     });
     currentRunId = ack?.runId ?? idKey;
     expectedRunId = currentRunId;
