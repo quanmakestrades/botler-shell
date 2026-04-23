@@ -1818,9 +1818,11 @@ async function processQueryDirect(query) {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
         system: BOTLER_DIRECT_SYSTEM,
         messages: apiMessages,
-        maxTokens: 512,
+        max_tokens: 512,
+        stream: true,
       }),
     });
     if (!resp.ok) throw new Error(`API ${resp.status}`);
@@ -1845,8 +1847,9 @@ async function processQueryDirect(query) {
         if (raw === '[DONE]') break;
         try {
           const ev = JSON.parse(raw);
-          if (ev.delta) {
-            fullText += ev.delta;
+          // Anthropic SSE: content_block_delta with text_delta type
+          if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') {
+            fullText += ev.delta.text;
             const clean = fullText.replace(/<cmd>[\s\S]*?<\/cmd>/g, '').replace(/\s{2,}/g, ' ').trim();
             if (clean.length > spokenUpTo) {
               let chunk = clean.slice(spokenUpTo);
@@ -2208,24 +2211,6 @@ const _execCmdOrig = window.execCmd || (typeof execCmd !== 'undefined' ? execCmd
 // Init looks dropdown if element exists (injected by edit panel)
 setTimeout(refreshLooksDropdown, 100);
 
-// Poll for Cloudflare tunnel URL and show it as a subtle bottom label
-(async function pollTunnel() {
-  const el = document.getElementById('tunnel-tag');
-  if (!el) return;
-  for (let i = 0; i < 30; i++) {
-    await new Promise(r => setTimeout(r, 3000));
-    try {
-      const r = await fetch('/api/tunnel');
-      const { url } = await r.json();
-      if (url) {
-        el.textContent = url.replace('https://', '');
-        el.href = url;
-        el.style.display = 'block';
-        return;
-      }
-    } catch {}
-  }
-})();
 
 checkSetup();
 </script>
