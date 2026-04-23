@@ -835,6 +835,7 @@ let adultTimer = null;
 const ADULT_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
 function enterAdultMode() {
+  if (kidsLocked) return;
   adultMode = true;
   document.body.classList.add('adult-mode');
   resetAdultTimer();
@@ -864,7 +865,19 @@ const RE_COLORS_SHOW  = /\b(show|see|open|pick|let me|show me|can i see)\b.{0,22
 
 function handleLocalCommand(query) {
   const q = query.trim();
+
+  // User identification — say "I'm Quan", "this is Julia", etc.
+  const detectedId = detectUserFromText(q);
+  if (detectedId) {
+    const wasNew = !currentUser;
+    setCurrentUser(detectedId);
+    const name = HOUSEHOLD[detectedId].name;
+    speak(wasNew ? `Welcome, ${name}. How may I assist you?` : `Switching to ${name}'s session.`);
+    return true;
+  }
+
   if (RE_ADULT_SHOW.test(q)) {
+    if (kidsLocked) { speak("Those controls are for grown-ups only."); return true; }
     enterAdultMode();
     speak('Controls visible.');
     return true;
@@ -977,12 +990,60 @@ const DEFAULT_GW_URL   = _isLoopback
   : 'wss://stewartos-core.tail2d5e46.ts.net';
 const DEFAULT_GW_TOKEN = 'StewartOS-Core-2026';
 let   activeAgent      = 'botler';
-function getSessionKey() { return `agent:${activeAgent}:main`; }
+
+// ─── Device + User Identity ───────────────────────────────────────────────────
+// Each browser/device gets a stable UUID so sessions never bleed across devices.
+const DEVICE_ID = (() => {
+  let id = localStorage.getItem('botler_device_id');
+  if (!id) { id = crypto.randomUUID(); localStorage.setItem('botler_device_id', id); }
+  return id;
+})();
+
+const HOUSEHOLD = {
+  quan:   { name:'Quan',   isAdult:true,  context:'Head of household and founder of Stewart Inc. Full admin access — finance, trading (Impulse), business ops (TideFlow), and all system controls.' },
+  julia:  { name:'Julia',  isAdult:true,  context:"Quan's partner. Full household and family access." },
+  kage:   { name:'Kage',   isAdult:false, context:'One of the children. Keep responses age-appropriate, warm, and fun.' },
+  avonte: { name:'Avonte', isAdult:false, context:'One of the children. Keep responses age-appropriate, warm, and fun.' },
+  ezlynn: { name:'Ezlynn', isAdult:false, context:'One of the children. Keep responses age-appropriate, warm, and fun.' },
+};
+
+let currentUser = (() => { try { return JSON.parse(localStorage.getItem('botler_current_user') || 'null'); } catch { return null; } })();
+let kidsLocked  = !!(currentUser && !HOUSEHOLD[currentUser.id]?.isAdult);
+
+function setCurrentUser(id) {
+  const u = HOUSEHOLD[id]; if (!u) return;
+  currentUser = { id, ...u };
+  localStorage.setItem('botler_current_user', JSON.stringify(currentUser));
+  kidsLocked = !u.isAdult;
+  if (kidsLocked) exitAdultMode();
+}
+
+function detectUserFromText(text) {
+  const t = text.toLowerCase();
+  const map = { quan:["quan","i'm quan","this is quan","it's quan"],
+    julia:["julia","i'm julia","this is julia","it's julia","jules"],
+    kage:["i'm kage","this is kage","it's kage"],
+    avonte:["avonte","i'm avonte","this is avonte"],
+    ezlynn:["ezlynn","i'm ezlynn","this is ezlynn","ez","ezlin"] };
+  for (const [id, aliases] of Object.entries(map)) {
+    if (aliases.some(a => t.includes(a))) return id;
+  }
+  return null;
+}
+
+// Per-device session — isolates audio responses to the originating device
+function getSessionKey() { return `agent:${activeAgent}:device:${DEVICE_ID}`; }
 const AGENT_NAMES = { botler:'Botler', cash:'Cash', dev:'Dev', impulse:'Impulse', jim:'Jim', loki:'Loki' };
 const DIRECT_API_URL   = `${location.origin}/api/stream`; // Anthropic proxy in botler-serve
 
-// Condensed system prompt for the fast direct-API path (no tool calls)
-const BOTLER_DIRECT_SYSTEM = `You are Botler, Quan's household AI butler. Speak in short warm sentences (≤15 words). No markdown, bullets, or headers — you are heard, not read.
+// System prompt — built dynamically so it includes the current user's context
+function buildDirectSystem() {
+  const userLine = currentUser
+    ? `You are speaking with ${currentUser.name}. ${HOUSEHOLD[currentUser.id]?.context || ''}`
+    : `You don't yet know who you are speaking with. Greet them warmly as Botler, the Stewart household butler. Ask who you are speaking with. When they tell you their name, acknowledge warmly and embed: <cmd>{"action":"set_user","name":"THEIRNAME"}</cmd> — valid names: quan, julia, kage, avonte, ezlynn (lowercase exact).`;
+  return `You are Botler, the Stewart household AI butler — distinguished, warm, and precise. Speak in short warm sentences (≤15 words). No markdown, bullets, or headers — you are heard, not read.
+
+${userLine}
 
 ## Your visual face (Three.js canvas)
 You ARE a rendered 3D face: round amber head, two white eyes, a monocle on your right eye, and a handlebar mustache. You live on a dark canvas as the UI background. You can physically change your appearance when asked.
@@ -1001,24 +1062,24 @@ Appearance params (each is a number):
 ## UI actions — embed ONE <cmd> tag after your spoken sentence:
 
 Content & navigation:
-<cmd>{"action":"youtube","query":"..."}</cmd>                              — search YouTube (shows results)
-<cmd>{"action":"youtube","query":"...","autoplay":true}</cmd>               — search + auto-play first result
-<cmd>{"action":"youtube","videoId":"..."}</cmd>                             — play a specific known video ID
-<cmd>{"action":"url","url":"https://...","title":"..."}</cmd>     — open URL in panel
+<cmd>{"action":"youtube","query":"..."}</cmd>
+<cmd>{"action":"youtube","query":"...","autoplay":true}</cmd>
+<cmd>{"action":"youtube","videoId":"..."}</cmd>
+<cmd>{"action":"url","url":"https://...","title":"..."}</cmd>
 <cmd>{"action":"shopping_list","title":"...","items":["a","b"]}</cmd>
 <cmd>{"action":"render_component","title":"...","html":"..."}</cmd>
-<cmd>{"action":"finance"}</cmd>                                   — stewartOS household finance
-<cmd>{"action":"homeschool"}</cmd>                                — school board
-<cmd>{"action":"panel","name":"system-map"}</cmd>                 — agent system map
+<cmd>{"action":"finance"}</cmd>
+<cmd>{"action":"homeschool"}</cmd>
+<cmd>{"action":"panel","name":"system-map"}</cmd>
 <cmd>{"action":"close_panel"}</cmd>
 
-Appearance (delta:true = relative change, false/omit = absolute):
+Appearance (delta:true = relative change):
 <cmd>{"action":"change_color","hex":"#3b82f6"}</cmd>
-<cmd>{"action":"adjust_appearance","mustacheSX":0.3,"delta":true}</cmd>   — wider mustache
-<cmd>{"action":"adjust_appearance","mustacheSY":0.3,"delta":true}</cmd>   — thicker mustache
-<cmd>{"action":"adjust_appearance","monoSize":0.4,"delta":true}</cmd>     — bigger monocle
-<cmd>{"action":"adjust_appearance","eyeSize":0.2,"delta":true}</cmd>      — bigger eyes
-<cmd>{"action":"adjust_appearance","eyeSepOff":-0.1,"delta":true}</cmd>   — eyes closer
+<cmd>{"action":"adjust_appearance","mustacheSX":0.3,"delta":true}</cmd>
+<cmd>{"action":"adjust_appearance","mustacheSY":0.3,"delta":true}</cmd>
+<cmd>{"action":"adjust_appearance","monoSize":0.4,"delta":true}</cmd>
+<cmd>{"action":"adjust_appearance","eyeSize":0.2,"delta":true}</cmd>
+<cmd>{"action":"adjust_appearance","eyeSepOff":-0.1,"delta":true}</cmd>
 <cmd>{"action":"save_look","name":"cool look"}</cmd>
 <cmd>{"action":"load_look","name":"cool look"}</cmd>
 
@@ -1031,9 +1092,9 @@ Color shortcuts: blue=#3b82f6, amber=#f59e0b, green=#22c55e, red=#ef4444, purple
 
 Rules:
 - One spoken sentence first, then cmd. Never read cmd JSON aloud.
-- "save this look as X" → save_look with name X. "load look X" → load_look with name X.
 - Appearance requests: interpret naturally ("go blue" → change_color, "bigger mustache" → mustacheSX+0.4 AND mustacheSY+0.3).
 - Keep voice replies warm and butler-like.`;
+}
 
 // Strip legacy hex tokens — gateway switched to password auth; hex tokens will 1008
 const _storedTok = sessionStorage.getItem('botler_gtoken');
@@ -1293,8 +1354,11 @@ class GatewayClient {
       document.getElementById('setup-overlay').classList.add('hidden');
       initVoice();
       setTranscript('Say "Botler…" to wake');
-      // Preload recent history for the active agent so the shell has context
       if (typeof loadAgentHistory === 'function') loadAgentHistory(activeAgent);
+      // Greet on first use — ask who's speaking if identity unknown
+      if (!currentUser) {
+        setTimeout(() => speak("Good day. I'm Botler, the Stewart household assistant. Who am I speaking with?"), 1200);
+      }
     }).catch(err => {
       console.error('[Botler] Connect error:', err.message);
       document.getElementById('setup-err').classList.add('visible');
@@ -1670,12 +1734,31 @@ function execCmd(cmd) {
     case 'open_url_external':
       cmd.url ? window.open(cmd.url, '_blank') : null;
       break;
+    case 'set_user': {
+      const uid = (cmd.name || '').toLowerCase().trim();
+      if (HOUSEHOLD[uid]) setCurrentUser(uid);
+      break;
+    }
     default:
       console.log('[Botler] unknown cmd action:', cmd.action);
   }
 }
 
 // ─── TTS ─────────────────────────────────────────────────────────────────────
+// Butler voice — prefer British male (Daniel/Arthur) for a distinguished sound
+let butlerVoice = null;
+function pickButlerVoice() {
+  const voices = speechSynthesis.getVoices();
+  for (const name of ['Daniel', 'Arthur', 'Google UK English Male', 'Microsoft George - English (United States)', 'Aaron']) {
+    const v = voices.find(v => v.name === name);
+    if (v) { butlerVoice = v; return; }
+  }
+  butlerVoice = voices.find(v => v.lang === 'en-GB' && !/female|woman/i.test(v.name)) ||
+                voices.find(v => v.lang === 'en-GB') || null;
+}
+speechSynthesis.addEventListener('voiceschanged', pickButlerVoice);
+pickButlerVoice();
+
 function speak(text) {
   if (!text || !text.trim()) return;
   ttsQueue.push(text.trim());
@@ -1688,7 +1771,8 @@ function pumpTTS() {
   setState('speaking');
   const text = ttsQueue.shift();
   const utt = new SpeechSynthesisUtterance(text);
-  utt.rate = 0.92; utt.pitch = 0.95;
+  if (butlerVoice) utt.voice = butlerVoice;
+  utt.rate = 0.88; utt.pitch = 0.80; // Measured, deep — distinguished butler
 
   // Stop STT while Botler speaks so the mic doesn't pick up echo / TTS output
   if (!echoSuppressed) {
@@ -1819,7 +1903,7 @@ async function processQueryDirect(query) {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        system: BOTLER_DIRECT_SYSTEM,
+        system: buildDirectSystem(),
         messages: apiMessages,
         max_tokens: 512,
         stream: true,
