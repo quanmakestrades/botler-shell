@@ -86,12 +86,17 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
   padding: 12px 16px; border-bottom: 1px solid rgba(255,160,40,0.1); flex-shrink: 0;
 }
 #panel-title { color: rgba(255,200,100,0.5); font-size: 10px; letter-spacing: 0.4em; text-transform: uppercase; }
-#panel-close {
+#panel-close, #panel-expand {
   background: none; border: none; color: rgba(255,200,100,0.4); cursor: pointer;
   font-size: 14px; padding: 2px 6px; border-radius: 2px;
 }
-#panel-close:hover { color: rgba(255,220,120,0.9); background: rgba(255,160,40,0.1); }
+#panel-close:hover, #panel-expand:hover { color: rgba(255,220,120,0.9); background: rgba(255,160,40,0.1); }
 #panel-body { flex: 1; position: relative; overflow: hidden; }
+/* Fullscreen panel */
+#side-panel.fullscreen {
+  width: 100vw !important; right: 0 !important; top: 0 !important; height: 100vh !important;
+  transition: all 0.22s cubic-bezier(.4,0,.2,1);
+}
 #browser-frame {
   width: 100%; height: 100%; border: none;
   background: #fff; display: none;
@@ -315,10 +320,19 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
 
 /* ── Mobile text input bar ── */
 #text-input-bar {
-  display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 25;
+  display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 25;
   background: rgba(12,5,0,0.95); border-top: 1px solid rgba(255,160,40,0.15);
   padding: 10px 12px; gap: 8px; align-items: center; backdrop-filter: blur(12px);
 }
+/* Silent mode — triggered by typing, suppresses TTS */
+#silent-badge {
+  display: none; font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase;
+  color: rgba(255,160,40,0.55); border: 1px solid rgba(255,160,40,0.2);
+  padding: 2px 7px; border-radius: 10px; flex-shrink: 0; cursor: pointer;
+}
+#silent-badge:hover { color: rgba(255,200,100,0.8); border-color: rgba(255,160,40,0.45); }
+body.silent-mode #silent-badge { display: block; }
+body.silent-mode #text-input-bar { border-top-color: rgba(255,160,40,0.35); }
 #text-query {
   flex: 1; background: rgba(255,160,40,0.06); border: 1px solid rgba(255,160,40,0.22);
   color: rgba(255,220,120,0.85); font-family: Georgia, serif; font-size: 14px;
@@ -371,6 +385,7 @@ body.adult-mode #adult-timer { display: block; }
     transition: bottom 0.32s cubic-bezier(.4,0,.2,1);
   }
   #side-panel.open { bottom: 0; right: 0; }
+  #side-panel.fullscreen { height: 100vh !important; bottom: 0 !important; }
   #voice-bar { bottom: 80px; }
   #controls { bottom: 20px; }
   .fin-grid { grid-template-columns: 1fr; }
@@ -435,6 +450,7 @@ body.adult-mode #adult-timer { display: block; }
   <input id="text-query" type="text" placeholder='Ask Botler anything…'
     onkeydown="if(event.key==='Enter')sendTextQuery()"
     autocomplete="off" autocorrect="off" spellcheck="false">
+  <span id="silent-badge" onclick="exitSilentMode()" title="Text mode — click to return to voice">SILENT</span>
   <button id="text-send" onclick="sendTextQuery()">↑</button>
 </div>
 
@@ -498,7 +514,10 @@ body.adult-mode #adult-timer { display: block; }
 <div id="side-panel">
   <div id="panel-header">
     <span id="panel-title">Browser</span>
-    <button id="panel-close" onclick="closePanel()">✕</button>
+    <div style="display:flex;gap:4px;align-items:center">
+      <button id="panel-expand" onclick="togglePanelExpand()" title="Expand to full screen">⤢</button>
+      <button id="panel-close" onclick="closePanel()">✕</button>
+    </div>
   </div>
   <div id="browser-bar"></div>
   <div id="panel-body">
@@ -1240,12 +1259,25 @@ function _renderHistory(messages, agentId) {
   bubbles.scrollTop = bubbles.scrollHeight;
 }
 
+// ─── Silent mode (text input disables TTS; voice re-enables it) ──────────────
+let silentMode = false;
+function enterSilentMode() {
+  silentMode = true;
+  document.body.classList.add('silent-mode');
+}
+function exitSilentMode() {
+  silentMode = false;
+  document.body.classList.remove('silent-mode');
+  setTranscript('Say "Botler…" to wake');
+}
+
 // ─── Text input (mobile + desktop fallback) ───────────────────────────────────
 function sendTextQuery() {
   const el = document.getElementById('text-query');
   const q = el.value.trim();
   if (!q) return;
   el.value = '';
+  enterSilentMode();
   processQuery(q);
 }
 
@@ -1553,10 +1585,9 @@ function initVoice() {
         }
       }, WAKE_WINDOW_MS);
       const query = final.slice(wakeIdx).trim();
-      if (query.length > 2) processQuery(query);
+      if (query.length > 2) { exitSilentMode(); processQuery(query); }
     } else if (Date.now() < wakeExpiresAt && final.trim().length > 1) {
       // Inside the wake window — send follow-up without wake word.
-      // Also extend the window so multi-turn conversations feel natural.
       clearTimeout(wakeTimer);
       wakeExpiresAt = Date.now() + WAKE_WINDOW_MS;
       wakeTimer = setTimeout(() => {
@@ -1567,7 +1598,7 @@ function initVoice() {
           setTranscript('Say "Botler…" to wake');
         }
       }, WAKE_WINDOW_MS);
-      processQuery(final.trim());
+      exitSilentMode(); processQuery(final.trim());
     }
   };
 
@@ -1767,6 +1798,7 @@ function speak(text) {
 
 function pumpTTS() {
   if (ttsSpeaking || ttsQueue.length === 0) return;
+  if (silentMode) { ttsQueue.length = 0; setState('idle'); return; }
   ttsSpeaking = true;
   setState('speaking');
   const text = ttsQueue.shift();
@@ -2101,8 +2133,18 @@ function showPanelLauncher(url, title) {
 }
 
 function closePanel() {
-  document.getElementById('side-panel').classList.remove('open');
+  const panel = document.getElementById('side-panel');
+  panel.classList.remove('open', 'fullscreen');
+  const btn = document.getElementById('panel-expand');
+  if (btn) btn.textContent = '⤢';
   document.getElementById('browser-frame').src = 'about:blank';
+}
+
+function togglePanelExpand() {
+  const panel = document.getElementById('side-panel');
+  const btn = document.getElementById('panel-expand');
+  const expanded = panel.classList.toggle('fullscreen');
+  if (btn) btn.textContent = expanded ? '⤡' : '⤢';
 }
 
 // ─── Component renderer ───────────────────────────────────────────────────────
