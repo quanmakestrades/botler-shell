@@ -8,7 +8,7 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { background: #0a0400; font-family: 'Georgia', serif; color: rgba(255,215,120,0.8); padding: 24px 20px 40px; min-height: 100vh; }
 
-  h1 { font-size: 10px; letter-spacing: 0.55em; text-transform: uppercase; color: rgba(255,200,100,0.25); margin-bottom: 28px; text-align: center; }
+  h1 { font-size: 10px; letter-spacing: 0.55em; text-transform: uppercase; color: rgba(255,200,100,0.25); margin-bottom: 24px; text-align: center; }
 
   .section-label { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: rgba(255,180,60,0.3); margin: 24px 0 10px; }
 
@@ -17,165 +17,360 @@
     border-radius: 3px; padding: 14px 16px; margin-bottom: 10px;
   }
   .agent-card.orchestrator { border-color: rgba(255,200,80,0.28); background: rgba(255,160,40,0.07); }
-  .agent-card.worker       { border-color: rgba(255,160,40,0.08); opacity: 0.75; }
+  .agent-card.worker       { border-color: rgba(255,160,40,0.08); opacity: 0.85; }
+  .agent-card.error        { border-color: rgba(220,80,60,0.28); }
 
-  .agent-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-  .agent-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,160,40,0.35); flex-shrink: 0; }
-  .agent-dot.active { background: #44cc44; box-shadow: 0 0 5px #44cc44; }
+  .agent-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+  .agent-dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,160,40,0.3); flex-shrink: 0; transition: all 0.3s; }
+  .agent-dot.active { background: #44cc44; box-shadow: 0 0 6px #44cc44; }
+  .agent-dot.warn   { background: #ffaa40; box-shadow: 0 0 6px #ffaa40; }
+  .agent-dot.error  { background: #cc5540; box-shadow: 0 0 6px #cc5540; }
   .agent-name { font-size: 12px; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(255,220,120,0.85); }
-  .agent-role { margin-left: auto; font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase; color: rgba(255,180,60,0.35); }
+  .agent-role { font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase; color: rgba(255,180,60,0.35); }
+  .agent-meta { margin-left: auto; font-size: 9px; letter-spacing: 0.2em; color: rgba(255,200,100,0.4); text-align: right; }
 
-  .agent-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .agent-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
   .tag {
     font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
     padding: 3px 8px; border-radius: 2px;
     background: rgba(255,160,40,0.07); border: 1px solid rgba(255,160,40,0.15);
-    color: rgba(255,200,100,0.45);
+    color: rgba(255,200,100,0.5);
   }
-  .tag.model  { border-color: rgba(100,180,255,0.2); color: rgba(140,200,255,0.5); }
-  .tag.schedule { border-color: rgba(180,255,160,0.18); color: rgba(160,220,140,0.5); }
-  .tag.worker-tag { border-color: rgba(255,160,40,0.1); color: rgba(255,180,60,0.3); }
+  .tag.model    { border-color: rgba(100,180,255,0.2); color: rgba(140,200,255,0.55); }
+  .tag.schedule { border-color: rgba(180,255,160,0.18); color: rgba(160,220,140,0.55); }
+  .tag.count    { border-color: rgba(255,200,100,0.2); color: rgba(255,220,140,0.65); }
+  .tag.error    { border-color: rgba(220,100,80,0.3); color: rgba(230,140,110,0.7); }
 
-  .gap-note { font-size: 10px; color: rgba(255,180,60,0.4); line-height: 1.7; margin-bottom: 8px; }
-  .gap-item { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 6px; }
-  .gap-num { color: rgba(255,160,40,0.3); font-size: 9px; letter-spacing: 0.2em; flex-shrink: 0; margin-top: 1px; }
-  .gap-text { font-size: 10px; color: rgba(255,200,100,0.4); letter-spacing: 0.05em; line-height: 1.6; }
+  .session-list { margin-top: 10px; font-size: 10px; color: rgba(255,200,100,0.45); max-height: 140px; overflow-y: auto; padding-top: 4px; border-top: 1px solid rgba(255,160,40,0.08); }
+  .session-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 9px; letter-spacing: 0.05em; border-bottom: 1px dashed rgba(255,160,40,0.05); }
+  .session-row:last-child { border-bottom: none; }
+  .session-key { color: rgba(255,200,100,0.55); font-family: 'Courier New', monospace; }
+  .session-meta { color: rgba(255,180,60,0.35); }
+
+  .cron-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 9px; letter-spacing: 0.05em; }
+  .cron-label { color: rgba(255,200,100,0.55); }
+  .cron-status { color: rgba(160,220,140,0.55); }
+  .cron-status.error { color: rgba(220,100,80,0.7); }
 
   .divider { border: none; border-top: 1px solid rgba(255,160,40,0.08); margin: 20px 0; }
 
-  .status-bar { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
-  .stat { text-align: center; }
+  .status-bar { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; justify-content: center; }
+  .stat { text-align: center; min-width: 60px; }
   .stat-val { font-size: 18px; color: rgba(255,220,120,0.7); letter-spacing: 0.05em; }
+  .stat-val.red { color: rgba(220,120,100,0.8); }
+  .stat-val.green { color: rgba(140,220,120,0.8); }
   .stat-lbl { font-size: 8px; letter-spacing: 0.35em; text-transform: uppercase; color: rgba(255,180,60,0.3); margin-top: 2px; }
+
+  #connection-bar {
+    position: fixed; top: 0; left: 0; right: 0;
+    background: rgba(10,4,0,0.88); backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(255,160,40,0.15);
+    padding: 6px 20px; display: flex; align-items: center; justify-content: space-between;
+    font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase;
+    color: rgba(255,200,100,0.4); z-index: 100;
+  }
+  #conn-status { display: flex; align-items: center; gap: 8px; }
+  #conn-dot { width: 6px; height: 6px; border-radius: 50%; background: #cc5540; }
+  #conn-dot.ok { background: #44cc44; box-shadow: 0 0 5px #44cc44; }
+  #last-refresh { color: rgba(255,180,60,0.3); }
+  body { padding-top: 44px; }
 </style>
 </head>
 <body>
 
+<div id="connection-bar">
+  <div id="conn-status"><span id="conn-dot"></span><span id="conn-text">Connecting…</span></div>
+  <div id="last-refresh"></div>
+</div>
+
 <h1>Stewart Inc. · Agent System Map</h1>
 
-<div class="status-bar">
-  <div class="stat"><div class="stat-val">6</div><div class="stat-lbl">Agents</div></div>
-  <div class="stat"><div class="stat-val">7</div><div class="stat-lbl">Cron Jobs</div></div>
-  <div class="stat"><div class="stat-val">4</div><div class="stat-lbl">Telegram Bots</div></div>
-  <div class="stat"><div class="stat-val">2h</div><div class="stat-lbl">Botler Heartbeat</div></div>
+<div class="status-bar" id="status-bar">
+  <div class="stat"><div class="stat-val" id="stat-agents">—</div><div class="stat-lbl">Agents</div></div>
+  <div class="stat"><div class="stat-val" id="stat-crons">—</div><div class="stat-lbl">Cron Jobs</div></div>
+  <div class="stat"><div class="stat-val" id="stat-sessions">—</div><div class="stat-lbl">Sessions</div></div>
+  <div class="stat"><div class="stat-val" id="stat-channels">—</div><div class="stat-lbl">Channels</div></div>
+  <div class="stat"><div class="stat-val" id="stat-errors">0</div><div class="stat-lbl">Errors (24h)</div></div>
 </div>
 
-<div class="section-label">Orchestration Layer</div>
+<div class="section-label">Agents</div>
+<div id="agents-container"></div>
 
-<div class="agent-card orchestrator">
-  <div class="agent-header">
-    <div class="agent-dot active"></div>
-    <div class="agent-name">Botler</div>
-    <div class="agent-role">Orchestrator · Default</div>
-  </div>
-  <div class="agent-row">
-    <span class="tag model">Claude Sonnet 4.6</span>
-    <span class="tag model" style="opacity:0.6">→ Opus on request</span>
-    <span class="tag schedule">Heartbeat · every 2h</span>
-    <span class="tag">Telegram</span>
-    <span class="tag">Voice</span>
-    <span class="tag">Web UI</span>
-  </div>
-</div>
+<script>
+// ─── Gateway connection ───────────────────────────────────────────────────────
+const _h = location.hostname;
+const _isLoopback = _h === 'localhost' || _h === '127.0.0.1';
+const GW_URL   = _isLoopback ? 'ws://localhost:18789' : 'wss://stewartos-core.tail2d5e46.ts.net';
+const GW_TOKEN = 'StewartOS-Core-2026';
 
-<hr class="divider">
-<div class="section-label">Core Workers</div>
+const AGENT_META = {
+  botler:  { label: 'Botler',  role: 'Orchestrator · Default',  kind: 'orchestrator' },
+  cash:    { label: 'Cash',    role: 'Financial · Worker',       kind: 'worker' },
+  dev:     { label: 'Dev',     role: 'Engineering · Worker',     kind: 'worker' },
+  impulse: { label: 'Impulse', role: 'Trading · ICT/IFVG',       kind: 'autonomous' },
+  jim:     { label: 'Jim',     role: 'Music · Social · Orders',  kind: 'autonomous' },
+  loki:    { label: 'Loki',    role: 'TideFlow · Contracts',     kind: 'autonomous' },
+};
 
-<div class="agent-card worker">
-  <div class="agent-header">
-    <div class="agent-dot"></div>
-    <div class="agent-name">Cash</div>
-    <div class="agent-role">Financial · Worker</div>
-  </div>
-  <div class="agent-row">
-    <span class="tag model">Claude Sonnet 4.6</span>
-    <span class="tag model" style="opacity:0.6">+ Codex fallback</span>
-    <span class="tag worker-tag">Task-triggered only</span>
-  </div>
-</div>
+class GatewayClient {
+  constructor() { this.ws = null; this.pending = new Map(); this.connected = false; this.closed = false; this._open(); }
+  _open() {
+    if (this.closed) return;
+    this.ws = new WebSocket(GW_URL);
+    this.ws.onopen = () => {
+      const id = crypto.randomUUID();
+      const p = new Promise((res,rej) => this.pending.set(id, {res,rej}));
+      this.ws.send(JSON.stringify({ type:'req', id, method:'connect', params:{
+        minProtocol:3, maxProtocol:3,
+        client:{ id:'openclaw-control-ui', version:'dev', displayName:'AgentMap', platform:'web', mode:'webchat' },
+        role:'operator', scopes:['operator.admin'], auth:{ password: GW_TOKEN }, caps:[]
+      }}));
+      p.then(() => { this.connected = true; setConn(true); onConnected(); })
+       .catch(e => { setConn(false, e.message); });
+    };
+    this.ws.onmessage = ev => {
+      const d = JSON.parse(ev.data);
+      if (d.type === 'res' && this.pending.has(d.id)) {
+        const { res, rej } = this.pending.get(d.id);
+        this.pending.delete(d.id);
+        d.ok ? res(d.payload) : rej(new Error(d.error?.message || 'rpc error'));
+      }
+    };
+    this.ws.onclose = () => { this.connected = false; setConn(false); if (!this.closed) setTimeout(() => this._open(), 2500); };
+    this.ws.onerror = () => {};
+  }
+  call(method, params = {}) {
+    return new Promise((res, rej) => {
+      if (!this.connected) return rej(new Error('not connected'));
+      const id = crypto.randomUUID();
+      this.pending.set(id, { res, rej });
+      this.ws.send(JSON.stringify({ type:'req', id, method, params }));
+      setTimeout(() => { if (this.pending.has(id)) { this.pending.delete(id); rej(new Error('timeout')); } }, 10000);
+    });
+  }
+}
 
-<div class="agent-card worker">
-  <div class="agent-header">
-    <div class="agent-dot"></div>
-    <div class="agent-name">Dev</div>
-    <div class="agent-role">Engineering · Worker</div>
-  </div>
-  <div class="agent-row">
-    <span class="tag model">Claude Sonnet 4.6</span>
-    <span class="tag model" style="opacity:0.6">+ Codex fallback</span>
-    <span class="tag worker-tag">Task-triggered only</span>
-  </div>
-</div>
+function setConn(ok, msg) {
+  const dot = document.getElementById('conn-dot');
+  const txt = document.getElementById('conn-text');
+  dot.className = ok ? 'ok' : '';
+  txt.textContent = ok ? 'Live' : (msg ? `Disconnected — ${msg}` : 'Connecting…');
+}
 
-<hr class="divider">
-<div class="section-label">Autonomous Agents</div>
+// ─── Formatting helpers ───────────────────────────────────────────────────────
+function fmtAge(ms) {
+  if (!ms) return '—';
+  const d = Date.now() - ms;
+  if (d < 60_000) return `${Math.round(d/1000)}s ago`;
+  if (d < 3600_000) return `${Math.round(d/60_000)}m ago`;
+  if (d < 86400_000) return `${Math.round(d/3600_000)}h ago`;
+  return `${Math.round(d/86400_000)}d ago`;
+}
+function fmtIn(ms) {
+  if (!ms) return '—';
+  const d = ms - Date.now();
+  if (d < 0) return 'overdue';
+  if (d < 60_000) return `in ${Math.round(d/1000)}s`;
+  if (d < 3600_000) return `in ${Math.round(d/60_000)}m`;
+  if (d < 86400_000) return `in ${Math.round(d/3600_000)}h`;
+  return `in ${Math.round(d/86400_000)}d`;
+}
+function fmtModel(m) {
+  if (!m) return '—';
+  return m.split('/').pop().replace('claude-', '').replace('-2025-', ' ').slice(0, 26);
+}
 
-<div class="agent-card">
-  <div class="agent-header">
-    <div class="agent-dot active"></div>
-    <div class="agent-name">Impulse</div>
-    <div class="agent-role">Trading · ICT/IFVG</div>
-  </div>
-  <div class="agent-row">
-    <span class="tag model">Sonnet (tools)</span>
-    <span class="tag model" style="opacity:0.6">Haiku (comms)</span>
-    <span class="tag schedule">Every 30m · 7:30–3:30 CT · Mon–Fri</span>
-    <span class="tag">Telegram</span>
-  </div>
-</div>
+// ─── Render ───────────────────────────────────────────────────────────────────
+function renderAgent(agentId, data) {
+  const meta = AGENT_META[agentId] || { label: agentId, role: 'Unknown', kind: 'worker' };
+  const card = document.createElement('div');
+  card.className = 'agent-card ' + meta.kind + (data.hasError ? ' error' : '');
 
-<div class="agent-card">
-  <div class="agent-header">
-    <div class="agent-dot active"></div>
-    <div class="agent-name">Jim</div>
-    <div class="agent-role">Music · Social · Orders</div>
-  </div>
-  <div class="agent-row">
-    <span class="tag model">GPT-5.4</span>
-    <span class="tag schedule">9am · IG check</span>
-    <span class="tag schedule">1pm · Site check</span>
-    <span class="tag schedule">7pm · Music / Orders</span>
-    <span class="tag">Telegram</span>
-  </div>
-</div>
+  // Header
+  const header = document.createElement('div');
+  header.className = 'agent-header';
+  const dot = document.createElement('div');
+  dot.className = 'agent-dot ' + (data.dotClass || '');
+  const name = document.createElement('div');
+  name.className = 'agent-name'; name.textContent = meta.label;
+  const role = document.createElement('div');
+  role.className = 'agent-role'; role.textContent = meta.role;
+  const mRight = document.createElement('div');
+  mRight.className = 'agent-meta'; mRight.textContent = data.lastActive ? `Active ${fmtAge(data.lastActive)}` : 'No recent activity';
+  header.append(dot, name, role, mRight);
+  card.appendChild(header);
 
-<div class="agent-card">
-  <div class="agent-header">
-    <div class="agent-dot active"></div>
-    <div class="agent-name">Loki</div>
-    <div class="agent-role">TideFlow · Contracts</div>
-  </div>
-  <div class="agent-row">
-    <span class="tag model">GPT-5.4</span>
-    <span class="tag schedule">8am · New contracts</span>
-    <span class="tag schedule">6pm · App QA</span>
-    <span class="tag">Telegram</span>
-  </div>
-</div>
+  // Tags row
+  const row = document.createElement('div');
+  row.className = 'agent-row';
+  if (data.model)      row.appendChild(mkTag('model', fmtModel(data.model)));
+  if (data.fallbacks?.length) row.appendChild(mkTag('model', '+' + data.fallbacks.length + ' fallback', 'opacity:0.5'));
+  if (data.heartbeat?.enabled) row.appendChild(mkTag('schedule', `Heartbeat · ${data.heartbeat.every}`));
+  if (data.sessionCount > 0)   row.appendChild(mkTag('count', `${data.sessionCount} session${data.sessionCount === 1 ? '' : 's'}`));
+  if (data.cronCount > 0)      row.appendChild(mkTag('count', `${data.cronCount} cron${data.cronCount === 1 ? '' : 's'}`));
+  if (data.errorCount > 0)     row.appendChild(mkTag('error', `${data.errorCount} error${data.errorCount === 1 ? '' : 's'} (24h)`));
+  card.appendChild(row);
 
-<hr class="divider">
-<div class="section-label">Enterprise Gaps — In Progress</div>
+  // Cron jobs
+  if (data.crons?.length) {
+    const list = document.createElement('div');
+    list.className = 'session-list';
+    data.crons.forEach(c => {
+      const r = document.createElement('div');
+      r.className = 'cron-row';
+      const left = document.createElement('span'); left.className = 'cron-label';
+      left.textContent = `⏱  ${c.name} — ${fmtIn(c.nextRunAtMs)}`;
+      const right = document.createElement('span');
+      right.className = 'cron-status' + (c.lastStatus === 'error' ? ' error' : '');
+      right.textContent = c.lastStatus ? `${c.lastStatus} ${fmtAge(c.lastRunAtMs)}` : 'never run';
+      r.append(left, right);
+      list.appendChild(r);
+    });
+    card.appendChild(list);
+  }
 
-<div class="gap-item">
-  <div class="gap-num">01</div>
-  <div class="gap-text">Escalation paths — sub-agents need a defined route to surface critical findings to Botler's inbox automatically</div>
-</div>
-<div class="gap-item">
-  <div class="gap-num">02</div>
-  <div class="gap-text">Botler synthesis layer — Cash, Loki, Impulse should file reports Botler digests into the morning brief</div>
-</div>
-<div class="gap-item">
-  <div class="gap-num">03</div>
-  <div class="gap-text">Watchdog — external health check that pages if gateway goes silent</div>
-</div>
-<div class="gap-item">
-  <div class="gap-num">04</div>
-  <div class="gap-text">Cross-agent memory — Botler currently has no consolidated view across all agent stores</div>
-</div>
-<div class="gap-item">
-  <div class="gap-num">05</div>
-  <div class="gap-text">Tailscale Serve — gateway needs full MagicDNS exposure for remote device access</div>
-</div>
+  // Session breakdown
+  if (data.sessionSample?.length) {
+    const list = document.createElement('div');
+    list.className = 'session-list';
+    data.sessionSample.slice(0, 5).forEach(s => {
+      const r = document.createElement('div');
+      r.className = 'session-row';
+      const k = document.createElement('span'); k.className = 'session-key';
+      k.textContent = s.key.replace(`agent:${agentId}:`, '');
+      const m = document.createElement('span'); m.className = 'session-meta';
+      m.textContent = `${fmtAge(s.lastActivityMs)} · ${fmtModel(s.model)}`;
+      r.append(k, m);
+      list.appendChild(r);
+    });
+    card.appendChild(list);
+  }
 
+  return card;
+}
+function mkTag(cls, text, style) {
+  const t = document.createElement('span');
+  t.className = 'tag ' + cls;
+  t.textContent = text;
+  if (style) t.style.cssText = style;
+  return t;
+}
+
+// ─── Data ingestion ───────────────────────────────────────────────────────────
+async function refresh() {
+  try {
+    const [agentsRes, sessionsRes, cronsRes, runsRes, statusRes, channelsRes] = await Promise.all([
+      gw.call('agents.list'),
+      gw.call('sessions.list'),
+      gw.call('cron.list'),
+      gw.call('cron.runs'),
+      gw.call('status'),
+      gw.call('channels.status'),
+    ]);
+
+    const agents = agentsRes.agents || [];
+    const sessions = sessionsRes.sessions || [];
+    const crons = cronsRes.jobs || [];
+    const runs = runsRes.entries || [];
+    const heartbeats = statusRes.heartbeat?.agents || [];
+    const channels = channelsRes.channelMeta || [];
+
+    // Build per-agent aggregation
+    const byAgent = {};
+    for (const a of agents) {
+      byAgent[a.id] = {
+        model: a.model?.primary,
+        fallbacks: a.model?.fallbacks || [],
+        sessionCount: 0,
+        cronCount: 0,
+        errorCount: 0,
+        lastActive: 0,
+        heartbeat: heartbeats.find(h => h.agentId === a.id) || null,
+        crons: [],
+        sessionSample: [],
+        hasError: false,
+        dotClass: '',
+      };
+    }
+
+    // Sessions per agent
+    for (const s of sessions) {
+      const m = s.key.match(/^agent:([a-z0-9_-]+):/);
+      if (!m) continue;
+      const aid = m[1];
+      if (!byAgent[aid]) continue;
+      byAgent[aid].sessionCount++;
+      byAgent[aid].sessionSample.push(s);
+      if (s.lastActivityMs && s.lastActivityMs > byAgent[aid].lastActive) byAgent[aid].lastActive = s.lastActivityMs;
+    }
+
+    // Crons per agent
+    for (const c of crons) {
+      const aid = c.agentId;
+      if (!byAgent[aid]) continue;
+      byAgent[aid].cronCount++;
+      byAgent[aid].crons.push({ name: c.name, nextRunAtMs: c.nextRunAtMs, lastStatus: c.lastStatus, lastRunAtMs: c.lastRunAtMs });
+    }
+
+    // Errors in last 24h
+    const cutoff = Date.now() - 24*3600*1000;
+    let totalErrors = 0;
+    for (const r of runs) {
+      if (r.ts < cutoff) continue;
+      if (r.status !== 'error') continue;
+      totalErrors++;
+      const job = crons.find(c => c.id === r.jobId);
+      if (job && byAgent[job.agentId]) {
+        byAgent[job.agentId].errorCount++;
+        byAgent[job.agentId].hasError = true;
+      }
+    }
+
+    // Status dots
+    for (const aid of Object.keys(byAgent)) {
+      const a = byAgent[aid];
+      a.sessionSample.sort((x, y) => (y.lastActivityMs || 0) - (x.lastActivityMs || 0));
+      if (a.hasError) a.dotClass = 'error';
+      else if (a.lastActive && Date.now() - a.lastActive < 30*60*1000) a.dotClass = 'active';
+      else if (a.lastActive && Date.now() - a.lastActive < 24*3600*1000) a.dotClass = 'warn';
+    }
+
+    // Stats bar
+    document.getElementById('stat-agents').textContent = agents.length;
+    document.getElementById('stat-crons').textContent = crons.length;
+    document.getElementById('stat-sessions').textContent = sessions.length;
+    document.getElementById('stat-channels').textContent = channels.length;
+    const errEl = document.getElementById('stat-errors');
+    errEl.textContent = totalErrors;
+    errEl.className = 'stat-val ' + (totalErrors > 0 ? 'red' : 'green');
+
+    // Render agents in defined order
+    const order = ['botler','cash','dev','impulse','jim','loki'];
+    const container = document.getElementById('agents-container');
+    container.innerHTML = '';
+    for (const aid of order) {
+      if (!byAgent[aid]) continue;
+      container.appendChild(renderAgent(aid, byAgent[aid]));
+    }
+    // Any agents not in the preset order, append at end
+    for (const aid of Object.keys(byAgent)) {
+      if (order.includes(aid)) continue;
+      container.appendChild(renderAgent(aid, byAgent[aid]));
+    }
+
+    document.getElementById('last-refresh').textContent = 'Refreshed ' + new Date().toLocaleTimeString();
+  } catch (e) {
+    console.error('Refresh failed:', e);
+    setConn(false, e.message);
+  }
+}
+
+function onConnected() {
+  refresh();
+  setInterval(refresh, 10000);
+}
+
+const gw = new GatewayClient();
+</script>
 </body>
 </html>

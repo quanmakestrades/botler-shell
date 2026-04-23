@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(openclaw sessions:*)",
+      "Bash(openclaw status:*)",
+      "Bash(openclaw cron list:*)",
+      "Bash(openclaw agents list:*)",
+      "Bash(openclaw gateway status:*)"
+    ]
+  }
+}
