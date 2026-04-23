@@ -1035,6 +1035,10 @@ Rules:
 - Appearance requests: interpret naturally ("go blue" → change_color, "bigger mustache" → mustacheSX+0.4 AND mustacheSY+0.3).
 - Keep voice replies warm and butler-like.`;
 
+// Strip legacy hex tokens — gateway switched to password auth; hex tokens will 1008
+const _storedTok = sessionStorage.getItem('botler_gtoken');
+if (_storedTok && /^[0-9a-f]{48,}$/i.test(_storedTok)) sessionStorage.removeItem('botler_gtoken');
+
 let gatewayUrl   = sessionStorage.getItem('botler_gurl')   || DEFAULT_GW_URL;
 let gatewayToken = sessionStorage.getItem('botler_gtoken') || DEFAULT_GW_TOKEN;
 let financePass  = sessionStorage.getItem('botler_fpass')  || '';
@@ -1051,6 +1055,14 @@ let currentPanelUrl= '';
 let ttsQueue       = [];
 let ttsSpeaking    = false;
 let recognition    = null;
+
+// Request mic permission immediately on page load — don't gate on gateway connection.
+// Safari/Chrome will silently block SpeechRecognition if mic is never explicitly granted.
+if (navigator.mediaDevices?.getUserMedia) {
+  navigator.mediaDevices.getUserMedia({ audio: true })
+    .then(s => s.getTracks().forEach(t => t.stop()))
+    .catch(() => {});
+}
 
 // Gateway connection state
 let gw          = null;   // GatewayClient instance
