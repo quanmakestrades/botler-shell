@@ -160,6 +160,29 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
 .comp-nav { display: flex; gap: 8px; margin-top: 14px; }
 .comp-nav .btn { font-size: 9px; padding: 5px 12px; }
 
+/* ── Agent Bar ── */
+#agent-bar {
+  position: fixed; top: 18px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 6px; z-index: 10;
+  pointer-events: all;
+}
+.agent-btn {
+  position: relative;
+  background: rgba(255,160,40,0.05); border: 1px solid rgba(255,160,40,0.12);
+  color: rgba(255,200,100,0.3); font-size: 9px; letter-spacing: 0.28em;
+  text-transform: uppercase; padding: 4px 10px; border-radius: 2px; cursor: pointer;
+  font-family: 'Georgia', serif; transition: all 0.2s;
+}
+.agent-btn:hover { background: rgba(255,160,40,0.12); color: rgba(255,220,120,0.7); }
+.agent-btn.active { background: rgba(255,160,40,0.14); border-color: rgba(255,180,60,0.35); color: rgba(255,220,120,0.85); }
+.agent-badge {
+  position: absolute; top: -4px; right: -4px;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #44cc44; box-shadow: 0 0 4px #44cc44;
+  display: none;
+}
+.agent-badge.visible { display: block; }
+
 /* ── Finance Panel ── */
 #finance-panel {
   position: fixed; inset: 0; z-index: 40;
@@ -331,6 +354,7 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
   #looks-bar { display: none; }
   #voice-bar { bottom: 72px; max-width: 94vw; }
   #chat-bubbles { bottom: 130px; }
+  #agent-bar { display: none; }
 }
 </style>
 </head>
@@ -342,11 +366,30 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
   <a id="tunnel-tag" href="#" target="_blank" title="Remote access URL — click to open in new tab"></a>
 </div>
 
+<div id="agent-bar">
+  <button class="agent-btn active" data-agent="botler" onclick="switchAgent('botler')">Botler<span class="agent-badge"></span></button>
+  <button class="agent-btn" data-agent="cash" onclick="switchAgent('cash')">Cash<span class="agent-badge"></span></button>
+  <button class="agent-btn" data-agent="dev" onclick="switchAgent('dev')">Dev<span class="agent-badge"></span></button>
+  <button class="agent-btn" data-agent="impulse" onclick="switchAgent('impulse')">Impulse<span class="agent-badge"></span></button>
+  <button class="agent-btn" data-agent="jim" onclick="switchAgent('jim')">Jim<span class="agent-badge"></span></button>
+  <button class="agent-btn" data-agent="loki" onclick="switchAgent('loki')">Loki<span class="agent-badge"></span></button>
+</div>
+
 <button id="hamburger" onclick="openMobileMenu()">☰</button>
 
 <div id="mobile-menu">
   <button id="mobile-menu-close" onclick="closeMobileMenu()">✕</button>
-  <div style="color:rgba(255,200,100,0.3);font-size:9px;letter-spacing:0.5em;text-transform:uppercase;margin-bottom:6px;">Botler</div>
+  <div style="color:rgba(255,200,100,0.3);font-size:9px;letter-spacing:0.5em;text-transform:uppercase;margin-bottom:6px;">Agents</div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+    <button class="btn" onclick="closeMobileMenu();switchAgent('botler')">Botler</button>
+    <button class="btn" onclick="closeMobileMenu();switchAgent('cash')">Cash</button>
+    <button class="btn" onclick="closeMobileMenu();switchAgent('dev')">Dev</button>
+    <button class="btn" onclick="closeMobileMenu();switchAgent('impulse')">Impulse</button>
+    <button class="btn" onclick="closeMobileMenu();switchAgent('jim')">Jim</button>
+    <button class="btn" onclick="closeMobileMenu();switchAgent('loki')">Loki</button>
+  </div>
+  <hr style="border-color:rgba(255,160,40,0.1);margin:6px 0;">
+  <div style="color:rgba(255,200,100,0.3);font-size:9px;letter-spacing:0.5em;text-transform:uppercase;margin-bottom:6px;">System</div>
   <button class="btn" onclick="closeMobileMenu();openFinance()">Finance</button>
   <button class="btn" onclick="closeMobileMenu();openHomeschool()">School Board</button>
   <button class="btn" onclick="closeMobileMenu();openPanel(location.origin+'/agent-system-map.html','System Map')">System Map</button>
@@ -819,7 +862,9 @@ const DEFAULT_GW_URL   = _isLoopback
   ? 'ws://localhost:18789'
   : 'wss://stewartos-core.tail2d5e46.ts.net';
 const DEFAULT_GW_TOKEN = 'c59a2ebef7764318eabc4736411c085c5c3c912cc62e64a639c03b05f705b815';
-const SESSION_KEY      = 'agent:botler:main';
+let   activeAgent      = 'botler';
+function getSessionKey() { return `agent:${activeAgent}:main`; }
+const AGENT_NAMES = { botler:'Botler', cash:'Cash', dev:'Dev', impulse:'Impulse', jim:'Jim', loki:'Loki' };
 const DIRECT_API_URL   = `${location.origin}/api/stream`; // Anthropic proxy in botler-serve
 
 // Condensed system prompt for the fast direct-API path (no tool calls)
@@ -933,6 +978,30 @@ function tapToTalk() {
   }, WAKE_WINDOW_MS);
 }
 
+// ─── Agent switcher ───────────────────────────────────────────────────────────
+function switchAgent(agentId) {
+  if (agentId === activeAgent) return;
+  if (currentRunId) abortCurrentRun(); else stopSpeaking();
+  activeAgent = agentId;
+  document.querySelectorAll('.agent-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.agent === agentId);
+    if (b.dataset.agent === agentId) b.querySelector('.agent-badge').classList.remove('visible');
+  });
+  document.getElementById('name-tag').textContent = AGENT_NAMES[agentId] || agentId;
+  const ph = `Ask ${AGENT_NAMES[agentId] || agentId} anything…`;
+  document.getElementById('text-query').placeholder = ph;
+  conversationHistory = [];
+  document.getElementById('chat-bubbles').innerHTML = '';
+  setTranscript(`Connected to ${AGENT_NAMES[agentId] || agentId}`);
+  setState('idle');
+}
+
+function _markAgentUnread(agentId) {
+  if (agentId === activeAgent) return;
+  const btn = document.querySelector(`.agent-btn[data-agent="${agentId}"]`);
+  if (btn) btn.querySelector('.agent-badge').classList.add('visible');
+}
+
 // ─── Text input (mobile + desktop fallback) ───────────────────────────────────
 function sendTextQuery() {
   const el = document.getElementById('text-query');
@@ -946,7 +1015,7 @@ function sendTextQuery() {
 async function resetSession() {
   if (!gw || !gwConnected) return;
   try {
-    await gw.request('sessions.reset', { key: SESSION_KEY, reason: 'reset' });
+    await gw.request('sessions.reset', { key: getSessionKey(), reason: 'reset' });
     conversationHistory = [];
     document.getElementById('chat-bubbles').innerHTML = '';
     speak('Session reset. How can I help you?');
@@ -1068,7 +1137,12 @@ class GatewayClient {
   _onEvent(frame) {
     if (frame.event !== 'chat') return;
     const p = frame.payload;
-    if (!p || p.sessionKey !== SESSION_KEY) return;
+    // Notify for messages from non-active agents
+    if (p && p.sessionKey && p.sessionKey !== getSessionKey() && p.state === 'final') {
+      const m = p.sessionKey.match(/^agent:(\w+):main$/);
+      if (m) _markAgentUnread(m[1]);
+    }
+    if (!p || p.sessionKey !== getSessionKey()) return;
     // Drop events from stale runs (e.g. old response arriving after barge-in)
     if (expectedRunId && p.runId && p.runId !== expectedRunId) {
       console.log('[Botler] dropping stale run event, runId:', p.runId);
@@ -1196,6 +1270,14 @@ function setTranscript(text, isFinal = false) {
 function initVoice() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { setTranscript('Voice not supported in this browser'); return; }
+
+  // Explicitly request mic permission first so browsers show the prompt
+  // rather than silently failing when SpeechRecognition fires post-load.
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(stream => { stream.getTracks().forEach(t => t.stop()); })
+      .catch(() => {});
+  }
 
   recognition = new SR();
   recognition.continuous = true;
@@ -1496,7 +1578,7 @@ async function abortCurrentRun() {
   streamText = ''; spokenUpTo = 0;
   if (runId && gw && gwConnected) {
     try {
-      await gw.request('chat.abort', { sessionKey: SESSION_KEY, runId });
+      await gw.request('chat.abort', { sessionKey: getSessionKey(), runId });
       console.log('[Botler] aborted run:', runId);
     } catch(e) { /* ignore — run may have already finished */ }
   }
@@ -1661,7 +1743,7 @@ async function processQueryGateway(query) {
   try {
     const idKey = crypto.randomUUID();
     const ack = await gw.request('chat.send', {
-      sessionKey: SESSION_KEY,
+      sessionKey: getSessionKey(),
       message: query,
       idempotencyKey: idKey,
     });
