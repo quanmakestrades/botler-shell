@@ -244,18 +244,25 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
 /* ── Chat Bubbles ── */
 #chat-bubbles {
   position: fixed; bottom: 160px; left: 50%; transform: translateX(-50%);
-  width: min(560px, 92vw); max-height: 42vh; overflow: hidden;
+  width: min(600px, 96vw); max-height: 52vh; overflow-y: auto; overflow-x: hidden;
   display: flex; flex-direction: column; gap: 8px; z-index: 8;
-  pointer-events: none;
-  mask-image: linear-gradient(to bottom, transparent 0%, black 22%, black 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 22%, black 100%);
+  pointer-events: all; scroll-behavior: smooth;
+  padding: 4px 0 4px 0;
+  /* subtle fade at top so it looks graded into the face */
+  mask-image: linear-gradient(to bottom, transparent 0%, black 14%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 14%, black 100%);
   transition: opacity 0.35s;
 }
+#chat-bubbles::-webkit-scrollbar { width: 3px; }
+#chat-bubbles::-webkit-scrollbar-thumb { background: rgba(255,160,40,0.2); border-radius: 2px; }
 #chat-bubbles.hidden { opacity: 0; pointer-events: none; }
+/* Voice mode: hide bubbles (face only) */
+body.voice-mode #chat-bubbles { display: none; }
+
 .bubble {
-  max-width: 80%; padding: 8px 13px; border-radius: 16px; font-size: 12px;
-  line-height: 1.55; letter-spacing: 0.03em; backdrop-filter: blur(16px);
-  pointer-events: none; word-break: break-word;
+  max-width: 84%; padding: 8px 13px; border-radius: 16px; font-size: 13px;
+  line-height: 1.6; letter-spacing: 0.02em; backdrop-filter: blur(16px);
+  word-break: break-word; pointer-events: all;
 }
 .bubble.user {
   align-self: flex-end;
@@ -264,9 +271,25 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
 }
 .bubble.bot {
   align-self: flex-start;
-  background: rgba(20,10,0,0.55); border: 1px solid rgba(255,160,40,0.12);
-  color: rgba(255,200,100,0.75); border-bottom-left-radius: 4px;
+  background: rgba(20,10,0,0.72); border: 1px solid rgba(255,160,40,0.14);
+  color: rgba(255,200,100,0.82); border-bottom-left-radius: 4px;
 }
+/* Inline component bubble — renders HTML directly in chat */
+.bubble.component-bubble {
+  max-width: 100%; width: 100%; padding: 0; background: none; border: none;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.bubble.component-bubble .comp-label {
+  color: rgba(255,160,40,0.42); font-size: 9px; letter-spacing: 0.35em;
+  text-transform: uppercase; padding: 0 2px;
+}
+.bubble.component-bubble iframe {
+  width: 100%; border: 1px solid rgba(255,160,40,0.18);
+  border-radius: 12px; min-height: 160px; background: rgba(12,4,0,0.92);
+}
+/* Night mode */
+body.night-mode { background: #060202; }
+body.night-mode canvas { filter: brightness(0.52) saturate(0.7); }
 #subtitle-toggle { font-size: 9px; }
 
 /* ── Looks bar ── */
@@ -337,6 +360,8 @@ body.silent-mode #text-input-bar { border-top-color: rgba(255,160,40,0.35); }
   flex: 1; background: rgba(255,160,40,0.06); border: 1px solid rgba(255,160,40,0.22);
   color: rgba(255,220,120,0.85); font-family: Georgia, serif; font-size: 14px;
   padding: 10px 14px; border-radius: 20px; outline: none; letter-spacing: 0.04em;
+  resize: none; overflow-y: auto; min-height: 44px; max-height: 170px;
+  line-height: 1.55; scrollbar-width: thin;
 }
 #text-query::placeholder { color: rgba(255,200,100,0.25); }
 #text-query:focus { border-color: rgba(255,160,40,0.5); }
@@ -447,9 +472,10 @@ body.adult-mode #adult-timer { display: block; }
 </div>
 
 <div id="text-input-bar">
-  <input id="text-query" type="text" placeholder='Ask Botler anything…'
-    onkeydown="if(event.key==='Enter')sendTextQuery()"
-    autocomplete="off" autocorrect="off" spellcheck="false">
+  <textarea id="text-query" rows="1" placeholder='Ask Botler anything…'
+    onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendTextQuery()}"
+    oninput="autoExpandTextarea(this)"
+    autocomplete="off" autocorrect="off" spellcheck="false"></textarea>
   <span id="silent-badge" onclick="exitSilentMode()" title="Text mode — click to return to voice">SILENT</span>
   <button id="text-send" onclick="sendTextQuery()">↑</button>
 </div>
@@ -881,6 +907,8 @@ function resetAdultTimer() {
 const RE_ADULT_SHOW   = /\b(show|open|display|bring up|reveal)\b.{0,18}\b(controls?|buttons?|admin|panel|settings?|menu)\b/i;
 const RE_ADULT_HIDE   = /\b(hide|close|lock|exit|dismiss)\b.{0,18}\b(controls?|buttons?|admin|panel|settings?|menu)\b/i;
 const RE_COLORS_SHOW  = /\b(show|see|open|pick|let me|show me|can i see)\b.{0,22}\b(colors?|colou?rs?|picker|palette|rainbow)\b/i;
+const RE_NIGHT_MODE   = /night.?mode|too bright|dim(?:mer)?|dark(?:en|er)|lower.{0,8}light|switch to dark/i;
+const RE_DAY_MODE     = /day.?mode|light(?:er)? mode|brighten|normal.{0,6}mode|too dark/i;
 
 function handleLocalCommand(query) {
   const q = query.trim();
@@ -892,6 +920,20 @@ function handleLocalCommand(query) {
     setCurrentUser(detectedId);
     const name = HOUSEHOLD[detectedId].name;
     speak(wasNew ? `Welcome, ${name}. How may I assist you?` : `Switching to ${name}'s session.`);
+    return true;
+  }
+
+  // Night / day mode
+  if (RE_NIGHT_MODE.test(q)) {
+    document.body.classList.add('night-mode');
+    applyColor('#9a5c28');
+    speak('Right away, sir.');
+    return true;
+  }
+  if (RE_DAY_MODE.test(q)) {
+    document.body.classList.remove('night-mode');
+    applyColor('#ff8800');
+    speak('There we are.');
     return true;
   }
 
@@ -1055,14 +1097,38 @@ function getSessionKey() { return `agent:${activeAgent}:device:${DEVICE_ID}`; }
 const AGENT_NAMES = { botler:'Botler', cash:'Cash', dev:'Dev', impulse:'Impulse', jim:'Jim', loki:'Loki' };
 const DIRECT_API_URL   = `${location.origin}/api/stream`; // Anthropic proxy in botler-serve
 
-// System prompt — built dynamically so it includes the current user's context
+// System prompt — built dynamically so it includes the current user's context and persistent state
 function buildDirectSystem() {
   const userLine = currentUser
     ? `You are speaking with ${currentUser.name}. ${HOUSEHOLD[currentUser.id]?.context || ''}`
     : `You don't yet know who you are speaking with. Greet them warmly as Botler, the Stewart household butler. Ask who you are speaking with. When they tell you their name, acknowledge warmly and embed: <cmd>{"action":"set_user","name":"THEIRNAME"}</cmd> — valid names: quan, julia, kage, avonte, ezlynn (lowercase exact).`;
+  const list = getShoppingList();
+  const listCtx = list.length > 0
+    ? `Shopping list has ${list.length} item${list.length!==1?'s':''}: ${list.join(', ')}.`
+    : 'Shopping list is empty.';
   return `You are Botler, the Stewart household AI butler — distinguished, warm, and precise. Speak in short warm sentences (≤15 words). No markdown, bullets, or headers — you are heard, not read.
 
 ${userLine}
+
+## Persistent memory
+${listCtx}
+
+## CRITICAL — Components
+NEVER output raw HTML, CSS, or code in your spoken text. Components render silently in the UI.
+When using render_component: put ALL HTML+CSS inside the cmd JSON "html" value, nothing in the text.
+Your text should be one natural spoken sentence like "Here's your list." or "Done — pulling that up."
+
+## Shopping list commands
+<cmd>{"action":"shopping_list_add","items":["milk","eggs"]}</cmd>        — add items (preserves existing)
+<cmd>{"action":"shopping_list_update","items":["milk","eggs"]}</cmd>     — replace full list
+<cmd>{"action":"shopping_list_render"}</cmd>                               — show current list in chat
+
+## Night / dim mode
+<cmd>{"action":"night_mode","on":true}</cmd>   — dim + dark mode
+<cmd>{"action":"night_mode","on":false}</cmd>  — return to normal brightness
+
+## Ambient / driving conversation style
+In flowing conversations (driving, cooking, etc.): keep mental track of the task, confirm additions aloud in ≤8 words ("Got it — almond milk, dog food, apples."), offer to render at natural pauses ("Shall I pull up the list?"). When rendering, say one sentence then let the component appear.
 
 ## Your visual face (Three.js canvas)
 You ARE a rendered 3D face: round amber head, two white eyes, a monocle on your right eye, and a handlebar mustache. You live on a dark canvas as the UI background. You can physically change your appearance when asked.
@@ -1272,13 +1338,85 @@ function exitSilentMode() {
 }
 
 // ─── Text input (mobile + desktop fallback) ───────────────────────────────────
+function autoExpandTextarea(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 170) + 'px';
+}
 function sendTextQuery() {
   const el = document.getElementById('text-query');
   const q = el.value.trim();
   if (!q) return;
   el.value = '';
+  el.style.height = '44px'; // reset height after send
   enterSilentMode();
   processQuery(q);
+}
+
+// ─── Persistent household state ───────────────────────────────────────────────
+function getPersistent() { try { return JSON.parse(localStorage.getItem('botler_persistent') || '{}'); } catch { return {}; } }
+function setPersistent(key, val) { const s = getPersistent(); s[key] = val; localStorage.setItem('botler_persistent', JSON.stringify(s)); }
+function getShoppingList()        { return getPersistent().shoppingList || []; }
+function setShoppingList(items)   { setPersistent('shoppingList', items); }
+function addToShoppingList(items) {
+  const cur = getShoppingList();
+  const next = [...cur, ...items.filter(i => !cur.map(c=>c.toLowerCase()).includes(i.toLowerCase()))];
+  setShoppingList(next);
+  return next;
+}
+
+function buildShoppingListHTML(items) {
+  const e = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return `<style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:rgba(10,4,0,0.97);color:rgba(255,200,100,0.82);font-family:Georgia,serif;padding:16px 18px;min-height:100vh}
+    h3{font-size:10px;letter-spacing:.45em;text-transform:uppercase;color:rgba(255,160,40,.5);margin-bottom:14px}
+    ul{list-style:none;display:flex;flex-direction:column;gap:0}
+    li{display:flex;align-items:center;gap:11px;padding:10px 4px;border-bottom:1px solid rgba(255,160,40,.07);cursor:pointer;font-size:14px;transition:opacity.25s}
+    li.done{opacity:.38;text-decoration:line-through}
+    .chk{width:20px;height:20px;border-radius:50%;border:1.5px solid rgba(255,160,40,.35);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;color:transparent;transition:all.2s}
+    li.done .chk{background:rgba(255,160,40,.45);color:rgba(255,220,100,.95);border-color:transparent}
+    .foot{font-size:10px;color:rgba(255,160,40,.3);letter-spacing:.2em;margin-top:13px;text-align:right}
+  </style>
+  <h3>Shopping List</h3>
+  <ul id="L">${items.map((item,i)=>`<li id="i${i}" onclick="t(${i})"><div class="chk" id="c${i}">✓</div><span>${e(item)}</span></li>`).join('')}</ul>
+  <div class="foot" id="ft">${items.length} item${items.length!==1?'s':''}</div>
+  <script>
+    function t(i){const li=document.getElementById('i'+i);li.classList.toggle('done');const d=document.querySelectorAll('.done').length,n=document.querySelectorAll('li').length;document.getElementById('ft').textContent=d?d+' of '+n+' checked':n+' item'+(n!==1?'s':'');}
+  <\/script>`;
+}
+
+// Render a component inline in the chat bubble stream
+function renderComponentInline(spec) {
+  const bubbles = document.getElementById('chat-bubbles');
+  const wrapper = document.createElement('div');
+  wrapper.className = 'bubble component-bubble';
+
+  const label = document.createElement('div');
+  label.className = 'comp-label';
+  label.textContent = spec.title || 'Component';
+  wrapper.appendChild(label);
+
+  const frame = document.createElement('iframe');
+  frame.sandbox = 'allow-scripts';
+  frame.scrolling = 'no';
+
+  let html = spec.html || '';
+  if (!html && spec.type === 'checklist') html = buildShoppingListHTML(spec.items || []);
+  if (!html && spec.type === 'shopping_list') html = buildShoppingListHTML(getShoppingList());
+
+  frame.srcdoc = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html{overflow:hidden}</style></head><body>${html}</body></html>`;
+  frame.onload = () => {
+    try {
+      const h = Math.min(frame.contentDocument.body.scrollHeight + 16, 420);
+      frame.style.height = h + 'px';
+      frame.scrolling = 'auto';
+    } catch {}
+    // Slow-scroll to show the component, like a human presenting it
+    setTimeout(() => wrapper.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+  };
+  wrapper.appendChild(frame);
+  bubbles.appendChild(wrapper);
+  bubbles.scrollTop = bubbles.scrollHeight;
 }
 
 // ─── Session reset ────────────────────────────────────────────────────────────
@@ -1300,8 +1438,8 @@ function addBubble(role, text) {
   b.className = `bubble ${role === 'user' ? 'user' : 'bot'}`;
   b.textContent = text.trim();
   bubblesEl.appendChild(b);
-  // Keep max 6 bubbles visible
-  while (bubblesEl.children.length > 6) bubblesEl.removeChild(bubblesEl.firstChild);
+  // Keep max 30 bubbles (scrollable history)
+  while (bubblesEl.children.length > 30) bubblesEl.removeChild(bubblesEl.firstChild);
   bubblesEl.scrollTop = bubblesEl.scrollHeight;
 }
 function toggleSubtitles() {
@@ -1711,19 +1849,27 @@ function execCmd(cmd) {
       if (cmd.query) openPanel(`https://duckduckgo.com/?q=${encodeURIComponent(cmd.query)}&kae=d`, `Search: ${cmd.query}`);
       break;
     case 'shopping_list':
-      renderComponent({ type: 'checklist', title: cmd.title || 'Shopping List', items: cmd.items || [] });
+      // Merge cmd items into persistent list, then render inline
+      if (cmd.items?.length) addToShoppingList(cmd.items);
+      renderComponentInline({ title: cmd.title || 'Shopping List', type: 'shopping_list' });
       break;
     case 'render_component': {
-      const panel = document.getElementById('side-panel');
-      const comp  = document.getElementById('component-panel');
-      const frame = document.getElementById('browser-frame');
-      const bar   = document.getElementById('browser-bar');
-      const err   = document.getElementById('browser-err');
-      document.getElementById('panel-title').textContent = cmd.title || 'Component';
-      frame.className = ''; bar.className = ''; err.className = '';
-      comp.className = 'visible';
-      comp.innerHTML = cmd.html || '';
-      panel.classList.add('open');
+      if (silentMode || cmd.inline) {
+        // Silent/typing mode: render inline in chat
+        renderComponentInline(cmd);
+      } else {
+        // Voice mode: open in side panel
+        const panel = document.getElementById('side-panel');
+        const comp  = document.getElementById('component-panel');
+        const frame = document.getElementById('browser-frame');
+        const bar   = document.getElementById('browser-bar');
+        const err   = document.getElementById('browser-err');
+        document.getElementById('panel-title').textContent = cmd.title || 'Component';
+        frame.className = ''; bar.className = ''; err.className = '';
+        comp.className = 'visible';
+        comp.innerHTML = cmd.html || '';
+        panel.classList.add('open');
+      }
       break;
     }
     case 'panel':
@@ -1770,6 +1916,21 @@ function execCmd(cmd) {
       if (HOUSEHOLD[uid]) setCurrentUser(uid);
       break;
     }
+    case 'night_mode':
+      document.body.classList.toggle('night-mode', cmd.on !== false);
+      if (cmd.on !== false) applyColor('#9a5c28'); else applyColor('#ff8800');
+      break;
+    case 'shopping_list_add': {
+      const updated = addToShoppingList(cmd.items || []);
+      // Silently update; model confirms verbally
+      break;
+    }
+    case 'shopping_list_update':
+      setShoppingList(cmd.items || []);
+      break;
+    case 'shopping_list_render':
+      renderComponentInline({ title: 'Shopping List', type: 'shopping_list' });
+      break;
     default:
       console.log('[Botler] unknown cmd action:', cmd.action);
   }
@@ -2051,13 +2212,19 @@ async function executeTool(name, input) {
   console.log('[Botler] Tool:', name, input);
   switch (name) {
     case 'render_component':
-      renderComponent(input); return `Component rendered: ${input.title}`;
-    case 'shopping_list_add':
-      input.items.forEach(i => { if (!shoppingList.includes(i)) shoppingList.push(i); });
+      renderComponentInline(input); return `Component rendered: ${input.title}`;
+    case 'shopping_list_add': {
+      const updated = addToShoppingList(input.items || []);
       return `Added to shopping list: ${input.items.join(', ')}`;
-    case 'shopping_list_show':
-      renderComponent({ type: 'checklist', title: 'Shopping List', items: shoppingList.length ? shoppingList : ['(empty)'] });
-      return `Showing shopping list with ${shoppingList.length} items`;
+    }
+    case 'shopping_list_update':
+      setShoppingList(input.items || []);
+      return `Shopping list updated`;
+    case 'shopping_list_show': {
+      const list = getShoppingList();
+      renderComponentInline({ type: 'shopping_list', title: 'Shopping List', items: list.length ? list : ['(empty)'] });
+      return `Showing shopping list with ${list.length} items`;
+    }
     case 'browser_navigate':
       openPanel(input.url, input.title || input.url); return `Navigating to ${input.url}`;
     case 'web_search':
