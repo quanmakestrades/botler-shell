@@ -861,7 +861,7 @@ const _isLoopback = _h === 'localhost' || _h === '127.0.0.1';
 const DEFAULT_GW_URL   = _isLoopback
   ? 'ws://localhost:18789'
   : 'wss://stewartos-core.tail2d5e46.ts.net';
-const DEFAULT_GW_TOKEN = 'c59a2ebef7764318eabc4736411c085c5c3c912cc62e64a639c03b05f705b815';
+const DEFAULT_GW_TOKEN = 'StewartOS-Core-2026';
 let   activeAgent      = 'botler';
 function getSessionKey() { return `agent:${activeAgent}:main`; }
 const AGENT_NAMES = { botler:'Botler', cash:'Cash', dev:'Dev', impulse:'Impulse', jim:'Jim', loki:'Loki' };
@@ -1066,20 +1066,8 @@ class GatewayClient {
       console.log('[Botler] WS closed:', ev.code, ev.reason);
       const wasConnected = gwConnected;
       gwConnected = false;
-      // Surface close reason so the user sees why (origin check, bad token, etc.).
       const reason = (ev.reason && ev.reason.trim()) || `code ${ev.code}`;
-      setTranscript(`Gateway disconnected: ${reason} — reconnecting…`);
-      // If we never reached the hello-ok handshake, show the setup overlay so the
-      // user can correct URL/token instead of staring at a silent UI.
-      if (!wasConnected) {
-        const overlay = document.getElementById('setup-overlay');
-        const errEl = document.getElementById('setup-err');
-        if (overlay) overlay.classList.remove('hidden');
-        if (errEl) {
-          errEl.textContent = `Gateway connect failed: ${reason}`;
-          errEl.classList.add('visible');
-        }
-      }
+      setTranscript(`Connecting to gateway…`);
       if (!this.closed) setTimeout(() => this._connect(), 2500);
     };
     this.ws.onerror = () => {};
@@ -1117,7 +1105,7 @@ class GatewayClient {
                 displayName: 'Quan', platform: navigator.platform || 'web', mode: 'webchat' },
       role: 'operator',
       scopes: ['operator.admin'],
-      auth: this.token ? { token: this.token } : undefined,
+      auth: this.token ? { password: this.token } : undefined,
       caps: [],
     };
     const p = new Promise((res, rej) => this.pending.set(id, { resolve: res, reject: rej }));
@@ -1728,8 +1716,7 @@ async function processQueryDirect(query) {
 async function processQueryGateway(query) {
   if (!gw || !gwConnected) {
     console.warn('[Botler] gateway not connected');
-    setTranscript('Gateway not connected — check setup');
-    document.getElementById('setup-overlay').classList.remove('hidden');
+    setTranscript('Connecting to gateway — try again in a moment');
     return;
   }
   if (currentRunId) await abortCurrentRun();
@@ -1775,8 +1762,7 @@ async function executeTool(name, input) {
       openPanel(`https://duckduckgo.com/?q=${encodeURIComponent(input.query)}&kae=d`, `Search: ${input.query}`);
       return `Searching for: ${input.query}`;
     case 'finance_query':
-      if (!financeUnlocked) { openFinance(); return 'Finance dashboard opened — authentication required'; }
-      openFinance(true); return 'Finance dashboard opened';
+      openFinance(); return 'Finance dashboard opened';
     default:
       return `Unknown tool: ${name}`;
   }
@@ -1920,14 +1906,7 @@ function openHomeschool() {
 }
 
 function openFinance(skipAuth = false) {
-  // Open stewartOS household finance dashboard (local)
-  if (financePass && !financeUnlocked && !skipAuth) {
-    document.getElementById('finance-panel').classList.add('open');
-    return;
-  }
-  financeUnlocked = true;
-  closeFinance();
-  openPanel(`${location.origin}/botler-finance.html`, 'Finance — stewartOS');
+  openPanel(`${location.origin}/finance`, 'Finance');
 }
 function closeFinance() { document.getElementById('finance-panel').classList.remove('open'); }
 
