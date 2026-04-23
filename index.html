@@ -1110,12 +1110,61 @@ function switchAgent(agentId) {
   setState('idle');
   // Apply agent-specific look if bgMat is ready
   if (typeof applyLook === 'function' && AGENT_LOOKS[agentId]) applyLook(AGENT_LOOKS[agentId]);
+  // Load recent Telegram history for this agent
+  loadAgentHistory(agentId);
 }
 
 function _markAgentUnread(agentId) {
   if (agentId === activeAgent) return;
   const btn = document.querySelector(`.agent-btn[data-agent="${agentId}"]`);
   if (btn) btn.querySelector('.agent-badge').classList.add('visible');
+}
+
+// ─── Load recent Telegram / session history for an agent ─────────────────────
+async function loadAgentHistory(agentId) {
+  if (!gw || !gwConnected) return;
+  // Prefer Telegram DM session with Quan; fall back to main
+  const candidates = [
+    `agent:${agentId}:telegram:direct:7346983359`,
+    `agent:${agentId}:main`,
+  ];
+  for (const key of candidates) {
+    try {
+      const res = await gw.request('chat.history', { sessionKey: key });
+      if (res && Array.isArray(res.messages) && res.messages.length > 0) {
+        _renderHistory(res.messages, agentId);
+        return;
+      }
+    } catch (e) { /* try next candidate */ }
+  }
+}
+
+function _renderHistory(messages, agentId) {
+  const bubbles = document.getElementById('chat-bubbles');
+  bubbles.innerHTML = '';
+  // Filter out tool calls and results, keep only user/assistant text
+  const texts = [];
+  for (const m of messages) {
+    if (m.role !== 'user' && m.role !== 'assistant') continue;
+    let text = '';
+    if (typeof m.content === 'string') text = m.content;
+    else if (Array.isArray(m.content)) {
+      text = m.content.filter(c => c.type === 'text').map(c => c.text || '').join('').trim();
+    }
+    if (!text) continue;
+    // Strip any <cmd> blocks
+    text = text.replace(/<cmd>[\s\S]*?<\/cmd>/g, '').trim();
+    if (!text) continue;
+    texts.push({ role: m.role, text });
+  }
+  // Show last 10
+  for (const { role, text } of texts.slice(-10)) {
+    const b = document.createElement('div');
+    b.className = `bubble ${role === 'user' ? 'user' : 'bot'}`;
+    b.textContent = text.length > 300 ? text.slice(0, 300) + '…' : text;
+    bubbles.appendChild(b);
+  }
+  bubbles.scrollTop = bubbles.scrollHeight;
 }
 
 // ─── Text input (mobile + desktop fallback) ───────────────────────────────────
@@ -1232,6 +1281,8 @@ class GatewayClient {
       document.getElementById('setup-overlay').classList.add('hidden');
       initVoice();
       setTranscript('Say "Botler…" to wake');
+      // Preload recent history for the active agent so the shell has context
+      if (typeof loadAgentHistory === 'function') loadAgentHistory(activeAgent);
     }).catch(err => {
       console.error('[Botler] Connect error:', err.message);
       document.getElementById('setup-err').classList.add('visible');
