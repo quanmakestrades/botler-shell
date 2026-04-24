@@ -604,14 +604,8 @@ body.night-mode canvas { filter: brightness(0.52) saturate(0.7); }
   padding: 10px 12px; gap: 8px; align-items: center; backdrop-filter: blur(12px);
 }
 /* Model selector badge */
-#model-badge {
-  display: block; font-size: 8px; letter-spacing: 0.25em; text-transform: uppercase;
-  color: rgba(100,180,255,0.55); border: 1px solid rgba(100,180,255,0.2);
-  padding: 2px 7px; border-radius: 10px; flex-shrink: 0; cursor: pointer; transition: all 0.2s;
-  white-space: nowrap;
-}
-#model-badge:hover { color: rgba(140,210,255,0.9); border-color: rgba(100,180,255,0.5); }
-#model-badge.opus { color: rgba(180,120,255,0.7); border-color: rgba(160,100,255,0.35); }
+/* model-badge only shown in Dev terminal — not in main UI */
+#model-badge { display: none !important; }
 /* Voice / Text mode toggle badge — always visible */
 #silent-badge {
   display: block; font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase;
@@ -644,6 +638,41 @@ body.adult-mode #controls { display: flex !important; }
 body.adult-mode #agent-bar { display: flex !important; }
 body.adult-mode #edit-btn  { display: block !important; }
 body.adult-mode #looks-bar { display: flex !important; }
+/* Hide adult-only hamburger items for kids */
+#mobile-menu .adult-only { display: none; }
+body.adult-mode #mobile-menu .adult-only { display: block; }
+/* Appearance editor overlay — accessible to all */
+#appearance-panel {
+  display: none; position: fixed; inset: 0; z-index: 80; background: rgba(6,2,0,0.92);
+  backdrop-filter: blur(12px); flex-direction: column; align-items: center; justify-content: center;
+  padding: 24px;
+}
+#appearance-panel.open { display: flex; }
+.ap-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; width: 100%; max-width: 340px; }
+.ap-label { font-size: 9px; letter-spacing: .3em; text-transform: uppercase; color: rgba(255,200,100,.4); width: 80px; flex-shrink: 0; }
+.ap-slider { flex: 1; -webkit-appearance: none; appearance: none; height: 3px; border-radius: 2px;
+  background: rgba(255,160,40,0.2); outline: none; }
+.ap-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+  background: rgba(255,160,40,0.7); cursor: pointer; }
+.ap-value { font-size: 10px; color: rgba(255,200,100,.4); width: 36px; text-align: right; font-family: monospace; }
+/* Device auth overlay */
+#auth-overlay {
+  display: none; position: fixed; inset: 0; z-index: 200; background: rgba(6,2,0,0.98);
+  flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+  backdrop-filter: blur(20px); padding: 32px;
+}
+#auth-overlay.open { display: flex; }
+.auth-title { font-size: 11px; letter-spacing: .5em; text-transform: uppercase; color: rgba(255,200,100,.5); margin-bottom: 8px; }
+.auth-subtitle { font-size: 13px; color: rgba(255,220,120,.65); font-family: Georgia,serif; text-align: center; line-height: 1.6; margin-bottom: 20px; }
+.auth-btn { background: rgba(255,160,40,0.08); border: 1px solid rgba(255,160,40,0.25); color: rgba(255,220,120,.7);
+  font-size: 13px; padding: 12px 32px; border-radius: 6px; cursor: pointer; font-family: Georgia,serif;
+  letter-spacing: .15em; width: 100%; max-width: 260px; transition: all .15s; margin-bottom: 4px; }
+.auth-btn:hover { background: rgba(255,160,40,0.16); color: rgba(255,230,140,.95); }
+.auth-btn.adult { border-color: rgba(255,160,40,0.5); }
+.auth-pin { background: rgba(0,0,0,.4); border: 1px solid rgba(255,160,40,.2); color: rgba(255,220,120,.8);
+  font-size: 20px; padding: 10px 16px; border-radius: 4px; width: 100%; max-width: 260px;
+  text-align: center; font-family: monospace; letter-spacing: .3em; outline: none; margin-bottom: 8px; }
+.auth-err { font-size: 10px; color: rgba(255,60,60,.6); letter-spacing: .2em; min-height: 16px; }
 /* Kids-accessible color panel (floats near center, not attached to controls) */
 #kids-color-panel {
   display: none; position: fixed; bottom: 160px; left: 50%; transform: translateX(-50%);
@@ -715,8 +744,8 @@ body.adult-mode #adult-timer { display: block; }
 
 <div id="mobile-menu">
   <button id="mobile-menu-close" onclick="closeMobileMenu()">✕</button>
-  <div style="color:rgba(255,200,100,0.3);font-size:9px;letter-spacing:0.5em;text-transform:uppercase;margin-bottom:6px;">Agents</div>
-  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+  <div class="adult-only" style="color:rgba(255,200,100,0.3);font-size:9px;letter-spacing:0.5em;text-transform:uppercase;margin-bottom:6px;">Agents</div>
+  <div class="adult-only" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
     <button class="btn" onclick="closeMobileMenu();switchAgent('botler')">Botler</button>
     <button class="btn" onclick="closeMobileMenu();switchAgent('cash')">Cash</button>
     <button class="btn" onclick="closeMobileMenu();switchAgent('dev')">Dev</button>
@@ -724,17 +753,18 @@ body.adult-mode #adult-timer { display: block; }
     <button class="btn" onclick="closeMobileMenu();switchAgent('jim')">Jim</button>
     <button class="btn" onclick="closeMobileMenu();switchAgent('loki')">Loki</button>
   </div>
+  <hr class="adult-only" style="border-color:rgba(255,160,40,0.1);margin:6px 0;">
+  <div class="adult-only" style="color:rgba(255,200,100,0.3);font-size:9px;letter-spacing:0.5em;text-transform:uppercase;margin-bottom:6px;">System</div>
+  <button class="btn adult-only" onclick="closeMobileMenu();openFamilyPortal()">Family Portal</button>
+  <button class="btn adult-only" onclick="closeMobileMenu();openFinance()">Finance</button>
+  <button class="btn adult-only" onclick="closeMobileMenu();openHomeschool()">School Board</button>
+  <button class="btn adult-only" onclick="closeMobileMenu();openPanel(location.origin+'/agent-system-map.html','System Map')">System Map</button>
   <hr style="border-color:rgba(255,160,40,0.1);margin:6px 0;">
-  <div style="color:rgba(255,200,100,0.3);font-size:9px;letter-spacing:0.5em;text-transform:uppercase;margin-bottom:6px;">System</div>
-  <button class="btn" onclick="closeMobileMenu();openFinance()">Finance</button>
-  <button class="btn" onclick="closeMobileMenu();openHomeschool()">School Board</button>
-  <button class="btn" onclick="closeMobileMenu();openPanel(location.origin+'/agent-system-map.html','System Map')">System Map</button>
-  <button class="btn" onclick="closeMobileMenu();toggleSubtitles()">Toggle Subtitles</button>
-  <button class="btn" onclick="closeMobileMenu();document.getElementById('color-panel').classList.toggle('open')">Color</button>
-  <button class="btn" onclick="closeMobileMenu();resetSession()">Reset Conversation</button>
-  <hr style="border-color:rgba(255,160,40,0.1);margin:6px 0;">
-  <div style="color:rgba(255,200,100,0.25);font-size:9px;letter-spacing:0.3em;text-transform:uppercase;margin-bottom:4px;">Voice</div>
+  <button class="btn" onclick="closeMobileMenu();openAppearancePanel()">🎨 Customize Botler</button>
+  <button class="btn" onclick="closeMobileMenu();toggleSubtitles()">Subtitles</button>
   <button class="btn" id="mobile-mute-btn" onclick="toggleMuteMobile()">🎤 Microphone</button>
+  <button class="btn adult-only" onclick="closeMobileMenu();showAuthOverlay()">🔓 Switch User</button>
+  <button class="btn" onclick="closeMobileMenu();resetSession()">Reset Chat</button>
 </div>
 
 <div id="text-input-bar">
@@ -855,6 +885,42 @@ body.adult-mode #adult-timer { display: block; }
 </div>
 
 <!-- Family Portal (Quan + Julia only) -->
+<!-- Device auth overlay — shown on first visit to authenticate adults -->
+<div id="auth-overlay">
+  <div class="auth-title">Stewart Household</div>
+  <div class="auth-subtitle" id="auth-msg">Who are you?<br><span style="font-size:11px;opacity:0.6;">Adults enter their PIN to unlock full access.</span></div>
+  <button class="auth-btn adult" onclick="authSelectUser('quan')">Quan</button>
+  <button class="auth-btn adult" onclick="authSelectUser('julia')">Julia</button>
+  <button class="auth-btn" onclick="authKidMode()" style="margin-top:8px;font-size:11px;opacity:0.6;">Continue as Guest</button>
+  <input class="auth-pin" id="auth-pin" type="password" placeholder="PIN" maxlength="8" style="display:none" onkeydown="if(event.key==='Enter')authSubmitPin()">
+  <button class="auth-btn adult" id="auth-submit" style="display:none" onclick="authSubmitPin()">Unlock</button>
+  <div class="auth-err" id="auth-err"></div>
+</div>
+
+<!-- Appearance customization panel — accessible to all users -->
+<div id="appearance-panel">
+  <div style="font-size:9px;letter-spacing:.5em;text-transform:uppercase;color:rgba(255,160,40,.4);margin-bottom:20px;">Customize Botler</div>
+  <div class="ap-row">
+    <span class="ap-label">Color</span>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;flex:1">
+      <div id="ap-swatches"></div>
+      <canvas id="ap-spectrum" width="180" height="14" style="width:100%;height:14px;border-radius:4px;cursor:crosshair;margin-top:4px;"></canvas>
+    </div>
+  </div>
+  <div class="ap-row"><span class="ap-label">Eye Size</span><input class="ap-slider" type="range" min="0.3" max="2.5" step="0.05" id="ap-eyeSize" oninput="apSlider('eyeSize',this)"><span class="ap-value" id="apv-eyeSize">1.0</span></div>
+  <div class="ap-row"><span class="ap-label">Eye Spread</span><input class="ap-slider" type="range" min="-0.3" max="0.5" step="0.02" id="ap-eyeSepOff" oninput="apSlider('eyeSepOff',this)"><span class="ap-value" id="apv-eyeSepOff">0.0</span></div>
+  <div class="ap-row"><span class="ap-label">Eye Height</span><input class="ap-slider" type="range" min="-0.6" max="0.6" step="0.02" id="ap-eyeY" oninput="apSlider('eyeY',this)"><span class="ap-value" id="apv-eyeY">0.0</span></div>
+  <div class="ap-row"><span class="ap-label">Mouth Y</span><input class="ap-slider" type="range" min="-0.5" max="0.5" step="0.02" id="ap-mouthY" oninput="apSlider('mouthY',this)"><span class="ap-value" id="apv-mouthY">0.0</span></div>
+  <div class="ap-row"><span class="ap-label">Mustache W</span><input class="ap-slider" type="range" min="0.2" max="3" step="0.1" id="ap-mustacheSX" oninput="apSlider('mustacheSX',this)"><span class="ap-value" id="apv-mustacheSX">1.0</span></div>
+  <div class="ap-row"><span class="ap-label">Mustache H</span><input class="ap-slider" type="range" min="0.1" max="3" step="0.1" id="ap-mustacheSY" oninput="apSlider('mustacheSY',this)"><span class="ap-value" id="apv-mustacheSY">1.0</span></div>
+  <div class="ap-row"><span class="ap-label">Mustache Y</span><input class="ap-slider" type="range" min="-0.5" max="0.5" step="0.02" id="ap-mustacheY" oninput="apSlider('mustacheY',this)"><span class="ap-value" id="apv-mustacheY">0.0</span></div>
+  <div class="ap-row"><span class="ap-label">Monocle</span><input class="ap-slider" type="range" min="0" max="2.5" step="0.1" id="ap-monoSize" oninput="apSlider('monoSize',this)"><span class="ap-value" id="apv-monoSize">1.0</span></div>
+  <div style="display:flex;gap:10px;margin-top:16px;">
+    <button class="auth-btn" onclick="apReset()" style="font-size:11px;padding:8px 20px;">Reset</button>
+    <button class="auth-btn" onclick="closeAppearancePanel()" style="font-size:11px;padding:8px 20px;border-color:rgba(255,160,40,.5);color:rgba(255,220,120,.8);">Done ✓</button>
+  </div>
+</div>
+
 <div id="family-portal" style="display:none;position:fixed;inset:0;z-index:60;background:rgba(6,2,0,0.97);overflow-y:auto;padding:24px 20px 48px;">
   <button onclick="closeFamilyPortal()" style="position:fixed;top:18px;right:20px;background:none;border:1px solid rgba(255,160,40,0.3);color:rgba(255,200,100,0.6);font-size:11px;padding:4px 12px;border-radius:2px;cursor:pointer;font-family:Georgia,serif;letter-spacing:.2em;">✕ CLOSE</button>
   <div style="max-width:780px;margin:0 auto;">
@@ -1020,7 +1086,7 @@ const HW      = () => 0.15 * aspect;
 const LIP_TH  = () => S() * 0.013;
 
 // ─── Edit state ───────────────────────────────────────────────────────────────
-const edit = { mustacheY:0, mustacheSX:1, mustacheSY:1, eyeY:0, eyeSepOff:0, eyeSize:1, monoSize:1 };
+const edit = { mustacheY:0, mustacheSX:1, mustacheSY:1, eyeY:0, eyeSepOff:0, eyeSize:1, monoSize:1, mouthY:0 };
 let editMode = false;
 let drag     = null;
 // Face drift — spring physics: Y floats above content, X slides into available space
@@ -1345,6 +1411,55 @@ function handleLocalCommand(query) {
     }
   }
 
+  // ── Appearance editor ──────────────────────────────────────────────────────
+  if (/\b(edit|customize|change|adjust|fix|update)\b.{0,20}\b(appearance|face|look|eyes?|mustache|monocle|mouth)\b/i.test(q)
+    || /\blet me edit\b/i.test(q) || /\bcustomize (you|your)\b/i.test(q)) {
+    enterAppearanceVoice(); return true;
+  }
+
+  // ── Voice agent switching (adults only) ───────────────────────────────────
+  const AGENT_SWITCH_RE = /\b(?:switch to|put on|activate|wake up|get me|pull up|connect (?:me )?to|i need|hand (?:me )?to|transfer to|bring in|bring up)\b\s+(.{2,20}?)(?:\s+(?:please|now|agent|mode))?$/i;
+  const agentMatch = AGENT_SWITCH_RE.exec(q) || /^(?:put|get|use)\s+(.+?)\s+on$/i.exec(q);
+  if (agentMatch) {
+    const nameRaw = agentMatch[1].trim().toLowerCase();
+    const AGENT_ALIASES = {
+      botler: 'botler', bot: 'botler', butler: 'botler', home: 'botler',
+      cash: 'cash', finance: 'cash', money: 'cash',
+      dev: 'dev', developer: 'dev', engineer: 'dev', code: 'dev', coding: 'dev',
+      hermes: 'hermes', coordinator: 'hermes',
+      impulse: 'impulse', trading: 'impulse', trader: 'impulse',
+      jim: 'jim', music: 'jim',
+      loki: 'loki', ops: 'loki', business: 'loki',
+    };
+    const targetAgent = AGENT_ALIASES[nameRaw] || Object.keys(AGENT_ALIASES).find(k => nameRaw.includes(k) && AGENT_ALIASES[k]);
+    if (targetAgent) {
+      if (kidsLocked) { speak("Agent switching is for grown-ups only."); return true; }
+      const agentName = AGENT_NAMES[targetAgent] || targetAgent;
+      switchAgent(targetAgent);
+      speak(`Switching to ${agentName}.`);
+      return true;
+    }
+  }
+
+  // ── Google / web search — open in panel immediately ───────────────────────
+  const SEARCH_RE = /^(?:google|search(?: the web)?(?:\s+for)?|look up|find(?: me)?(?:\s+info(?:rmation)? (?:on|about))?|web search for?|search for)\s+(.+)/i;
+  const searchMatch = SEARCH_RE.exec(q);
+  if (searchMatch) {
+    const topic = searchMatch[1].trim();
+    const url = `https://duckduckgo.com/?q=${encodeURIComponent(topic)}&kae=d`;
+    openPanel(url, `Search: ${topic}`);
+    speak(`Looking up ${topic}.`);
+    return true;
+  }
+  // Google images shortcut (catch before NAV_ACTION)
+  const imgMatch0 = q.match(/\b(?:google |show me |find |search for )?images? (?:of |for )?(.+)/i);
+  if (imgMatch0 && /\bimage/i.test(q)) {
+    const topic = imgMatch0[1].trim();
+    openPanel(`https://www.google.com/search?q=${encodeURIComponent(topic)}&tbm=isch`, `Images: ${topic}`);
+    speak(`Pulling up images of ${topic}.`);
+    return true;
+  }
+
   // User identification — say "I'm Quan", "this is Julia", etc.
   const detectedId = detectUserFromText(q);
   if (detectedId) {
@@ -1608,7 +1723,7 @@ function animate(){
     rightEye.monoGroup.children[2].rotation.z=-parallax;
   }
   stepChain(rightEye.g.position.x,rightEye.g.position.y,edit.eyeSize*edit.monoSize);
-  const my=MOUTH_Y()+fy, mustacheH=LIP_TH()*1.3*1.25*0.5;
+  const my=MOUTH_Y()+fy+edit.mouthY, mustacheH=LIP_TH()*1.3*1.25*0.5;
   mouthGroup.position.y=my+faceDriftY;
   mouthGroup.position.x=faceDriftX;
   mustacheGroup.position.y=my+mustacheH*2.2+edit.mustacheY+faceDriftY;
@@ -1966,6 +2081,8 @@ setInterval(() => {
 }, 3 * 60 * 1000);
 
 _initSession();
+// Run first-visit auth check after DOM is ready
+setTimeout(_checkFirstVisit, 600);
 
 const HOUSEHOLD = {
   quan:   { name:'Quan',   isAdult:true,  context:'Head of household and founder of Stewart Inc. Full admin access — finance, trading (Impulse), business ops (TideFlow), and all system controls.' },
@@ -2324,8 +2441,10 @@ ${(() => { const d = getFamilyData(); const notes = d.notes; const kids = KIDS.m
 
 ## CRITICAL — Components & Navigation
 NEVER output raw HTML, CSS, or code in your spoken text.
+NEVER output URLs as text in your response. NEVER list links or search results as text.
 NEVER respond with an emoji (📁 🌐 📊 etc.) when the user asks to open something — use a cmd tag.
 When asked to open ANY page, app, panel, or portal → embed the correct cmd. No emoji. No description. Just open it.
+When asked to "google X" or "search for X" or "look up X" → ALWAYS use: <cmd>{"action":"url","url":"https://duckduckgo.com/?q=X&kae=d","title":"Search: X"}</cmd> — your text is just "Looking that up." NEVER list search results as text.
 When using render_component: put ALL HTML+CSS inside the cmd JSON "html" value, nothing in the text.
 Your text should be one natural spoken sentence like "Here's your list." or "Done — pulling that up."
 
@@ -2586,6 +2705,135 @@ let echoSuppressed = false;   // true while TTS is speaking — prevents STT ech
 // ─── Mobile menu ─────────────────────────────────────────────────────────────
 function openMobileMenu()  { document.getElementById('mobile-menu').classList.add('open'); }
 function closeMobileMenu() { document.getElementById('mobile-menu').classList.remove('open'); }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  DEVICE AUTH — first-time adult verification, persists to localStorage
+// ═══════════════════════════════════════════════════════════════════════════════
+const ADULT_DEVICE_KEY = 'botler_adult_device';
+const ADULT_PIN = 'stewart26'; // lowercase, no spaces
+let _authPendingUser = null;
+
+function _isAdultDevice() {
+  return !!localStorage.getItem(ADULT_DEVICE_KEY);
+}
+
+function _checkFirstVisit() {
+  if (_isAdultDevice()) {
+    // Device is known adult — restore their identity
+    const savedUser = localStorage.getItem('botler_current_user');
+    if (savedUser) {
+      try {
+        const u = JSON.parse(savedUser);
+        if (u && HOUSEHOLD[u.id]?.isAdult) { setCurrentUser(u.id); enterAdultMode(); return; }
+      } catch(e) {}
+    }
+    enterAdultMode();
+    return;
+  }
+  // New device — show auth if no user, otherwise kids mode
+  if (!currentUser || !HOUSEHOLD[currentUser?.id]?.isAdult) {
+    // Default to kids mode silently — show auth only if they tap hamburger → switch user
+    kidsLocked = true;
+  }
+}
+
+function showAuthOverlay() {
+  _authPendingUser = null;
+  document.getElementById('auth-pin').style.display = 'none';
+  document.getElementById('auth-submit').style.display = 'none';
+  document.getElementById('auth-err').textContent = '';
+  document.getElementById('auth-msg').innerHTML = 'Who are you?<br><span style="font-size:11px;opacity:0.6;">Adults enter their PIN to unlock full access.</span>';
+  document.getElementById('auth-overlay').classList.add('open');
+}
+
+function authSelectUser(userId) {
+  _authPendingUser = userId;
+  const name = HOUSEHOLD[userId]?.name || userId;
+  document.getElementById('auth-msg').textContent = `Hi ${name}! Enter your PIN:`;
+  document.getElementById('auth-pin').style.display = 'block';
+  document.getElementById('auth-pin').value = '';
+  document.getElementById('auth-submit').style.display = 'block';
+  document.getElementById('auth-err').textContent = '';
+  setTimeout(() => document.getElementById('auth-pin').focus(), 100);
+}
+
+function authSubmitPin() {
+  const pin = document.getElementById('auth-pin').value.trim().toLowerCase().replace(/\s/g,'');
+  if (pin === ADULT_PIN) {
+    localStorage.setItem(ADULT_DEVICE_KEY, _authPendingUser || 'adult');
+    document.getElementById('auth-overlay').classList.remove('open');
+    setCurrentUser(_authPendingUser || 'quan');
+    enterAdultMode();
+    speak(`Welcome, ${HOUSEHOLD[_authPendingUser]?.name || 'back'}. Full access unlocked.`);
+  } else {
+    document.getElementById('auth-err').textContent = 'Incorrect PIN. Try again.';
+    document.getElementById('auth-pin').value = '';
+    document.getElementById('auth-pin').focus();
+  }
+}
+
+function authKidMode() {
+  document.getElementById('auth-overlay').classList.remove('open');
+  kidsLocked = true;
+  speak('Hello! Ask me anything!');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  APPEARANCE PANEL — slider-based face editor, accessible to all
+// ═══════════════════════════════════════════════════════════════════════════════
+function openAppearancePanel() {
+  // Sync sliders to current edit values
+  const fields = ['eyeSize','eyeSepOff','eyeY','mouthY','mustacheSX','mustacheSY','mustacheY','monoSize'];
+  for (const f of fields) {
+    const sl = document.getElementById('ap-' + f);
+    const lbl = document.getElementById('apv-' + f);
+    if (sl) sl.value = edit[f] ?? 0;
+    if (lbl) lbl.textContent = (edit[f] ?? 0).toFixed(2);
+  }
+  // Build swatches
+  const sw = document.getElementById('ap-swatches');
+  if (sw && !sw.children.length) {
+    SWATCHES.forEach(hex => {
+      const s = document.createElement('div');
+      s.className = 'swatch'; s.dataset.hex = hex; s.style.background = hex;
+      s.onclick = (e) => { e.stopPropagation(); applyColor(hex); };
+      sw.appendChild(s);
+    });
+    const spec = document.getElementById('ap-spectrum');
+    const ctx2 = spec.getContext('2d');
+    const grad = ctx2.createLinearGradient(0,0,180,0);
+    for (let i=0;i<=360;i+=30) grad.addColorStop(i/360,`hsl(${i},100%,50%)`);
+    ctx2.fillStyle = grad; ctx2.fillRect(0,0,180,14);
+    spec.onclick = (e) => {
+      const r = spec.getBoundingClientRect();
+      const pct = Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
+      applyColor(`hsl(${Math.round(pct*360)},100%,50%)`);
+    };
+  }
+  document.getElementById('appearance-panel').classList.add('open');
+}
+
+function closeAppearancePanel() {
+  document.getElementById('appearance-panel').classList.remove('open');
+  if (currentUser) _saveUserLook(currentUser.id);
+}
+
+function apSlider(field, el) {
+  edit[field] = parseFloat(el.value);
+  const lbl = document.getElementById('apv-' + field);
+  if (lbl) lbl.textContent = edit[field].toFixed(2);
+}
+
+function apReset() {
+  Object.assign(edit, { mustacheY:0, mustacheSX:1, mustacheSY:1, eyeY:0, eyeSepOff:0, eyeSize:1, monoSize:1, mouthY:0 });
+  openAppearancePanel(); // re-sync sliders
+}
+
+// Voice command: "let me edit / customize your appearance"
+function enterAppearanceVoice() {
+  openAppearancePanel();
+  speak('Of course. Adjust my look here, then close when done.');
+}
 function toggleMuteMobile() {
   muted = !muted;
   document.getElementById('mute-btn').textContent = muted ? '🔇' : '🎤';
