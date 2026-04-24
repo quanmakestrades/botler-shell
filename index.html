@@ -73,6 +73,26 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
 /* ── Side Panel (browser + components) ── */
+/* Panel pull-tab handle — visible when panel is closed but has content */
+#panel-handle {
+  position: fixed; top: 50%; right: 0; transform: translateY(-50%);
+  z-index: 29; cursor: pointer; opacity: 0; pointer-events: none;
+  transition: opacity 0.3s, right 0.32s cubic-bezier(.4,0,.2,1);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; padding: 12px 6px;
+  background: rgba(10,4,0,0.9); border: 1px solid rgba(255,160,40,0.15);
+  border-right: none; border-radius: 6px 0 0 6px;
+  backdrop-filter: blur(12px);
+}
+#panel-handle.visible { opacity: 1; pointer-events: all; }
+#panel-handle-label {
+  writing-mode: vertical-rl; text-orientation: mixed;
+  font-size: 8px; letter-spacing: 0.3em; text-transform: uppercase;
+  color: rgba(255,200,100,0.4); font-family: 'Courier New', monospace;
+  max-height: 120px; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#panel-handle-icon { font-size: 10px; color: rgba(255,200,100,0.3); }
 #side-panel {
   position: fixed; top: 0; right: -50vw; width: 50vw; height: 100vh;
   background: rgba(10,4,0,0.95); border-left: 1px solid rgba(255,160,40,0.15);
@@ -81,6 +101,7 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
   backdrop-filter: blur(16px);
 }
 #side-panel.open { right: 0; }
+#side-panel.open ~ #panel-handle { opacity: 0 !important; pointer-events: none !important; }
 #panel-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 16px; border-bottom: 1px solid rgba(255,160,40,0.1); flex-shrink: 0;
@@ -329,13 +350,27 @@ body.dev-mode.dev-building #dev-term-scanlines { animation: scan 3s linear infin
 #dev-term-log .tline.sys { color: rgba(68,136,255,0.55); }
 #dev-term-log .tline.ok  { color: rgba(34,197,94,0.65); }
 #dev-term-log .tline.err { color: rgba(239,68,68,0.7); }
+/* Interactive cursor line */
 #dev-term-cursor-line {
-  display: flex; align-items: center; gap: 6px;
-  color: rgba(245,158,11,0.9); margin-top: 4px;
+  display: flex; align-items: center; gap: 0;
+  color: rgba(245,158,11,0.9); margin-top: 8px; padding-top: 6px;
+  border-top: 1px solid rgba(68,136,255,0.08);
 }
-#dev-term-prompt { color: rgba(68,136,255,0.6); }
-#dev-term-caret { animation: blink 1s step-end infinite; }
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+#dev-term-prompt { color: rgba(68,136,255,0.55); white-space: nowrap; flex-shrink: 0; }
+#dev-term-input {
+  flex: 1; background: transparent; border: none; outline: none;
+  color: rgba(245,158,11,0.9); font-family: 'Courier New', Courier, monospace;
+  font-size: 12px; caret-color: rgba(245,158,11,0.9);
+  padding: 0; margin: 0; letter-spacing: 0.03em;
+}
+#dev-term-input::placeholder { color: rgba(245,158,11,0.2); }
+/* Header drawer toggle button */
+#dev-term-drawer-btn {
+  background: none; border: 1px solid rgba(68,136,255,0.15); color: rgba(68,136,255,0.4);
+  font-size: 10px; padding: 1px 6px; border-radius: 3px; cursor: pointer;
+  margin-left: 8px; letter-spacing: 0.05em; transition: all 0.15s;
+}
+#dev-term-drawer-btn:hover { color: rgba(68,136,255,0.9); border-color: rgba(68,136,255,0.4); }
 /* Status bar */
 #dev-term-status {
   display: flex; align-items: center; justify-content: space-between;
@@ -348,8 +383,27 @@ body.dev-mode.dev-building #dev-term-scanlines { animation: scan 3s linear infin
 body.dev-mode.dev-thinking #dev-term-spinner::after { content: '◌'; animation: spin 1s linear infinite; display:inline-block; }
 body.dev-mode.dev-building #dev-term-spinner::after { content: '⊙'; animation: spin 0.4s linear infinite; display:inline-block; }
 @keyframes spin { to { transform: rotate(360deg); } }
+/* Minimized tab — appears at bottom-left when terminal is minimized */
+#dev-term-tab {
+  position: fixed; bottom: 120px; left: 0; z-index: 21;
+  display: none; flex-direction: column; align-items: center;
+  padding: 8px 6px; gap: 4px; cursor: pointer;
+  background: rgba(10,18,48,0.88); border: 1px solid rgba(68,136,255,0.2);
+  border-left: none; border-radius: 0 6px 6px 0;
+  backdrop-filter: blur(12px);
+  font-size: 7px; letter-spacing: 0.3em; text-transform: uppercase;
+  writing-mode: vertical-rl; text-orientation: mixed;
+  color: rgba(68,136,255,0.5); font-family: 'Courier New', monospace;
+  transition: opacity 0.3s;
+}
+body.dev-minimized #dev-term-tab { display: flex; }
+body.dev-minimized #dev-terminal { opacity: 0; pointer-events: none; }
+#dev-term-tab-state { color: rgba(245,158,11,0.5); }
 /* Mobile: terminal is narrower, panel takes full width anyway */
 @media (max-width: 600px) { #dev-term-body { font-size: 11px; } }
+/* When dev terminal is open and drawer is also open, split the screen */
+body.dev-mode #side-panel { width: 45vw; }
+@media (max-width: 600px) { body.dev-mode #side-panel { width: 100vw; } }
 
 /* ── Chat Bubbles ── */
 #chat-bubbles {
@@ -710,6 +764,12 @@ body.adult-mode #adult-timer { display: block; }
   <div id="lbl-mono"   class="e-label" style="transform:none;">monocle ⌀</div>
 </div>
 
+<!-- Panel pull-tab: appears when panel is closed but has content -->
+<div id="panel-handle" onclick="document.getElementById('side-panel').classList.add('open')">
+  <span id="panel-handle-label">PANEL</span>
+  <span id="panel-handle-icon">◁</span>
+</div>
+
 <!-- Side panel: browser + components -->
 <div id="side-panel">
   <div id="panel-header">
@@ -796,23 +856,35 @@ body.adult-mode #adult-timer { display: block; }
 <div id="dev-terminal">
   <div id="dev-term-scanlines"></div>
   <div id="dev-term-header">
-    <span id="dev-term-dot" class="term-dot"></span>
-    <span id="dev-term-dot2" class="term-dot"></span>
-    <span id="dev-term-dot3" class="term-dot"></span>
+    <span id="dev-term-dot"  class="term-dot" title="Close terminal" onclick="switchAgent('botler')"></span>
+    <span id="dev-term-dot2" class="term-dot" title="Minimize terminal" onclick="devTermMinimize()"></span>
+    <span id="dev-term-dot3" class="term-dot" title="Focus terminal" onclick="devTermFocus()"></span>
     <span id="dev-term-title">DEV · STEWART INC.</span>
     <span id="dev-term-model-badge"></span>
+    <button id="dev-term-drawer-btn" onclick="devTermToggleDrawer()" title="Toggle build panel">⊞</button>
   </div>
   <div id="dev-term-body">
     <div id="dev-term-log"></div>
+    <!-- Interactive input line -->
     <div id="dev-term-cursor-line">
-      <span id="dev-term-prompt">dev@atlas:~$</span>
-      <span id="dev-term-caret"> ▋</span>
+      <span id="dev-term-prompt">dev@atlas:~$&nbsp;</span>
+      <input id="dev-term-input" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
+        placeholder="type a command or question…"
+        onkeydown="devTermHandleKey(event)">
     </div>
   </div>
   <div id="dev-term-status">
     <span id="dev-term-state-label">STANDBY</span>
     <span id="dev-term-spinner"></span>
+    <span style="flex:1"></span>
+    <span style="font-size:7px;opacity:0.4;letter-spacing:0.15em;">PRESS ↵ TO SEND · ESC TO FOCUS CHAT</span>
   </div>
+</div>
+
+<!-- Dev terminal minimized tab -->
+<div id="dev-term-tab" onclick="devTermRestore()">
+  <span>DEV</span>
+  <span id="dev-term-tab-state">STANDBY</span>
 </div>
 
 <!-- First-run setup (hidden by default — auto-connects on load) -->
@@ -1662,7 +1734,7 @@ Your text should be one natural spoken sentence like "Here's your list." or "Don
 <cmd>{"action":"night_mode","on":false}</cmd>  — return to normal brightness
 
 ## Project context
-${activeProject ? `ACTIVE PROJECT: "${activeProject.name}"\nNotes so far:\n${activeProject.notes || '(none yet)'}\n\nWhen the user mentions saving a note or key finding, embed: <cmd>{"action":"project_note","note":"..."}</cmd>\nWhen switching topics, reassure the user we\'ll pick up the project where we left off.` : 'No active project. If user wants to start one, embed: <cmd>{"action":"project_context","name":"PROJECT NAME"}</cmd>'}
+${activeProject ? `ACTIVE PROJECT: "${activeProject.name}"\nNotes so far:\n${activeProject.notes || '(none yet)'}\n\nWhen the user mentions saving a note or key finding, embed: <cmd>{"action":"project_note","note":"..."}</cmd>\nWhen switching topics, reassure the user we\'ll pick up the project where we left off.` : ''}
 
 ## Ambient / driving conversation style
 In flowing conversations (driving, cooking, etc.): keep mental track of the task, confirm additions aloud in ≤8 words ("Got it — almond milk, dog food, apples."), offer to render at natural pauses ("Shall I pull up the list?"). When rendering, say one sentence then let the component appear.
@@ -1934,20 +2006,14 @@ function _markAgentUnread(agentId) {
 // ─── Load recent Telegram / session history for an agent ─────────────────────
 async function loadAgentHistory(agentId) {
   if (!gw || !gwConnected) return;
-  // Prefer Telegram DM session with Quan; fall back to main
-  const candidates = [
-    `agent:${agentId}:telegram:direct:7346983359`,
-    `agent:${agentId}:main`,
-  ];
-  for (const key of candidates) {
-    try {
-      const res = await gw.request('chat.history', { sessionKey: key });
-      if (res && Array.isArray(res.messages) && res.messages.length > 0) {
-        _renderHistory(res.messages, agentId);
-        return;
-      }
-    } catch (e) { /* try next candidate */ }
-  }
+  // Only load THIS device's session — never bleed in Telegram/main sessions
+  const key = `agent:${agentId}:device:${DEVICE_ID}`;
+  try {
+    const res = await gw.request('chat.history', { sessionKey: key });
+    if (res && Array.isArray(res.messages) && res.messages.length > 0) {
+      _renderHistory(res.messages, agentId);
+    }
+  } catch(e) { /* new device or no history yet — that's fine */ }
 }
 
 function _renderHistory(messages, agentId) {
@@ -2054,6 +2120,13 @@ function getProjects() {
 function saveProjects(p) { localStorage.setItem('botler_projects', JSON.stringify(p)); }
 
 function openProject(name) {
+  // Intercept: if the model called project_context with a known panel name, open the panel instead.
+  const k = name.toLowerCase().trim();
+  if (/^(family|family portal|family monitoring)$/.test(k)) { openFamilyPortal(); return; }
+  if (/^(system map|agent map|agents|agent system)$/.test(k)) { openPanel(`${location.origin}/agent-system-map.html`, 'System Map'); return; }
+  if (/^(finance|finance board|cash|budget)$/.test(k)) { openFinance(); return; }
+  if (/^(school|homeschool|school board|homeschool board)$/.test(k)) { openHomeschool(); return; }
+
   const projects = getProjects();
   const key = name.toLowerCase().trim();
   let proj = Object.values(projects).find(p => p.name.toLowerCase() === key);
@@ -3266,6 +3339,7 @@ function openPanel(url, title) {
     }
   };
   panel.classList.add('open');
+  _setPanelHandle('');
   setTimeout(updateFaceTarget, 200);
 }
 
@@ -3293,12 +3367,22 @@ function showPanelLauncher(url, title) {
   panel.classList.add('open');
 }
 
+let _panelHasContent = false;
+function _setPanelHandle(title) {
+  _panelHasContent = !!title;
+  const h = document.getElementById('panel-handle');
+  const l = document.getElementById('panel-handle-label');
+  if (h) h.classList.toggle('visible', !!title);
+  if (l && title) l.textContent = title;
+}
 function closePanel() {
   const panel = document.getElementById('side-panel');
   panel.classList.remove('open', 'fullscreen');
   const btn = document.getElementById('panel-expand');
   if (btn) btn.textContent = '⤢';
   document.getElementById('browser-frame').src = 'about:blank';
+  const title = document.getElementById('panel-title')?.textContent;
+  _setPanelHandle(title || '');
   setTimeout(updateFaceTarget, 200);
 }
 
@@ -3760,9 +3844,12 @@ const _devStates = ['dev-idle','dev-writing','dev-thinking','dev-building'];
 function devTermSetState(s) {
   _devStates.forEach(c => document.body.classList.remove(c));
   document.body.classList.add('dev-' + s);
-  const lbl = document.getElementById('dev-term-state-label');
   const map = { idle:'STANDBY', writing:'WRITING', thinking:'THINKING', building:'BUILDING' };
-  if (lbl) lbl.textContent = map[s] || s.toUpperCase();
+  const label = map[s] || s.toUpperCase();
+  const lbl = document.getElementById('dev-term-state-label');
+  const ts  = document.getElementById('dev-term-tab-state');
+  if (lbl) lbl.textContent = label;
+  if (ts)  ts.textContent  = label;
 }
 function devTermLog(text, cls) {
   const log = document.getElementById('dev-term-log');
@@ -3782,7 +3869,13 @@ function devTermUpdateModel() {
 function devTermSync() {
   const isDev = activeAgent === 'dev';
   document.body.classList.toggle('dev-mode', isDev);
-  if (isDev) { devTermSetState('idle'); devTermUpdateModel(); }
+  if (!isDev) document.body.classList.remove('dev-minimized');
+  if (isDev) {
+    devTermSetState('idle');
+    devTermUpdateModel();
+    // Auto-focus terminal input
+    setTimeout(() => { const i = document.getElementById('dev-term-input'); if(i) i.focus(); }, 300);
+  }
 }
 // Integrate dev terminal with Botler setState
 const _origSetState = setState;
@@ -3829,11 +3922,60 @@ window.cycleModel = cycleModel = function() {
   devTermUpdateModel();
 };
 
+// ── Terminal input handler ────────────────────────────────────────────────────
+function devTermHandleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    const inp = document.getElementById('dev-term-input');
+    const query = inp ? inp.value.trim() : '';
+    if (!query) return;
+    if (inp) inp.value = '';
+    devTermLog('> ' + query, 'sys');
+    processQuery(query);
+  }
+  if (e.key === 'Escape') {
+    // Focus main chat input instead
+    const ta = document.getElementById('text-query');
+    if (ta) { ta.focus(); e.preventDefault(); }
+  }
+}
+function devTermMinimize() {
+  document.body.classList.add('dev-minimized');
+  const tab = document.getElementById('dev-term-tab');
+  const sl  = document.getElementById('dev-term-state-label');
+  const ts  = document.getElementById('dev-term-tab-state');
+  if (ts && sl) ts.textContent = sl.textContent;
+}
+function devTermRestore() {
+  document.body.classList.remove('dev-minimized');
+  setTimeout(() => { const i = document.getElementById('dev-term-input'); if(i) i.focus(); }, 120);
+}
+function devTermFocus() {
+  document.body.classList.remove('dev-minimized');
+  setTimeout(() => { const i = document.getElementById('dev-term-input'); if(i) i.focus(); }, 80);
+}
+function devTermToggleDrawer() {
+  const panel = document.getElementById('side-panel');
+  if (panel.classList.contains('open')) {
+    panel.classList.remove('open');
+    _setPanelHandle(document.getElementById('panel-title')?.textContent || 'BUILD');
+  } else {
+    panel.classList.add('open');
+    _setPanelHandle('');
+  }
+}
+
 // Listen for user typing in text-query → dev-idle state (terminal blurs)
 const _tq = document.getElementById('text-query');
 if (_tq) {
   _tq.addEventListener('focus', () => { if (activeAgent === 'dev') devTermSetState('idle'); });
   _tq.addEventListener('blur',  () => { if (activeAgent === 'dev') devTermSetState('idle'); });
+}
+// Terminal input focus → dev-writing state
+const _dti = document.getElementById('dev-term-input');
+if (_dti) {
+  _dti.addEventListener('focus', () => { if (activeAgent === 'dev') devTermSetState('writing'); });
+  _dti.addEventListener('blur',  () => { if (activeAgent === 'dev') devTermSetState('idle'); });
 }
 
 devTermSync(); // Initial sync
