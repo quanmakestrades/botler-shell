@@ -73,6 +73,50 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
 /* ── Side Panel (browser + components) ── */
+/* Agentic browser chrome */
+#browser-nav {
+  display: flex; align-items: center; gap: 3px; flex: 1; min-width: 0;
+}
+#nav-back, #nav-fwd, #nav-refresh {
+  background: none; border: none; color: rgba(255,200,100,0.35); cursor: pointer;
+  font-size: 18px; padding: 0 3px; line-height: 1; flex-shrink: 0;
+  transition: color 0.15s; font-family: Georgia,serif;
+}
+#nav-back:hover, #nav-fwd:hover, #nav-refresh:hover { color: rgba(255,220,120,0.9); }
+#nav-bar {
+  flex: 1; min-width: 0; background: rgba(255,160,40,0.05);
+  border: 1px solid rgba(255,160,40,0.12); border-radius: 12px;
+  color: rgba(255,220,120,0.7); font-size: 10px; padding: 4px 10px;
+  font-family: 'Courier New', monospace; outline: none; width: 100%;
+}
+#nav-bar:focus { border-color: rgba(255,160,40,0.45); color: rgba(255,230,140,0.95); background: rgba(255,160,40,0.07); }
+#nav-bar::placeholder { color: rgba(255,200,100,0.2); }
+#nav-read-btn {
+  background: none; border: none; cursor: pointer; font-size: 13px;
+  padding: 2px 4px; flex-shrink: 0; opacity: 0.4; transition: opacity 0.15s;
+  color: rgba(255,200,100,0.6); border-radius: 4px;
+}
+#nav-read-btn:hover { opacity: 1; background: rgba(255,160,40,0.1); }
+#nav-read-btn.active { opacity: 1; color: #f59e0b; }
+#panel-header { gap: 8px; padding: 8px 10px; }
+/* Game action strip below inline games */
+.game-actions {
+  display: flex; gap: 6px; padding: 6px 0 2px;
+}
+.game-actions button {
+  flex: 1; background: rgba(255,160,40,0.08); border: 1px solid rgba(255,160,40,0.18);
+  color: rgba(255,220,120,0.75); font-size: 10px; padding: 7px 10px; cursor: pointer;
+  border-radius: 8px; letter-spacing: 0.15em; font-family: Georgia,serif;
+  transition: all 0.15s;
+}
+.game-actions button:hover { background: rgba(255,160,40,0.16); color: rgba(255,230,140,1); }
+.game-actions button.botler-play-btn {
+  border-color: rgba(255,160,40,0.35); font-weight: bold;
+}
+.game-actions button.botler-play-btn:hover { background: rgba(255,160,40,0.22); }
+/* Browser error state */
+#browser-err-msg { font-size: 11px; color: rgba(255,200,100,0.35); letter-spacing: 0.15em; text-align: center; }
+#browser-err-actions { display: flex; flex-direction: column; gap: 8px; align-items: center; }
 /* Panel pull-tab handle — visible when panel is closed but has content */
 #panel-handle {
   position: fixed; top: 50%; right: 0; transform: translateY(-50%);
@@ -123,13 +167,7 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
   background: #fff; display: none;
 }
 #browser-frame.visible { display: block; }
-#browser-bar {
-  display: none; padding: 8px 12px; background: rgba(8,3,0,0.9);
-  border-bottom: 1px solid rgba(255,160,40,0.1);
-  font-size: 10px; color: rgba(255,200,100,0.35); letter-spacing: 0.1em;
-  flex-shrink: 0; word-break: break-all;
-}
-#browser-bar.visible { display: block; }
+#browser-bar { display: none; } /* replaced by #nav-bar in header */
 #browser-err {
   display: none; position: absolute; inset: 0; align-items: center; justify-content: center;
   flex-direction: column; gap: 12px; color: rgba(255,200,100,0.4); font-size: 11px;
@@ -770,12 +808,18 @@ body.adult-mode #adult-timer { display: block; }
   <span id="panel-handle-icon">◁</span>
 </div>
 
-<!-- Side panel: browser + components -->
+<!-- Side panel: agentic browser + components -->
 <div id="side-panel">
   <div id="panel-header">
-    <span id="panel-title">Browser</span>
-    <div style="display:flex;gap:4px;align-items:center">
-      <button id="panel-expand" onclick="togglePanelExpand()" title="Expand to full screen">⤢</button>
+    <div id="browser-nav">
+      <button id="nav-back" onclick="panelBack()" title="Back">‹</button>
+      <button id="nav-fwd" onclick="panelForward()" title="Forward">›</button>
+      <button id="nav-refresh" onclick="panelRefresh()" title="Refresh">↺</button>
+      <input id="nav-bar" type="text" placeholder="Search or say a URL…" onkeydown="navBarEnter(event)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <button id="nav-read-btn" onclick="botlerReadPage()" title="Botler reads this page for you">👁</button>
+    </div>
+    <div style="display:flex;gap:3px;align-items:center;flex-shrink:0">
+      <button id="panel-expand" onclick="togglePanelExpand()" title="Full screen">⤢</button>
       <button id="panel-close" onclick="closePanel()">✕</button>
     </div>
   </div>
@@ -783,8 +827,11 @@ body.adult-mode #adult-timer { display: block; }
   <div id="panel-body">
     <iframe id="browser-frame" sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-top-navigation"></iframe>
     <div id="browser-err">
-      <div>This page cannot be shown in the panel.</div>
-      <button id="browser-newtab" class="btn" onclick="openErrTab()">Open in New Tab</button>
+      <div id="browser-err-msg">This page can't load in the panel.</div>
+      <div id="browser-err-actions">
+        <button class="btn" onclick="botlerReadPage()" style="font-size:10px;padding:7px 16px;letter-spacing:0.25em">👁 Botler Reads It</button>
+        <button id="browser-newtab" class="btn" onclick="openErrTab()" style="font-size:9px;padding:5px 12px;opacity:0.6">Open in New Tab ↗</button>
+      </div>
     </div>
     <div id="component-panel"></div>
   </div>
@@ -844,9 +891,12 @@ body.adult-mode #adult-timer { display: block; }
 <div id="comp-modal">
   <div id="comp-modal-header">
     <div id="comp-modal-title">Component</div>
-    <button id="comp-modal-close" onclick="closeCompModal()">✕ CLOSE</button>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button onclick="modalPlayWithBotler()" id="comp-modal-play-btn" style="background:rgba(255,160,40,0.1);border:1px solid rgba(255,160,40,0.3);color:rgba(255,220,120,0.8);font-size:10px;padding:4px 12px;border-radius:6px;cursor:pointer;font-family:Georgia,serif;letter-spacing:0.2em">🤖 Play with Botler</button>
+      <button id="comp-modal-close" onclick="closeCompModal()">✕ CLOSE</button>
+    </div>
   </div>
-  <iframe id="comp-modal-frame" sandbox="allow-scripts allow-same-origin"></iframe>
+  <iframe id="comp-modal-frame" sandbox="allow-scripts allow-same-origin allow-pointer-lock"></iframe>
 </div>
 
 <!-- Botler cursor — animated glowing circle for panel interactions -->
@@ -1841,21 +1891,42 @@ Say one warm sentence, then embed the render_component cmd. Do NOT describe it �
 
 CRITICAL encoding rules for render_component html field:
 - The html value is inside a JSON string. You MUST escape ALL double-quotes inside it as \"
-- Example wrong:  "html":"<div onclick="go()">..."  ← breaks JSON
-- Example right:  "html":"<div onclick=\"go()\">..."  ← correct
-- Use \\n for newlines inside the JSON string, or write the entire HTML on one line
-- Alternatively: use single quotes ' inside all HTML attributes (onclick='go()') to avoid escaping
+- Example right:  "html":"<div onclick=\"go()\">..."  — use single quotes ' in HTML attributes to avoid escaping
+- Use \\n for newlines inside JSON, or write the entire HTML on one line
 
-Game rules:
-- ALL code inline — no external scripts, no CDN, no fetch() outside
-- Mobile-first: support both touch and keyboard/mouse
-- Every game: start screen, score, restart button
-- 2-player local: Player 1 = WASD+Z, Player 2 = arrow keys+/
-- Cross-tab: BroadcastChannel('botler-game-GAMEID')
-- Announce events: window.parent.postMessage({type:'game_event',event:'score',player:'Kage',score:42},'*')
-- Keep HTML under 6000 chars; canvas for graphics
+## Game rules — REQUIRED in every game
+LAYOUT — full viewport, no scroll:
+  html,body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#111; }
+  canvas { display:block; width:100%; height:100vh; }
 
-Example: "Here's a two-player asteroid shooter — share the screen or open on two devices!"
+TOUCH — ALL interactions need touch + mouse:
+  canvas.addEventListener('touchstart', e=>{ e.preventDefault(); handleTouch(e.touches[0]); }, {passive:false});
+  canvas.addEventListener('touchmove',  e=>{ e.preventDefault(); handleMove(e.touches[0]);  }, {passive:false});
+  canvas.addEventListener('touchend',   e=>{ e.preventDefault(); handleTouchEnd();           }, {passive:false});
+
+BOTLER OPPONENT — always include:
+  window.addEventListener('message', e => {
+    if (e.data?.type === 'botler_move') handleBotlerMove(e.data.move);
+  });
+  function emitState(state) {
+    window.parent.postMessage({type:'game_event', event:'state', game:GAME_ID, state}, '*');
+  }
+
+ANNOUNCE events so Botler can commentate and compete:
+  window.parent.postMessage({type:'game_event', event:'score', player:'player', score:pts}, '*');
+  window.parent.postMessage({type:'game_event', event:'game_over', winner:'player'}, '*');
+
+STYLE — bright, fun, kid-friendly:
+  Use vibrant colors: #ff4444 #44aaff #44ff88 #ffcc00 #ff88ff — NOT dark/gray themes
+  Rounded shapes, bouncy animations, big tap targets (min 44px)
+  Start screen with big colorful "TAP TO PLAY" button
+  Score shown large at top; restart button always visible after game over
+
+CROSS-TAB: BroadcastChannel('botler-game-GAMEID') for multiplayer
+2-PLAYER LOCAL: Player 1 = WASD+Space, Player 2 = Arrow keys+/
+Keep HTML under 7000 chars; canvas for all graphics
+
+Example: "Here's a two-player asteroid shooter!"
 <cmd>{"action":"render_component","title":"Asteroids","html":"<!DOCTYPE html>..."}</cmd>
 
 Color shortcuts: blue=#3b82f6, amber=#f59e0b, green=#22c55e, red=#ef4444, purple=#a855f7, default=#ff8800
@@ -2246,15 +2317,25 @@ function buildShoppingListHTML(items) {
 }
 
 // Render a component inline in the chat bubble stream
+let _modalCurrentTitle = '';
 function openCompModal(title, srcdoc) {
+  _modalCurrentTitle = title;
   document.getElementById('comp-modal-title').textContent = title;
   document.getElementById('comp-modal-frame').srcdoc = srcdoc;
   document.getElementById('comp-modal').classList.add('open');
+  // Show play button only for games
+  const isGame = /game|play|level|score|board|puzzle|quiz|asteroi|snake|chess|shoot|pong|tetris|flap|jump|run|dash|brick|balloon|bubble|pop|tap/i.test(title);
+  const pb = document.getElementById('comp-modal-play-btn');
+  if (pb) { pb.style.display = isGame ? '' : 'none'; pb.textContent = '🤖 Play with Botler'; pb.disabled = false; }
 }
 function closeCompModal() {
   document.getElementById('comp-modal').classList.remove('open');
-  // brief delay before clearing so iframe doesn't flash
   setTimeout(() => { document.getElementById('comp-modal-frame').srcdoc = ''; }, 300);
+}
+function modalPlayWithBotler() {
+  const pb = document.getElementById('comp-modal-play-btn');
+  if (pb) { pb.textContent = '✓ Joining…'; pb.disabled = true; }
+  handleQuery(`Play "${_modalCurrentTitle}" with me! Join my game as an AI opponent and make your first move.`);
 }
 
 function renderComponentInline(spec) {
@@ -2266,42 +2347,64 @@ function renderComponentInline(spec) {
   if (!html && spec.type === 'checklist') html = buildShoppingListHTML(spec.items || []);
   if (!html && spec.type === 'shopping_list') html = buildShoppingListHTML(getShoppingList());
 
-  const srcdoc = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box}html,body{margin:0;padding:0;overflow:auto}</style></head><body>${html}</body></html>`;
   const title = spec.title || 'Component';
+  // Wrap game HTML to ensure full-viewport fill and touch passthrough
+  const isGame = /game|play|level|score|board|puzzle|quiz|asteroi|snake|chess|shoot|pong|tetris|flap|jump|run|dash|brick|balloon|bubble|pop|tap|drag/i.test(title + (spec.html || '').slice(0, 400));
+  const gameWrap = isGame
+    ? `<style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000;touch-action:none}canvas{display:block;max-width:100%;max-height:100%}</style>`
+    : '';
+  const srcdoc = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">${gameWrap}<style>*{box-sizing:border-box}html,body{margin:0;padding:0;overflow:${isGame?'hidden':'auto'}}</style></head><body>${html}</body></html>`;
 
-  // Header row — click anywhere on header to open modal
+  // Header row
   const header = document.createElement('div');
   header.className = 'comp-header';
   header.innerHTML = `<span class="comp-label">${title}</span><span class="comp-expand">⤢ EXPAND</span>`;
   header.onclick = () => openCompModal(title, srcdoc);
-  // Also allow collapsing from within the modal back to inline
-  wrapper.dataset.srcdoc = btoa(unescape(encodeURIComponent(srcdoc))).slice(0, 200); // tiny key
+  wrapper.dataset.srcdoc = btoa(unescape(encodeURIComponent(srcdoc))).slice(0, 200);
   wrapper.appendChild(header);
 
-  // Inline preview iframe — capped preview height, click to expand
-  // Detect game/app by keywords — give them more vertical real estate
-  const isGame = /game|play|level|score|board|puzzle|quiz|asteroi|snake|chess|shoot/i.test(title + (spec.html || '').slice(0, 200));
-  const maxH = isGame ? 420 : 300;
+  // Game: fill available screen height; component: auto-size
+  const vh = window.innerHeight;
+  const targetH = isGame ? Math.min(Math.round(vh * 0.72), 560) : 200;
+  const maxH    = isGame ? Math.min(Math.round(vh * 0.80), 640) : 320;
 
   const frame = document.createElement('iframe');
-  frame.sandbox = 'allow-scripts allow-same-origin';
+  frame.sandbox = 'allow-scripts allow-same-origin allow-pointer-lock';
   frame.srcdoc = srcdoc;
-  frame.style.height = (isGame ? 320 : 200) + 'px';
+  frame.style.cssText = `height:${targetH}px;border-radius:${isGame?'12px':'8px'};`;
   frame.title = title;
   frame.onload = () => {
     try {
       const natural = frame.contentDocument.body.scrollHeight + 16;
-      frame.style.height = Math.min(natural, maxH) + 'px';
-    } catch { frame.style.height = (isGame ? 340 : 220) + 'px'; }
+      if (!isGame) frame.style.height = Math.min(natural, maxH) + 'px';
+    } catch { /* cross-origin or game — keep targetH */ }
     setTimeout(() => wrapper.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 120);
   };
-  // Single tap/click on iframe body → expand to modal; prevent accidental expand on game interaction
   frame.ondblclick = () => openCompModal(title, srcdoc);
   wrapper.appendChild(frame);
 
+  // Game action strip: Play with Botler + Full Screen
+  if (isGame) {
+    const actions = document.createElement('div');
+    actions.className = 'game-actions';
+    const playBtn = document.createElement('button');
+    playBtn.className = 'botler-play-btn';
+    playBtn.textContent = '🤖 Play with Botler';
+    playBtn.onclick = () => {
+      playBtn.textContent = '✓ Botler is joining…';
+      playBtn.disabled = true;
+      handleQuery(`Play "${title}" with me! Join my game as an AI opponent. Make your first move or tell me you're in and how you'll play.`);
+    };
+    const fullBtn = document.createElement('button');
+    fullBtn.textContent = '⤢ Full Screen';
+    fullBtn.onclick = () => openCompModal(title, srcdoc);
+    actions.appendChild(playBtn);
+    actions.appendChild(fullBtn);
+    wrapper.appendChild(actions);
+  }
+
   bubbles.appendChild(wrapper);
   bubbles.scrollTop = bubbles.scrollHeight;
-  // Trigger face float — after iframe autosizes (slight delay)
   setTimeout(updateFaceTarget, 200);
 }
 
@@ -2868,21 +2971,8 @@ function execCmd(cmd) {
       if (silentMode || cmd.inline) {
         renderComponentInline(cmd);
       } else {
-        // Voice mode: open in side drawer as an iframe so scripts execute
-        const panel = document.getElementById('side-panel');
-        const comp  = document.getElementById('component-panel');
-        const frame = document.getElementById('browser-frame');
-        const bar   = document.getElementById('browser-bar');
-        const err   = document.getElementById('browser-err');
-        document.getElementById('panel-title').textContent = cmd.title || 'Component';
-        bar.className = ''; err.className = '';
-        comp.className = '';
-        const srcdoc = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box;margin:0;padding:0}html,body{width:100%;height:100%;overflow:auto;background:#000}</style></head><body>${cmd.html || ''}</body></html>`;
-        frame.className = 'visible';
-        frame.sandbox = 'allow-scripts allow-same-origin allow-forms';
-        frame.srcdoc = srcdoc;
-        panel.classList.add('open');
-        setTimeout(updateFaceTarget, 200);
+        // Voice mode: render as inline component (same as silent mode) so games work everywhere
+        renderComponentInline(cmd);
       }
       break;
     }
@@ -3343,41 +3433,61 @@ async function executeTool(name, input) {
   }
 }
 
-// ─── Side panel ───────────────────────────────────────────────────────────────
+// ─── Side panel — agentic browser ────────────────────────────────────────────
+let _panelLoadTimer = null;
 function openPanel(url, title) {
   const panel = document.getElementById('side-panel');
   const frame = document.getElementById('browser-frame');
   const comp  = document.getElementById('component-panel');
-  const bar   = document.getElementById('browser-bar');
   const err   = document.getElementById('browser-err');
+  const navBar = document.getElementById('nav-bar');
 
-  document.getElementById('panel-title').textContent = title || 'Browser';
+  // Update browser chrome
+  if (navBar) navBar.value = url;
   frame.className = 'visible'; comp.className = ''; err.className = '';
-  bar.className = 'visible'; bar.textContent = url;
   currentPanelUrl = url;
 
   // Route external URLs through the browse proxy to strip X-Frame-Options.
-  // Skip proxy for: local URLs, already-proxied, YouTube embeds (which work natively),
-  // and data/blob URLs.
   const isLocal = url.startsWith(location.origin) || url.startsWith('/');
   const isAlreadyProxy = url.includes('/api/browse?');
   const isNativeEmbed = /youtube\.com\/embed\//i.test(url) || url.startsWith('data:') || url.startsWith('blob:');
   const displayUrl = (isLocal || isAlreadyProxy || isNativeEmbed) ? url
     : `${location.origin}/api/browse?url=${encodeURIComponent(url)}`;
 
+  // Mark nav-read btn as inactive during load
+  const readBtn = document.getElementById('nav-read-btn');
+  if (readBtn) readBtn.classList.remove('active');
+
+  clearTimeout(_panelLoadTimer);
   frame.src = displayUrl;
   frame.onerror = () => { frame.className = ''; err.className = 'visible'; };
-  // Detect blank/blocked iframes (e.g. X-Frame-Options in meta or JS redirect leaking)
   frame.onload = () => {
+    clearTimeout(_panelLoadTimer);
     try {
       const doc = frame.contentDocument;
       if (!doc || doc.body.innerHTML.trim() === '') {
         frame.className = ''; err.className = 'visible';
+      } else {
+        // Update nav bar with actual destination (after redirects)
+        try {
+          const actualUrl = frame.contentWindow?.location?.href;
+          if (actualUrl && actualUrl !== 'about:blank' && navBar) navBar.value = actualUrl;
+        } catch(e) {}
       }
     } catch(e) {
-      // SecurityError = cross-origin content — can't check but it loaded
+      // SecurityError = cross-origin content successfully loaded
     }
   };
+  // Timeout fallback: if nothing loads in 8s, show error
+  _panelLoadTimer = setTimeout(() => {
+    try {
+      const doc = frame.contentDocument;
+      if (!doc || !doc.body || doc.body.innerHTML.trim() === '') {
+        frame.className = ''; err.className = 'visible';
+      }
+    } catch(e) {}
+  }, 8000);
+
   panel.classList.add('open');
   _setPanelHandle('');
   setTimeout(updateFaceTarget, 200);
@@ -3385,23 +3495,76 @@ function openPanel(url, title) {
 
 function openErrTab() { if (currentPanelUrl) window.open(currentPanelUrl, '_blank'); }
 
+function panelRefresh() {
+  const frame = document.getElementById('browser-frame');
+  if (frame && frame.src && frame.src !== 'about:blank') {
+    const s = frame.src; frame.src = ''; frame.src = s;
+  }
+}
+
+function navBarEnter(e) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  let val = e.target.value.trim();
+  if (!val) return;
+  // If it's a plain search term (not a URL), route to DuckDuckGo
+  const looksLikeUrl = /^https?:\/\//i.test(val) || /^[\w-]+\.[\w.]{2,}(\/|$)/.test(val);
+  if (!looksLikeUrl) {
+    val = `https://duckduckgo.com/?q=${encodeURIComponent(val)}&kae=d`;
+  } else if (!/^https?:\/\//i.test(val)) {
+    val = 'https://' + val;
+  }
+  e.target.blur();
+  openPanel(val, val);
+}
+
+// Botler reads the current panel page and summarizes it
+function botlerReadPage() {
+  const frame = document.getElementById('browser-frame');
+  const readBtn = document.getElementById('nav-read-btn');
+  let pageText = '';
+  let pageTitle = currentPanelUrl || '';
+  try {
+    const doc = frame?.contentDocument;
+    if (doc && doc.body) {
+      pageTitle = doc.title || pageTitle;
+      // Extract visible text content
+      const clone = doc.body.cloneNode(true);
+      // Remove script/style/nav noise
+      clone.querySelectorAll('script,style,nav,footer,aside,[aria-hidden="true"]').forEach(el => el.remove());
+      pageText = (clone.innerText || clone.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 3000);
+    }
+  } catch(e) { /* cross-origin */ }
+
+  if (readBtn) readBtn.classList.add('active');
+  setTimeout(() => { if (readBtn) readBtn.classList.remove('active'); }, 2000);
+
+  const query = pageText
+    ? `I'm looking at "${pageTitle}". Here's the page text: "${pageText}". Summarize what's on this page and what I can do here.`
+    : `I'm looking at this URL: ${currentPanelUrl}. Can you tell me what this page is likely about and what I can do here?`;
+  handleQuery(query);
+}
+
 // For sites that block iframes (YouTube search, Twitter, etc.) show a launcher card
 function showPanelLauncher(url, title) {
   currentPanelUrl = url;
   const panel = document.getElementById('side-panel');
   const comp  = document.getElementById('component-panel');
   const frame = document.getElementById('browser-frame');
-  const bar   = document.getElementById('browser-bar');
   const err   = document.getElementById('browser-err');
-  document.getElementById('panel-title').textContent = title;
-  frame.className = ''; bar.className = ''; err.className = '';
+  const navBar = document.getElementById('nav-bar');
+  if (navBar) navBar.value = url;
+  frame.className = ''; err.className = '';
   comp.className = 'visible';
   comp.innerHTML = `
     <div class="comp-title">${title}</div>
     <p style="color:rgba(255,200,100,0.5);font-size:11px;letter-spacing:0.15em;margin-bottom:16px;">
       This site can't load inside the panel.
     </p>
-    <button class="btn" style="font-size:11px;padding:8px 18px;" onclick="window.open('${url.replace(/'/g,"\\'")}','_blank')">
+    <button class="btn" style="font-size:11px;padding:8px 18px;margin-bottom:8px;" onclick="botlerReadPage()">
+      👁 Botler Reads It
+    </button>
+    <button class="btn" style="font-size:10px;padding:6px 14px;opacity:0.6;" onclick="window.open('${url.replace(/'/g,"\\'")}','_blank')">
       Open in New Tab ↗
     </button>`;
   panel.classList.add('open');
