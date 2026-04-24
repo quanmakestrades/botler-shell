@@ -612,14 +612,27 @@ body.adult-mode #adult-timer { display: block; }
 </div>
 
 <!-- Family Portal (Quan + Julia only) -->
-<div id="family-portal" style="display:none;position:fixed;inset:0;z-index:60;background:rgba(6,2,0,0.97);overflow-y:auto;padding:24px 20px 40px;">
+<div id="family-portal" style="display:none;position:fixed;inset:0;z-index:60;background:rgba(6,2,0,0.97);overflow-y:auto;padding:24px 20px 48px;">
   <button onclick="closeFamilyPortal()" style="position:fixed;top:18px;right:20px;background:none;border:1px solid rgba(255,160,40,0.3);color:rgba(255,200,100,0.6);font-size:11px;padding:4px 12px;border-radius:2px;cursor:pointer;font-family:Georgia,serif;letter-spacing:.2em;">✕ CLOSE</button>
-  <div style="max-width:700px;margin:0 auto;">
+  <div style="max-width:780px;margin:0 auto;">
     <div style="font-size:9px;letter-spacing:.5em;text-transform:uppercase;color:rgba(255,160,40,.4);margin-bottom:6px;">Stewart Household</div>
     <h2 style="font-size:22px;color:rgba(255,220,120,.8);font-family:Georgia,serif;margin-bottom:28px;">Family Portal</h2>
-    <div id="family-kids-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-bottom:32px;"></div>
+
+    <!-- Active sessions bar -->
+    <div id="fp-sessions-bar" style="margin-bottom:28px;"></div>
+
+    <!-- Kids cards -->
+    <div id="family-kids-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px;margin-bottom:32px;"></div>
+
+    <!-- Household notes -->
     <div style="font-size:9px;letter-spacing:.4em;color:rgba(255,160,40,.35);text-transform:uppercase;margin-bottom:12px;">Household Notes</div>
     <textarea id="family-notes" rows="4" oninput="saveFamilyNotes()" style="width:100%;background:rgba(255,160,40,0.04);border:1px solid rgba(255,160,40,.15);color:rgba(255,220,120,.75);font-family:Georgia,serif;font-size:13px;padding:12px;border-radius:4px;resize:vertical;outline:none;" placeholder="Shared household notes…"></textarea>
+
+    <!-- Command center: all Botler instances -->
+    <div style="margin-top:36px;">
+      <div style="font-size:9px;letter-spacing:.4em;color:rgba(255,160,40,.35);text-transform:uppercase;margin-bottom:12px;">Botler Instances &amp; Sessions</div>
+      <div id="fp-command-center" style="display:grid;gap:8px;"></div>
+    </div>
   </div>
 </div>
 
@@ -714,6 +727,9 @@ const LIP_TH  = () => S() * 0.013;
 const edit = { mustacheY:0, mustacheSX:1, mustacheSY:1, eyeY:0, eyeSepOff:0, eyeSize:1, monoSize:1 };
 let editMode = false;
 let drag     = null;
+// Face drift — spring physics so the face floats above rendered content
+let faceDriftY = 0, faceDriftV = 0, faceDriftYTarget = 0;
+let _frameN    = 0;
 
 // ─── Coord helpers ────────────────────────────────────────────────────────────
 function toScreen(sx, sy) {
@@ -1089,7 +1105,13 @@ function animate(){
   if(!drag){look.x+=(mouse.x-look.x)*0.055; look.y+=(mouse.y-look.y)*0.055;}
   const driftX=state==='thinking'?Math.sin(t*1.05)*0.03:look.x*0.012;
   const driftY=state==='thinking'?0:look.y*0.008;
-  const eyeWY=EYE_Y()+fy+driftY+edit.eyeY;
+  // Spring physics — float face above content when bubbles appear
+  _frameN++;
+  if(_frameN%24===0) updateFaceTarget();
+  faceDriftV += (faceDriftYTarget - faceDriftY) * 0.08;
+  faceDriftV *= 0.72;
+  faceDriftY += faceDriftV;
+  const eyeWY=EYE_Y()+fy+driftY+edit.eyeY+faceDriftY;
   ;[leftEye,rightEye].forEach(eye=>{
     eye.g.position.x=eye.xSign*(EYE_SEP()+edit.eyeSepOff)+driftX;
     eye.g.position.y=eyeWY; eye.g.position.z=0.1; eye.g.scale.set(edit.eyeSize,edit.eyeSize,1);
@@ -1102,8 +1124,8 @@ function animate(){
   }
   stepChain(rightEye.g.position.x,rightEye.g.position.y,edit.eyeSize*edit.monoSize);
   const my=MOUTH_Y()+fy, mustacheH=LIP_TH()*1.3*1.25*0.5;
-  mouthGroup.position.y=my;
-  mustacheGroup.position.y=my+mustacheH*2.2+edit.mustacheY;
+  mouthGroup.position.y=my+faceDriftY;
+  mustacheGroup.position.y=my+mustacheH*2.2+edit.mustacheY+faceDriftY;
   mustacheGroup.position.x=0; mustacheGroup.scale.set(edit.mustacheSX,edit.mustacheSY,1);
   blinkTimer+=dt;
   if(!blinking&&blinkTimer>blinkInterval){blinking=true;blinkTimer=0;blinkInterval=2.5+Math.random()*4;}
@@ -1126,6 +1148,27 @@ function animate(){
   renderer.clear(); renderer.render(bgScene,bgCam); renderer.render(scene,camera);
 }
 animate();
+
+// ─── Face position — float above chat content ─────────────────────────────────
+function updateFaceTarget() {
+  const chat = document.getElementById('chat-bubbles');
+  if (!chat || chat.classList.contains('hidden') || document.body.classList.contains('voice-mode')) {
+    faceDriftYTarget = 0; return;
+  }
+  const rects = Array.from(chat.children)
+    .map(c => c.getBoundingClientRect())
+    .filter(r => r.height > 16);
+  if (!rects.length) { faceDriftYTarget = 0; return; }
+  const topPx   = Math.min(...rects.map(r => r.top));
+  const topFrac  = topPx / window.innerHeight;
+  if (topFrac > 0.82) { faceDriftYTarget = 0; return; }
+  // Three.js orthographic Y: 1=top, -1=bottom; content top in world Y
+  const contentTopY3 = 1 - topFrac * 2;
+  // Target: eyes sit 0.14 world units above content top, capped at 0.80
+  const targetEyeWY  = Math.min(contentTopY3 + 0.14, 0.80);
+  const base = EYE_Y() + edit.eyeY;
+  faceDriftYTarget = Math.max(0, targetEyeWY - base);
+}
 
 window.addEventListener('resize',()=>{
   aspect=innerWidth/innerHeight; renderer.setSize(innerWidth,innerHeight);
@@ -1188,6 +1231,18 @@ function openFamilyPortal() {
   if (kidsLocked) { speak("That area is for parents only."); return; }
   renderFamilyPortal();
   document.getElementById('family-portal').style.display = 'block';
+  // Load live gateway data for the command center
+  if (gwConnected && gw) {
+    Promise.all([
+      gw.request('sessions.list').catch(() => ({ sessions: [] })),
+      gw.request('agents.list').catch(() => ({ agents: [] })),
+    ]).then(([sessRes, agRes]) => {
+      renderPortalActivity(sessRes.sessions || [], agRes.agents || []);
+    });
+  } else {
+    document.getElementById('fp-sessions-bar').innerHTML =
+      '<div style="font-size:10px;color:rgba(255,160,40,.25);letter-spacing:.2em;">Gateway offline — live data unavailable</div>';
+  }
 }
 
 function closeFamilyPortal() {
@@ -1243,6 +1298,63 @@ function saveFamilyField(el) {
   if (!d[kid]) d[kid] = {};
   d[kid][field] = el.value;
   saveFamilyData(d);
+}
+
+function fmtAgo(ms) {
+  if (!ms) return '—';
+  const d = Date.now() - ms;
+  if (d < 60000) return `${Math.round(d/1000)}s ago`;
+  if (d < 3600000) return `${Math.round(d/60000)}m ago`;
+  if (d < 86400000) return `${Math.round(d/3600000)}h ago`;
+  return `${Math.round(d/86400000)}d ago`;
+}
+
+function renderPortalActivity(sessions, agents) {
+  // Active Botler sessions bar
+  const botlerSessions = sessions.filter(s => s.key.startsWith('agent:botler:'));
+  const bar = document.getElementById('fp-sessions-bar');
+  if (botlerSessions.length === 0) {
+    bar.innerHTML = '<div style="font-size:10px;color:rgba(255,160,40,.22);letter-spacing:.2em;">No active Botler sessions</div>';
+  } else {
+    const sortedSessions = [...botlerSessions].sort((a,b)=>(b.lastActivityMs||0)-(a.lastActivityMs||0));
+    bar.innerHTML = `
+      <div style="font-size:9px;letter-spacing:.4em;text-transform:uppercase;color:rgba(255,160,40,.3);margin-bottom:10px;">Active Sessions (${sortedSessions.length})</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        ${sortedSessions.map(s => {
+          const key = s.key.replace('agent:botler:','');
+          const isMe = s.key.includes(DEVICE_ID);
+          const dot = `<span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:${isMe?'#4caf50':'#ff9800'};box-shadow:0 0 4px ${isMe?'#4caf50':'#ff9800'};margin-right:5px;vertical-align:middle;"></span>`;
+          return `<div style="background:rgba(255,160,40,0.06);border:1px solid rgba(255,160,40,.12);border-radius:3px;padding:5px 10px;font-size:9px;letter-spacing:.15em;color:rgba(255,200,100,.5);">
+            ${dot}<span style="font-family:'Courier New',monospace">${key.slice(0,20)}</span>
+            <span style="opacity:.5;margin-left:6px;">${fmtAgo(s.lastActivityMs)}</span>${isMe?' ← you':''}
+          </div>`;
+        }).join('')}
+      </div>`;
+  }
+
+  // Command center: all agents
+  const cc = document.getElementById('fp-command-center');
+  const agentOrder = ['botler','cash','dev','impulse','jim','loki'];
+  const agentColors = { botler:'#ff8800', cash:'#4caf50', dev:'#4488ff', impulse:'#ff3820', jim:'#bb40ff', loki:'#20b0a0' };
+  const agentRoles  = { botler:'Household AI', cash:'Finance', dev:'Engineering', impulse:'Trading', jim:'Music & Social', loki:'Business Ops' };
+  cc.innerHTML = '';
+  const agentMap = Object.fromEntries((agents||[]).map(a=>[a.id,a]));
+  for (const aid of agentOrder) {
+    const ag = agentMap[aid];
+    const col = agentColors[aid] || '#ff8800';
+    const agSessions = sessions.filter(s => s.key.startsWith(`agent:${aid}:`));
+    const lastActive = agSessions.reduce((m,s)=>Math.max(m,s.lastActivityMs||0),0);
+    const active = lastActive && (Date.now()-lastActive) < 30*60*1000;
+    const row = document.createElement('div');
+    row.style.cssText = `display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(255,160,40,0.03);border:1px solid rgba(255,160,40,.1);border-radius:4px;`;
+    row.innerHTML = `
+      <span style="width:7px;height:7px;border-radius:50%;background:${active?col:'rgba(255,160,40,.2)'};${active?`box-shadow:0 0 5px ${col};`:''}flex-shrink:0;display:inline-block;"></span>
+      <span style="font-size:10px;letter-spacing:.25em;text-transform:uppercase;color:rgba(255,220,120,.7);min-width:70px;">${aid}</span>
+      <span style="font-size:9px;color:rgba(255,160,40,.3);letter-spacing:.1em;flex:1;">${agentRoles[aid]||''}</span>
+      <span style="font-size:9px;color:rgba(255,200,100,.35);letter-spacing:.1em;">${agSessions.length} session${agSessions.length!==1?'s':''}</span>
+      <span style="font-size:9px;color:rgba(255,160,40,.3);letter-spacing:.1em;min-width:60px;text-align:right;">${lastActive?fmtAgo(lastActive):'no activity'}</span>`;
+    cc.appendChild(row);
+  }
 }
 
 function e(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -1347,6 +1459,25 @@ App control (macOS):
 <cmd>{"action":"open_app","app":"Safari"}</cmd>
 <cmd>{"action":"close_app","app":"Spotify"}</cmd>
 <cmd>{"action":"open_url_external","url":"https://..."}</cmd>
+
+## Building games & interactive apps
+When asked for a game, quiz, drawing tool, story, or any interactive app — BUILD IT. Write complete, self-contained HTML inside render_component. Say one warm sentence, then embed the cmd.
+
+Game rules:
+- ALL code inline — no external scripts, no CDN imports, no fetch() to outside
+- Mobile-first: support BOTH touch and keyboard/mouse
+- Every game needs: start screen, instructions, live score, restart button
+- 2-player local: Player 1 uses WASD+Z, Player 2 uses arrow keys+/
+- Cross-tab multiplayer: use BroadcastChannel('botler-game-GAMEID') for device-to-device
+- Announce events to parent window so Botler can react:
+  window.parent.postMessage({type:'game_event',event:'score',player:'Kage',score:42},'*')
+  window.parent.postMessage({type:'game_event',event:'game_over',winner:'Avonte'},'*')
+  window.parent.postMessage({type:'game_request_move',board:[...],turn:'botler'},'*')
+- When a game requests Botler's move, embed: <cmd>{"action":"game_move","game":"...","move":"..."}</cmd>
+- Keep HTML under 4000 characters; use canvas for graphics when possible
+
+Example: "Here's a two-player asteroid shooter — share the screen or open on two devices!"
+<cmd>{"action":"render_component","title":"Asteroids","html":"<!DOCTYPE html>..."}</cmd>
 
 Color shortcuts: blue=#3b82f6, amber=#f59e0b, green=#22c55e, red=#ef4444, purple=#a855f7, default=#ff8800
 
@@ -1749,6 +1880,8 @@ function renderComponentInline(spec) {
 
   bubbles.appendChild(wrapper);
   bubbles.scrollTop = bubbles.scrollHeight;
+  // Trigger face float — after iframe autosizes (slight delay)
+  setTimeout(updateFaceTarget, 200);
 }
 
 // ─── Session reset ────────────────────────────────────────────────────────────
@@ -1842,8 +1975,7 @@ class GatewayClient {
     const params = {
       minProtocol: 3, maxProtocol: 3,
       client: { id: 'openclaw-control-ui', version: 'dev',
-                displayName: currentUser?.name || 'Botler Shell', platform: navigator.platform || 'web', mode: 'webchat',
-                deviceId: DEVICE_ID },
+                displayName: currentUser?.name || 'Botler Shell', platform: navigator.platform || 'web', mode: 'webchat' },
       role: 'operator',
       scopes: ['operator.admin'],
       auth: this.token ? { password: this.token } : undefined,
@@ -2981,6 +3113,39 @@ const _execCmdExtensions = {
 // Wrap execCmd to add extension handling
 window._botlerExecCmdPatched = true;
 const _execCmdOrig = window.execCmd || (typeof execCmd !== 'undefined' ? execCmd : null);
+
+// ─── Game message bridge ──────────────────────────────────────────────────────
+// Games rendered in iframes can postMessage up to announce events, scores, etc.
+// Botler listens and reacts with voice / chat announcements.
+window.addEventListener('message', ev => {
+  const d = ev.data;
+  if (!d || typeof d !== 'object' || d.type !== 'game_event') return;
+
+  const { event, player, score, winner, game, move, board } = d;
+
+  if (event === 'score' && player != null && score != null) {
+    const msg = `${player} just scored ${score}!`;
+    addBubble('bot', msg); speak(msg);
+  } else if (event === 'game_over') {
+    const msg = winner ? `${winner} wins! Well played.` : 'Game over — nice match!';
+    addBubble('bot', msg); speak(msg);
+  } else if (event === 'milestone') {
+    const msg = d.message || 'Nice milestone!';
+    addBubble('bot', msg); speak(msg);
+  } else if (event === 'request_move' || d.type === 'game_request_move') {
+    // Botler thinks about and announces its move (AI-backed in future; simple echo for now)
+    const thinkMsg = `Let me think... ${game ? '(' + game + ')' : ''}`;
+    speak(thinkMsg);
+    // Send back a move via postMessage to the game iframe
+    const frames = document.querySelectorAll('iframe');
+    const gameFrame = frames[frames.length - 1];
+    if (gameFrame && gameFrame.contentWindow) {
+      setTimeout(() => {
+        gameFrame.contentWindow.postMessage({ type: 'botler_move', move: move || 'pass' }, '*');
+      }, 1200);
+    }
+  }
+});
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
