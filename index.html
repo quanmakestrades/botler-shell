@@ -256,6 +256,101 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
 #botler-cursor.bc-visible { opacity: 1; }
 #botler-cursor.bc-click { transform: translate(-50%,-50%) scale(2.0); }
 
+/* ── Dev Terminal Overlay ─────────────────────────────────────────────────── */
+#dev-terminal {
+  position: fixed; inset: 0; z-index: 20;
+  pointer-events: none; opacity: 0;
+  transition: opacity 0.45s cubic-bezier(.4,0,.2,1);
+  display: flex; flex-direction: column;
+  /* Liquid glass: frosted dark navy */
+  background: linear-gradient(160deg, rgba(10,18,48,0.55) 0%, rgba(14,28,70,0.45) 100%);
+  backdrop-filter: blur(22px) saturate(1.6);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6);
+  border: 1px solid rgba(68,136,255,0.18);
+  /* Slight inset shadow to pop from canvas */
+  box-shadow: inset 0 0 80px rgba(68,136,255,0.06), 0 0 0 1px rgba(68,136,255,0.08);
+}
+body.dev-mode #dev-terminal { opacity: 1; pointer-events: all; }
+/* Writing/Building: sharper glass (less blur) */
+body.dev-mode.dev-writing #dev-terminal { backdrop-filter: blur(8px) saturate(1.4); -webkit-backdrop-filter: blur(8px) saturate(1.4); }
+/* Thinking: pulsing glow */
+body.dev-mode.dev-thinking #dev-terminal { animation: dev-pulse 2s infinite; }
+/* Building: scan lines animate */
+body.dev-mode.dev-building #dev-terminal { backdrop-filter: blur(4px) saturate(1.8); -webkit-backdrop-filter: blur(4px) saturate(1.8); }
+/* User typing/scrolling: more blurred, step back */
+body.dev-mode.dev-idle #dev-terminal { backdrop-filter: blur(32px) saturate(1.2); -webkit-backdrop-filter: blur(32px) saturate(1.2); }
+@keyframes dev-pulse {
+  0%,100% { box-shadow: inset 0 0 80px rgba(68,136,255,0.06), 0 0 0 1px rgba(68,136,255,0.08); }
+  50%      { box-shadow: inset 0 0 120px rgba(68,136,255,0.14), 0 0 0 1px rgba(68,136,255,0.22); }
+}
+/* Scan lines texture */
+#dev-term-scanlines {
+  position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.06) 2px, rgba(0,0,0,0.06) 4px);
+}
+body.dev-mode.dev-building #dev-term-scanlines { animation: scan 3s linear infinite; }
+@keyframes scan {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 -100px; }
+}
+/* Header bar (traffic lights + title) */
+#dev-term-header {
+  display: flex; align-items: center; gap: 7px;
+  padding: 10px 16px 8px;
+  border-bottom: 1px solid rgba(68,136,255,0.12);
+  position: relative; z-index: 2;
+}
+.term-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+}
+#dev-term-dot  { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
+#dev-term-dot2 { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+#dev-term-dot3 { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+#dev-term-title {
+  flex: 1; font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase;
+  color: rgba(68,136,255,0.6); font-family: 'Courier New', monospace;
+  margin-left: 6px;
+}
+#dev-term-model-badge {
+  font-size: 8px; letter-spacing: 0.2em; padding: 1px 8px; border-radius: 8px;
+  background: rgba(68,136,255,0.12); border: 1px solid rgba(68,136,255,0.2);
+  color: rgba(68,136,255,0.55); font-family: 'Courier New', monospace;
+}
+/* Body — the terminal text area */
+#dev-term-body {
+  flex: 1; overflow-y: auto; padding: 14px 18px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px; line-height: 1.7; color: rgba(245,158,11,0.85);
+  position: relative; z-index: 2;
+  scrollbar-width: thin; scrollbar-color: rgba(68,136,255,0.2) transparent;
+}
+#dev-term-log { min-height: 20px; }
+#dev-term-log .tline { display: block; color: rgba(245,158,11,0.7); }
+#dev-term-log .tline.sys { color: rgba(68,136,255,0.55); }
+#dev-term-log .tline.ok  { color: rgba(34,197,94,0.65); }
+#dev-term-log .tline.err { color: rgba(239,68,68,0.7); }
+#dev-term-cursor-line {
+  display: flex; align-items: center; gap: 6px;
+  color: rgba(245,158,11,0.9); margin-top: 4px;
+}
+#dev-term-prompt { color: rgba(68,136,255,0.6); }
+#dev-term-caret { animation: blink 1s step-end infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+/* Status bar */
+#dev-term-status {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 16px; border-top: 1px solid rgba(68,136,255,0.1);
+  font-size: 8px; letter-spacing: 0.3em; text-transform: uppercase;
+  color: rgba(68,136,255,0.4); font-family: 'Courier New', monospace;
+  position: relative; z-index: 2;
+}
+#dev-term-spinner { color: rgba(245,158,11,0.6); }
+body.dev-mode.dev-thinking #dev-term-spinner::after { content: '◌'; animation: spin 1s linear infinite; display:inline-block; }
+body.dev-mode.dev-building #dev-term-spinner::after { content: '⊙'; animation: spin 0.4s linear infinite; display:inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+/* Mobile: terminal is narrower, panel takes full width anyway */
+@media (max-width: 600px) { #dev-term-body { font-size: 11px; } }
+
 /* ── Chat Bubbles ── */
 #chat-bubbles {
   position: fixed; bottom: 160px; left: 50%; transform: translateX(-50%);
@@ -696,6 +791,29 @@ body.adult-mode #adult-timer { display: block; }
 
 <!-- Botler cursor — animated glowing circle for panel interactions -->
 <div id="botler-cursor"></div>
+
+<!-- Dev terminal overlay — liquid glass HUD, visible when activeAgent==='dev' -->
+<div id="dev-terminal">
+  <div id="dev-term-scanlines"></div>
+  <div id="dev-term-header">
+    <span id="dev-term-dot" class="term-dot"></span>
+    <span id="dev-term-dot2" class="term-dot"></span>
+    <span id="dev-term-dot3" class="term-dot"></span>
+    <span id="dev-term-title">DEV · STEWART INC.</span>
+    <span id="dev-term-model-badge"></span>
+  </div>
+  <div id="dev-term-body">
+    <div id="dev-term-log"></div>
+    <div id="dev-term-cursor-line">
+      <span id="dev-term-prompt">dev@atlas:~$</span>
+      <span id="dev-term-caret"> ▋</span>
+    </div>
+  </div>
+  <div id="dev-term-status">
+    <span id="dev-term-state-label">STANDBY</span>
+    <span id="dev-term-spinner"></span>
+  </div>
+</div>
 
 <!-- First-run setup (hidden by default — auto-connects on load) -->
 <div id="setup-overlay" class="hidden">
@@ -1518,10 +1636,21 @@ ${userLine}
 ${listCtx}
 ${(() => { const d = getFamilyData(); const notes = d.notes; const kids = KIDS.map(k => { const kd = d[k]; if (!kd) return ''; const h = HOUSEHOLD[k]; const parts = []; if (kd.schedule) parts.push(`schedule: ${kd.schedule}`); if (kd.diet) parts.push(`diet: ${kd.diet}`); if (kd.progress) parts.push(`progress: ${kd.progress}`); return parts.length ? `${h?.name}: ${parts.join('; ')}` : ''; }).filter(Boolean).join(' | '); const out = []; if (kids) out.push(`Children — ${kids}`); if (notes) out.push(`Household notes: ${notes}`); return out.join('\n'); })()}
 
-## CRITICAL — Components
-NEVER output raw HTML, CSS, or code in your spoken text. Components render silently in the UI.
+## CRITICAL — Components & Navigation
+NEVER output raw HTML, CSS, or code in your spoken text.
+NEVER respond with an emoji (📁 🌐 📊 etc.) when the user asks to open something — use a cmd tag.
+When asked to open ANY page, app, panel, or portal → embed the correct cmd. No emoji. No description. Just open it.
 When using render_component: put ALL HTML+CSS inside the cmd JSON "html" value, nothing in the text.
 Your text should be one natural spoken sentence like "Here's your list." or "Done — pulling that up."
+
+## CRITICAL — Opening things (ALWAYS use cmd, NEVER just emoji)
+- "open family portal" / "family" → <cmd>{"action":"family_portal"}</cmd>
+- "system map" / "agent map"    → <cmd>{"action":"panel","name":"system-map"}</cmd>
+- "finance" / "cash" dashboard  → <cmd>{"action":"finance"}</cmd>
+- "school" / "homeschool"       → <cmd>{"action":"homeschool"}</cmd>
+- any URL or website            → <cmd>{"action":"url","url":"https://...","title":"..."}</cmd>
+- search for X                  → <cmd>{"action":"url","url":"https://duckduckgo.com/?q=X","title":"Search: X"}</cmd>
+- build / make a game/app/tool  → <cmd>{"action":"render_component","title":"...","html":"..."}</cmd>
 
 ## Shopping list commands
 <cmd>{"action":"shopping_list_add","items":["milk","eggs"]}</cmd>        — add items (preserves existing)
@@ -1559,7 +1688,7 @@ Content & navigation:
 <cmd>{"action":"youtube","query":"...","autoplay":true}</cmd>
 <cmd>{"action":"youtube","videoId":"..."}</cmd>
 <cmd>{"action":"url","url":"https://...","title":"..."}</cmd>
-<cmd>{"action":"open_url_external","url":"https://duckduckgo.com/?q=QUERY"}</cmd>  ← for web searches (opens real browser; search engines block iframes)
+<cmd>{"action":"url","url":"https://duckduckgo.com/?q=QUERY&kae=d","title":"Search: QUERY"}</cmd>  ← web search (proxied into panel)
 <cmd>{"action":"shopping_list","title":"...","items":["a","b"]}</cmd>
 <cmd>{"action":"render_component","title":"...","html":"..."}</cmd>
 <cmd>{"action":"finance"}</cmd>
@@ -1595,20 +1724,24 @@ App control (macOS):
 <cmd>{"action":"open_url_external","url":"https://..."}</cmd>
 
 ## Building games & interactive apps
-When asked for a game, quiz, drawing tool, story, or any interactive app — BUILD IT. Write complete, self-contained HTML inside render_component. Say one warm sentence, then embed the cmd.
+When asked for a game, quiz, drawing tool, story, or any interactive app — BUILD IT immediately.
+Say one warm sentence, then embed the render_component cmd. Do NOT describe it — BUILD it.
+
+CRITICAL encoding rules for render_component html field:
+- The html value is inside a JSON string. You MUST escape ALL double-quotes inside it as \"
+- Example wrong:  "html":"<div onclick="go()">..."  ← breaks JSON
+- Example right:  "html":"<div onclick=\"go()\">..."  ← correct
+- Use \\n for newlines inside the JSON string, or write the entire HTML on one line
+- Alternatively: use single quotes ' inside all HTML attributes (onclick='go()') to avoid escaping
 
 Game rules:
-- ALL code inline — no external scripts, no CDN imports, no fetch() to outside
-- Mobile-first: support BOTH touch and keyboard/mouse
-- Every game needs: start screen, instructions, live score, restart button
-- 2-player local: Player 1 uses WASD+Z, Player 2 uses arrow keys+/
-- Cross-tab multiplayer: use BroadcastChannel('botler-game-GAMEID') for device-to-device
-- Announce events to parent window so Botler can react:
-  window.parent.postMessage({type:'game_event',event:'score',player:'Kage',score:42},'*')
-  window.parent.postMessage({type:'game_event',event:'game_over',winner:'Avonte'},'*')
-  window.parent.postMessage({type:'game_request_move',board:[...],turn:'botler'},'*')
-- When a game requests Botler's move, embed: <cmd>{"action":"game_move","game":"...","move":"..."}</cmd>
-- Keep HTML under 4000 characters; use canvas for graphics when possible
+- ALL code inline — no external scripts, no CDN, no fetch() outside
+- Mobile-first: support both touch and keyboard/mouse
+- Every game: start screen, score, restart button
+- 2-player local: Player 1 = WASD+Z, Player 2 = arrow keys+/
+- Cross-tab: BroadcastChannel('botler-game-GAMEID')
+- Announce events: window.parent.postMessage({type:'game_event',event:'score',player:'Kage',score:42},'*')
+- Keep HTML under 6000 chars; canvas for graphics
 
 Example: "Here's a two-player asteroid shooter — share the screen or open on two devices!"
 <cmd>{"action":"render_component","title":"Asteroids","html":"<!DOCTYPE html>..."}</cmd>
@@ -2196,6 +2329,8 @@ class GatewayClient {
       // First token arrived — switch from thinking to speaking immediately
       if (state === 'thinking') setState('speaking');
       const text = _extractText(p.message) ?? '';
+      // Mirror new delta to Dev terminal
+      if (activeAgent === 'dev' && text.length > streamText.length) devTermStream(text.slice(streamText.length));
       if (text.length > spokenUpTo) {
         let chunk = text.slice(spokenUpTo);
         while (chunk.length > 0) {
@@ -2260,24 +2395,57 @@ function _execCmdsFromFinal(msg) {
     : typeof msg.text === 'string' ? msg.text : '';
   _execCmdsFromRaw(raw);
 }
+// Robustly extract the "html" field from a cmd JSON string that may contain
+// unescaped quotes and literal newlines inside the HTML value.
+// Assumes "html" is always the LAST key in the object.
+function _robustParseCmd(raw) {
+  // 1. Try clean parse
+  try { return JSON.parse(raw); } catch(e) {}
+  // 2. Normalize whitespace
+  const flat = raw.replace(/[\n\r\t]+/g, ' ');
+  try { return JSON.parse(flat); } catch(e) {}
+  // 3. html-aware extraction — html must be last field
+  const htmlKeyIdx = flat.indexOf('"html"');
+  if (htmlKeyIdx !== -1) {
+    // Find colon after "html"
+    const colonIdx = flat.indexOf(':', htmlKeyIdx);
+    if (colonIdx !== -1) {
+      // Find opening " of the html value
+      const openQ = flat.indexOf('"', colonIdx + 1);
+      if (openQ !== -1) {
+        const htmlContent = flat.slice(openQ + 1);
+        // Strip trailing closing `"}` — html value ends before the object close
+        // Walk backwards from end: strip optional spaces, }, then optional "
+        let end = htmlContent.length - 1;
+        while (end > 0 && /[\s}]/.test(htmlContent[end])) end--;
+        if (htmlContent[end] === '"') end--;
+        const htmlVal = htmlContent.slice(0, end + 1)
+          .replace(/\\"/g, '"').replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\\\\/g, '\\');
+        // Parse the prefix (everything before "html") as the rest of the object
+        const prefix = flat.slice(0, htmlKeyIdx).replace(/,?\s*$/, '');
+        try {
+          const obj = JSON.parse(prefix + '}');
+          obj.html = htmlVal;
+          return obj;
+        } catch(e) {}
+      }
+    }
+  }
+  // 4. Last resort: extract action only
+  const actionM = flat.match(/"action"\s*:\s*"([^"]+)"/);
+  const titleM  = flat.match(/"title"\s*:\s*"([^"]+)"/);
+  if (actionM) return { action: actionM[1], title: titleM?.[1] || '' };
+  return null;
+}
+
 function _execCmdsFromRaw(raw) {
   if (!raw) return;
   const re = /<cmd>([\s\S]*?)<\/cmd>/g;
   let m;
   while ((m = re.exec(raw)) !== null) {
-    const cmdStr = m[1].trim();
-    try {
-      execCmd(JSON.parse(cmdStr));
-    } catch(e) {
-      // Model sometimes writes literal newlines inside JSON strings (e.g. multi-line game HTML).
-      // Normalize: replace actual \n/\r with a space so JSON.parse can handle it.
-      try {
-        const flat = cmdStr.replace(/[\n\r]+/g, ' ').replace(/\t/g, ' ');
-        execCmd(JSON.parse(flat));
-      } catch(e2) {
-        console.warn('[Botler] bad cmd (even after normalize):', e2.message, cmdStr.slice(0, 140));
-      }
-    }
+    const cmd = _robustParseCmd(m[1].trim());
+    if (cmd) execCmd(cmd);
+    else console.warn('[Botler] unparseable cmd:', m[1].slice(0, 120));
   }
 }
 
@@ -2574,7 +2742,7 @@ function execCmd(cmd) {
       if (cmd.url) window.open(cmd.url, '_blank');
       break;
     case 'web_search':
-      if (cmd.query) { const su=`https://duckduckgo.com/?q=${encodeURIComponent(cmd.query)}`; window.open(su,'_blank'); }
+      if (cmd.query) openPanel(`https://duckduckgo.com/?q=${encodeURIComponent(cmd.query)}&kae=d`, `Search: ${cmd.query}`);
       break;
     case 'shopping_list':
       // Merge cmd items into persistent list, then render inline
@@ -2582,21 +2750,26 @@ function execCmd(cmd) {
       renderComponentInline({ title: cmd.title || 'Shopping List', type: 'shopping_list' });
       break;
     case 'render_component': {
+      // Always render via iframe (script tags require iframe+srcdoc; innerHTML ignores them)
+      // Text mode → inline in chat; Voice mode → side drawer
       if (silentMode || cmd.inline) {
-        // Silent/typing mode: render inline in chat
         renderComponentInline(cmd);
       } else {
-        // Voice mode: open in side panel
+        // Voice mode: open in side drawer as an iframe so scripts execute
         const panel = document.getElementById('side-panel');
         const comp  = document.getElementById('component-panel');
         const frame = document.getElementById('browser-frame');
         const bar   = document.getElementById('browser-bar');
         const err   = document.getElementById('browser-err');
         document.getElementById('panel-title').textContent = cmd.title || 'Component';
-        frame.className = ''; bar.className = ''; err.className = '';
-        comp.className = 'visible';
-        comp.innerHTML = cmd.html || '';
+        bar.className = ''; err.className = '';
+        comp.className = '';
+        const srcdoc = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box;margin:0;padding:0}html,body{width:100%;height:100%;overflow:auto;background:#000}</style></head><body>${cmd.html || ''}</body></html>`;
+        frame.className = 'visible';
+        frame.sandbox = 'allow-scripts allow-same-origin allow-forms';
+        frame.srcdoc = srcdoc;
         panel.classList.add('open');
+        setTimeout(updateFaceTarget, 200);
       }
       break;
     }
@@ -2839,6 +3012,13 @@ async function processQuery(query) {
   // Extend adult mode timeout on any interaction
   if (adultMode) resetAdultTimer();
   addBubble('user', query);
+  // Dev terminal: log prompt, mark last terminal line as "done", enter thinking state
+  if (activeAgent === 'dev') {
+    const log = document.getElementById('dev-term-log');
+    if (log && log.lastElementChild) log.lastElementChild.dataset.done = '1';
+    devTermLog('> ' + query, 'sys');
+    devTermSetState('thinking');
+  }
   // Speak a filler phrase while we fetch, for complex queries
   maybeThinkFiller(query);
   // Route to gateway when tools are needed; otherwise use fast direct API
@@ -2933,6 +3113,8 @@ async function processQueryDirect(query) {
           // Anthropic SSE: content_block_delta with text_delta type
           if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') {
             fullText += ev.delta.text;
+            // Mirror to Dev terminal in real time
+            if (activeAgent === 'dev' && ev.delta.text) devTermStream(ev.delta.text);
             const clean = fullText.replace(/<cmd>[\s\S]*?<\/cmd>/g, '').replace(/<cmd>[\s\S]*/g, '').replace(/\s{2,}/g, ' ').trim();
             if (clean.length > spokenUpTo) {
               let chunk = clean.slice(spokenUpTo);
@@ -3039,7 +3221,7 @@ async function executeTool(name, input) {
     case 'browser_navigate':
       openPanel(input.url, input.title || input.url); return `Navigating to ${input.url}`;
     case 'web_search':
-      { const su=`https://duckduckgo.com/?q=${encodeURIComponent(input.query)}`; window.open(su,'_blank'); }
+      openPanel(`https://duckduckgo.com/?q=${encodeURIComponent(input.query)}&kae=d`, `Search: ${input.query}`);
       return `Searching for: ${input.query}`;
     case 'finance_query':
       openFinance(); return 'Finance dashboard opened';
@@ -3572,6 +3754,89 @@ setTimeout(refreshLooksDropdown, 100);
 
 // Sync model badge to persisted model on load
 (()=>{ const mb=document.getElementById('model-badge'); if(mb){ mb.textContent=activeModel.toUpperCase(); mb.classList.toggle('opus',activeModel==='opus'); } })();
+
+// ─── Dev Terminal Controller ───────────────────────────────────────────────────
+const _devStates = ['dev-idle','dev-writing','dev-thinking','dev-building'];
+function devTermSetState(s) {
+  _devStates.forEach(c => document.body.classList.remove(c));
+  document.body.classList.add('dev-' + s);
+  const lbl = document.getElementById('dev-term-state-label');
+  const map = { idle:'STANDBY', writing:'WRITING', thinking:'THINKING', building:'BUILDING' };
+  if (lbl) lbl.textContent = map[s] || s.toUpperCase();
+}
+function devTermLog(text, cls) {
+  const log = document.getElementById('dev-term-log');
+  if (!log) return;
+  const el = document.createElement('span');
+  el.className = 'tline' + (cls ? ' ' + cls : '');
+  el.textContent = text;
+  log.appendChild(el);
+  log.parentElement.scrollTop = log.parentElement.scrollHeight;
+  // Keep last 60 lines
+  while (log.children.length > 60) log.removeChild(log.firstChild);
+}
+function devTermUpdateModel() {
+  const b = document.getElementById('dev-term-model-badge');
+  if (b) b.textContent = activeModel.toUpperCase();
+}
+function devTermSync() {
+  const isDev = activeAgent === 'dev';
+  document.body.classList.toggle('dev-mode', isDev);
+  if (isDev) { devTermSetState('idle'); devTermUpdateModel(); }
+}
+// Integrate dev terminal with Botler setState
+const _origSetState = setState;
+window.setState = setState = function(s) {
+  _origSetState(s);
+  if (activeAgent !== 'dev') return;
+  if (s === 'thinking') devTermSetState('thinking');
+  else if (s === 'speaking') devTermSetState('writing');
+  else devTermSetState('idle');
+};
+// Log streaming text to terminal in dev mode
+const _origOnStream = window._onDevStream;
+function devTermStream(chunk) {
+  if (activeAgent !== 'dev') return;
+  devTermSetState('building');
+  const log = document.getElementById('dev-term-log');
+  if (!log) return;
+  // Append to last line or create new one
+  let last = log.lastElementChild;
+  if (!last || last.dataset.done) { last = document.createElement('span'); last.className='tline'; log.appendChild(last); }
+  last.textContent += chunk;
+  log.parentElement.scrollTop = log.parentElement.scrollHeight;
+}
+
+// Hook into the streaming text update so terminal mirrors output
+const _origHandleStream = window._handleStreamChunk;
+
+// Patch switchAgent to sync terminal
+const _origSwitchAgent = switchAgent;
+window.switchAgent = switchAgent = function(id) {
+  _origSwitchAgent(id);
+  devTermSync();
+  if (id === 'dev') {
+    devTermLog('> Switching to Dev context', 'sys');
+    devTermLog('> Model: ' + (MODEL_IDS[activeModel] || activeModel), 'sys');
+    devTermLog('> Stewart Inc. Engineering Agent ready.', 'ok');
+  }
+};
+
+// Patch cycleModel to also update terminal badge
+const _origCycleModel = cycleModel;
+window.cycleModel = cycleModel = function() {
+  _origCycleModel();
+  devTermUpdateModel();
+};
+
+// Listen for user typing in text-query → dev-idle state (terminal blurs)
+const _tq = document.getElementById('text-query');
+if (_tq) {
+  _tq.addEventListener('focus', () => { if (activeAgent === 'dev') devTermSetState('idle'); });
+  _tq.addEventListener('blur',  () => { if (activeAgent === 'dev') devTermSetState('idle'); });
+}
+
+devTermSync(); // Initial sync
 
 checkSetup();
 </script>
