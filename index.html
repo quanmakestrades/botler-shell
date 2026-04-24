@@ -416,6 +416,15 @@ body.night-mode canvas { filter: brightness(0.52) saturate(0.7); }
   background: rgba(12,5,0,0.95); border-top: 1px solid rgba(255,160,40,0.15);
   padding: 10px 12px; gap: 8px; align-items: center; backdrop-filter: blur(12px);
 }
+/* Model selector badge */
+#model-badge {
+  display: block; font-size: 8px; letter-spacing: 0.25em; text-transform: uppercase;
+  color: rgba(100,180,255,0.55); border: 1px solid rgba(100,180,255,0.2);
+  padding: 2px 7px; border-radius: 10px; flex-shrink: 0; cursor: pointer; transition: all 0.2s;
+  white-space: nowrap;
+}
+#model-badge:hover { color: rgba(140,210,255,0.9); border-color: rgba(100,180,255,0.5); }
+#model-badge.opus { color: rgba(180,120,255,0.7); border-color: rgba(160,100,255,0.35); }
 /* Voice / Text mode toggle badge — always visible */
 #silent-badge {
   display: block; font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase;
@@ -546,6 +555,7 @@ body.adult-mode #adult-timer { display: block; }
     onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendTextQuery()}"
     oninput="autoExpandTextarea(this)"
     autocomplete="off" autocorrect="off" spellcheck="false"></textarea>
+  <span id="model-badge" onclick="cycleModel()" title="Click to switch model">SONNET</span>
   <span id="silent-badge" onclick="toggleVoiceMode()" title="Toggle voice / text mode">VOICE</span>
   <button id="text-send" onclick="sendTextQuery()">↑</button>
 </div>
@@ -704,6 +714,10 @@ body.adult-mode #adult-timer { display: block; }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
+// ─── Platform detection (must be first — used throughout) ─────────────────────
+const IS_IOS    = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+const IS_MOBILE = IS_IOS || /Android/i.test(navigator.userAgent);
+
 // ─── Renderer ────────────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -1202,20 +1216,42 @@ animate();
 
 // ─── Face position — float above chat content ─────────────────────────────────
 function updateFaceTarget() {
+  // Collect all content rectangles that might overlap Botler's face
+  const topPxCandidates = [];
+
+  // Chat bubbles (any mode — desktop or voice)
   const chat = document.getElementById('chat-bubbles');
-  if (!chat || chat.classList.contains('hidden') || document.body.classList.contains('voice-mode')) {
-    faceDriftYTarget = 0; return;
+  if (chat && !chat.classList.contains('hidden')) {
+    Array.from(chat.children)
+      .map(c => c.getBoundingClientRect())
+      .filter(r => r.height > 16)
+      .forEach(r => topPxCandidates.push(r.top));
   }
-  const rects = Array.from(chat.children)
-    .map(c => c.getBoundingClientRect())
-    .filter(r => r.height > 16);
-  if (!rects.length) { faceDriftYTarget = 0; return; }
-  const topPx   = Math.min(...rects.map(r => r.top));
-  const topFrac  = topPx / window.innerHeight;
+
+  // Inline component modals
+  const modal = document.getElementById('comp-modal');
+  if (modal && modal.classList.contains('open')) {
+    const r = modal.getBoundingClientRect();
+    if (r.height > 16) topPxCandidates.push(r.top);
+  }
+
+  // Side panel covers the right side on desktop — on mobile it covers bottom,
+  // but the canvas (left / full-screen) still shows behind it.
+  // Treat side-panel top edge as a content boundary when it's open on mobile.
+  const panel = document.getElementById('side-panel');
+  if (panel && panel.classList.contains('open') && IS_MOBILE) {
+    const r = panel.getBoundingClientRect();
+    if (r.height > 16) topPxCandidates.push(r.top);
+  }
+
+  if (!topPxCandidates.length) { faceDriftYTarget = 0; return; }
+
+  const topPx  = Math.min(...topPxCandidates);
+  const topFrac = topPx / window.innerHeight;
   if (topFrac > 0.82) { faceDriftYTarget = 0; return; }
-  // Three.js orthographic Y: 1=top, -1=bottom; content top in world Y
+
+  // Three.js orthographic Y: 1=top, -1=bottom
   const contentTopY3 = 1 - topFrac * 2;
-  // Target: eyes sit 0.14 world units above content top, capped at 0.80
   const targetEyeWY  = Math.min(contentTopY3 + 0.14, 0.80);
   const base = EYE_Y() + edit.eyeY;
   faceDriftYTarget = Math.max(0, targetEyeWY - base);
@@ -1239,6 +1275,15 @@ const DEFAULT_GW_URL   = _isLoopback
   : 'wss://stewartos-core.tail2d5e46.ts.net';
 const DEFAULT_GW_TOKEN = 'StewartOS-Core-2026';
 let   activeAgent      = 'botler';
+let   activeModel      = localStorage.getItem('botler_model') || 'sonnet'; // 'sonnet' | 'opus'
+const MODEL_IDS = { sonnet: 'claude-sonnet-4-6', opus: 'claude-opus-4-7' };
+function cycleModel() {
+  activeModel = activeModel === 'sonnet' ? 'opus' : 'sonnet';
+  localStorage.setItem('botler_model', activeModel);
+  const el = document.getElementById('model-badge');
+  if (el) { el.textContent = activeModel.toUpperCase(); el.classList.toggle('opus', activeModel === 'opus'); }
+  speak(activeModel === 'opus' ? 'Switching to Opus — full power.' : 'Switching to Sonnet — quick and sharp.');
+}
 
 // ─── Device + User Identity ───────────────────────────────────────────────────
 // Each browser/device gets a stable UUID so sessions never bleed across devices.
@@ -1430,6 +1475,34 @@ const DIRECT_API_URL   = `${location.origin}/api/stream`; // Anthropic proxy in 
 
 // System prompt — built dynamically so it includes the current user's context and persistent state
 function buildDirectSystem() {
+  // Dev agent — code-focused persona, IDE-aware
+  if (activeAgent === 'dev') {
+    return `You are Dev, the Stewart Inc. engineering agent — expert across full-stack, systems, infra, and AI. You are operating inside Botler Shell, an AI OS. The user is Quan Stewart, founder of Stewart Inc.
+
+You have access to the panel UI where you can open files, run code, browse docs, and render interactive components. Be terse and precise — say what you're doing in one sentence, then act.
+
+## Your capabilities
+- Build complete apps, scripts, APIs, and UIs as self-contained render_component HTML
+- Analyze and discuss architecture, debug sessions, review code
+- Navigate and interact with any panel content via voice commands
+
+## Voice + panel commands
+<cmd>{"action":"render_component","title":"IDE","html":"..."}</cmd>     ← build a code editor or tool inline
+<cmd>{"action":"panel_type","text":"code here"}</cmd>                   ← type into focused panel field
+<cmd>{"action":"panel_click","query":"Run"}</cmd>                       ← click panel buttons by label
+<cmd>{"action":"panel_scroll","dir":"down"}</cmd>
+<cmd>{"action":"panel_back"}</cmd> / <cmd>{"action":"panel_forward"}</cmd>
+<cmd>{"action":"panel_fullscreen","on":true}</cmd>
+<cmd>{"action":"switch_model","model":"opus"}</cmd>                     ← switch to Opus for complex reasoning
+<cmd>{"action":"url","url":"https://...","title":"..."}</cmd>           ← open docs / repos
+
+## Rules
+- One spoken sentence, then one cmd. Never read JSON aloud.
+- When building code: ALL styles and scripts inline, no CDN, no fetch to outside.
+- Announce what you're doing: "Here's a live Python REPL." then render it.
+- Current model: ${activeModel.toUpperCase()} — suggest switching to Opus for deep analysis tasks.`;
+  }
+
   const userLine = currentUser
     ? `You are speaking with ${currentUser.name}. ${HOUSEHOLD[currentUser.id]?.context || ''}`
     : `You don't yet know who you are speaking with. Greet them warmly as Botler, the Stewart household butler. Ask who you are speaking with. When they tell you their name, acknowledge warmly and embed: <cmd>{"action":"set_user","name":"THEIRNAME"}</cmd> — valid names: quan, julia, kage, avonte, ezlynn (lowercase exact).`;
@@ -1494,10 +1567,17 @@ Content & navigation:
 <cmd>{"action":"family_portal"}</cmd>   ← opens the family monitoring portal for Quan/Julia
 <cmd>{"action":"panel","name":"system-map"}</cmd>
 <cmd>{"action":"close_panel"}</cmd>
-<cmd>{"action":"panel_scroll","dir":"down"}</cmd>
-<cmd>{"action":"panel_scroll","dir":"up"}</cmd>
+<cmd>{"action":"panel_scroll","dir":"down"}</cmd>              ← scroll panel down
+<cmd>{"action":"panel_scroll","dir":"up","px":400}</cmd>     ← scroll up 400px
 <cmd>{"action":"panel_click","query":"text to find and click"}</cmd>  ← my cursor moves there and clicks
-<cmd>{"action":"panel_click","query":"second video"}</cmd>  ← ordinals work: first/second/third
+<cmd>{"action":"panel_click","query":"second video"}</cmd>   ← ordinals work: first/second/third
+<cmd>{"action":"panel_swipe","dir":"left"}</cmd>             ← swipe left/right/up/down
+<cmd>{"action":"panel_type","text":"hello world"}</cmd>      ← type into focused field in panel
+<cmd>{"action":"panel_enter"}</cmd>                          ← press Enter in panel
+<cmd>{"action":"panel_back"}</cmd>                           ← browser back
+<cmd>{"action":"panel_forward"}</cmd>                        ← browser forward
+<cmd>{"action":"panel_fullscreen","on":true}</cmd>           ← expand panel to full screen
+<cmd>{"action":"switch_model","model":"opus"}</cmd>          ← switch to Opus (deep tasks); "sonnet" for speed
 
 Appearance (delta:true = relative change):
 <cmd>{"action":"change_color","hex":"#3b82f6"}</cmd>
@@ -1534,6 +1614,15 @@ Example: "Here's a two-player asteroid shooter — share the screen or open on t
 <cmd>{"action":"render_component","title":"Asteroids","html":"<!DOCTYPE html>..."}</cmd>
 
 Color shortcuts: blue=#3b82f6, amber=#f59e0b, green=#22c55e, red=#ef4444, purple=#a855f7, default=#ff8800
+
+## Hands-free ambient OS
+The user may have their hands full (cooking, driving, doing dishes). You are their ambient OS.
+- "scroll down/up" → panel_scroll; "swipe left/right" → panel_swipe; "go back" → panel_back
+- "type X" → panel_type text:X; "press enter / submit" → panel_enter
+- "full screen / expand" → panel_fullscreen on:true; "shrink / normal size" → panel_fullscreen on:false
+- "use Opus / big model / deep mode" → switch_model model:opus; "back to Sonnet / fast mode" → switch_model model:sonnet
+- "close panel / done" → close_panel
+- Current model: ${activeModel.toUpperCase()}
 
 Rules:
 - One spoken sentence first, then cmd. Never read cmd JSON aloud.
@@ -2234,8 +2323,6 @@ function setTranscript(text, isFinal = false) {
 
 // ─── STT — Web Speech API ─────────────────────────────────────────────────────
 // iOS Safari: continuous SpeechRecognition is not supported — requires tap-to-talk mode
-const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-const IS_MOBILE = IS_IOS || /Android/i.test(navigator.userAgent);
 let iosListening = false; // iOS PTT state
 
 function handleRecognitionResult(evt) {
@@ -2589,6 +2676,32 @@ function execCmd(cmd) {
     case 'panel_click':
       if (!panelClick(cmd.query || cmd.text || '')) speak('I could not find that on screen.');
       break;
+    case 'panel_swipe':
+      panelSwipe(cmd.dir || 'up', cmd.px);
+      break;
+    case 'panel_type':
+      panelType(cmd.text || cmd.value || '');
+      break;
+    case 'panel_enter':
+      panelPressEnter();
+      break;
+    case 'panel_back':
+      panelBack();
+      break;
+    case 'panel_forward':
+      panelForward();
+      break;
+    case 'panel_fullscreen':
+      panelFullscreen(cmd.on);
+      break;
+    case 'switch_model':
+      if (cmd.model && MODEL_IDS[cmd.model]) {
+        activeModel = cmd.model;
+        localStorage.setItem('botler_model', activeModel);
+        const mb = document.getElementById('model-badge');
+        if (mb) { mb.textContent = activeModel.toUpperCase(); mb.classList.toggle('opus', activeModel==='opus'); }
+      }
+      break;
     case 'project_context':
       if (cmd.name) openProject(cmd.name);
       break;
@@ -2788,7 +2901,7 @@ async function processQueryDirect(query) {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: MODEL_IDS[activeModel] || 'claude-sonnet-4-6',
         system: buildDirectSystem(),
         messages: apiMessages,
         max_tokens: 2048,
@@ -2971,6 +3084,7 @@ function openPanel(url, title) {
     }
   };
   panel.classList.add('open');
+  setTimeout(updateFaceTarget, 200);
 }
 
 function openErrTab() { if (currentPanelUrl) window.open(currentPanelUrl, '_blank'); }
@@ -3003,6 +3117,7 @@ function closePanel() {
   const btn = document.getElementById('panel-expand');
   if (btn) btn.textContent = '⤢';
   document.getElementById('browser-frame').src = 'about:blank';
+  setTimeout(updateFaceTarget, 200);
 }
 
 // ─── Botler cursor ────────────────────────────────────────────────────────────
@@ -3109,6 +3224,95 @@ function panelClick(query) {
     try { frame.contentWindow.postMessage({ type: 'botler_click', query, ordIdx }, '*'); } catch(e) {}
   });
   return true;
+}
+
+// ─── Gesture suite — full voice-driven interaction ────────────────────────────
+function panelSwipe(dir, px) {
+  const frame = document.getElementById('browser-frame');
+  if (!frame) return;
+  const r = frame.getBoundingClientRect();
+  const dist = px || 200;
+  const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  // Map direction to start/end screen coords
+  const vecs = { up:[cx,cy+dist/2,cx,cy-dist/2], down:[cx,cy-dist/2,cx,cy+dist/2],
+                 left:[cx+dist/2,cy,cx-dist/2,cy], right:[cx-dist/2,cy,cx+dist/2,cy] };
+  const [sx,sy,ex,ey] = vecs[dir] || vecs.up;
+
+  // Try same-origin touch simulation
+  let doc = null;
+  try { doc = frame.contentDocument; } catch(e) {}
+  if (doc && doc.body) {
+    const fire = (type, x, y) => {
+      const t = new Touch({ identifier: Date.now(), target: doc.body,
+        clientX: x - r.left, clientY: y - r.top, pageX: x-r.left, pageY: y-r.top });
+      doc.body.dispatchEvent(new TouchEvent(type, { touches: type==='touchend'?[]:[t],
+        changedTouches:[t], bubbles:true, cancelable:true }));
+    };
+    fire('touchstart', sx, sy);
+    let p = 0;
+    const step = () => {
+      p += 0.15; const x=sx+(ex-sx)*p, y=sy+(ey-sy)*p;
+      fire('touchmove', x, y);
+      if (p < 1) requestAnimationFrame(step); else fire('touchend', ex, ey);
+    };
+    requestAnimationFrame(step);
+  } else {
+    try { frame.contentWindow.postMessage({ type:'botler_swipe', dir, px:dist }, '*'); } catch(e) {}
+  }
+  // Also scroll-simulate as fallback (most useful case for swipe up/down)
+  const scrollAmt = (dir==='up'?-1:dir==='down'?1:0) * dist;
+  if (scrollAmt) try { frame.contentWindow.scrollBy({ top:scrollAmt, behavior:'smooth' }); } catch(e) {}
+  bcShow(cx, cy); _bcHideTimer = setTimeout(()=>_bc.classList.remove('bc-visible'), 600);
+}
+
+function panelType(text) {
+  const frame = document.getElementById('browser-frame');
+  if (!frame) return;
+  let doc = null;
+  try { doc = frame.contentDocument; } catch(e) {}
+  if (doc) {
+    const el = doc.activeElement && doc.activeElement !== doc.body
+      ? doc.activeElement
+      : doc.querySelector('input:not([type=hidden]):not([disabled]),textarea');
+    if (el) {
+      el.focus();
+      const start = el.selectionStart ?? el.value?.length ?? 0;
+      el.value = (el.value||'').slice(0,start) + text + (el.value||'').slice(start);
+      el.selectionStart = el.selectionEnd = start + text.length;
+      el.dispatchEvent(new Event('input', {bubbles:true}));
+      el.dispatchEvent(new Event('change', {bubbles:true}));
+      // Simulate Enter key if text ends with \n
+      if (text.endsWith('\n')) el.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,bubbles:true}));
+    }
+  } else {
+    try { frame.contentWindow.postMessage({ type:'botler_type', text }, '*'); } catch(e) {}
+  }
+}
+
+function panelPressEnter() {
+  const frame = document.getElementById('browser-frame');
+  if (!frame) return;
+  let doc = null;
+  try { doc = frame.contentDocument; } catch(e) {}
+  if (doc) {
+    const el = doc.activeElement && doc.activeElement !== doc.body ? doc.activeElement : doc.body;
+    el.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,bubbles:true}));
+    el.dispatchEvent(new KeyboardEvent('keyup',  {key:'Enter',keyCode:13,bubbles:true}));
+  } else {
+    try { frame.contentWindow.postMessage({ type:'botler_keypress', key:'Enter' }, '*'); } catch(e) {}
+  }
+}
+
+function panelBack()    { try { document.getElementById('browser-frame')?.contentWindow.history.back();    } catch(e) {} }
+function panelForward() { try { document.getElementById('browser-frame')?.contentWindow.history.forward(); } catch(e) {} }
+
+function panelFullscreen(on) {
+  const panel = document.getElementById('side-panel');
+  if (!panel) return;
+  const btn = document.getElementById('panel-expand');
+  if (on === undefined) panel.classList.toggle('fullscreen');
+  else panel.classList[on ? 'add' : 'remove']('fullscreen');
+  if (btn) btn.textContent = panel.classList.contains('fullscreen') ? '⤡' : '⤢';
 }
 
 // Capture a screenshot of the panel content for visual grounding
@@ -3320,7 +3524,20 @@ const _execCmdOrig = window.execCmd || (typeof execCmd !== 'undefined' ? execCmd
 // Botler listens and reacts with voice / chat announcements.
 window.addEventListener('message', ev => {
   const d = ev.data;
-  if (!d || typeof d !== 'object' || d.type !== 'game_event') return;
+  if (!d || typeof d !== 'object') return;
+
+  // System map → Explorer mode: auto-switch to Dev agent
+  if (d.type === 'botler_panel_event') {
+    if (d.event === 'explorer_mode' && d.active && activeAgent !== 'dev') {
+      switchAgent('dev');
+      speak('Dev mode. What are we building?');
+    } else if (d.event === 'explorer_mode' && !d.active && activeAgent === 'dev') {
+      switchAgent('botler');
+    }
+    return;
+  }
+
+  if (d.type !== 'game_event') return;
 
   const { event, player, score, winner, game, move, board } = d;
 
@@ -3353,6 +3570,8 @@ window.addEventListener('message', ev => {
 // Init looks dropdown if element exists (injected by edit panel)
 setTimeout(refreshLooksDropdown, 100);
 
+// Sync model badge to persisted model on load
+(()=>{ const mb=document.getElementById('model-badge'); if(mb){ mb.textContent=activeModel.toUpperCase(); mb.classList.toggle('opus',activeModel==='opus'); } })();
 
 checkSetup();
 </script>

@@ -352,6 +352,8 @@ function toggleView() {
     infog.style.display = '';
     btn.textContent = 'Explorer ⤢';
   }
+  // Notify Botler Shell so it can switch personas
+  try { window.parent.postMessage({ type: 'botler_panel_event', event: 'explorer_mode', active: explorerActive }, '*'); } catch(e) {}
 }
 
 // ── Formatting helpers ────────────────────────────────────────────────────────
