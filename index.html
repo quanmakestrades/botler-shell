@@ -485,9 +485,9 @@ body.adult-mode #adult-timer { display: block; }
 <div id="voice-bar">
   <button id="mute-btn" title="Mute / unmute">🎤</button>
   <div id="transcript">Say "Botler…" to wake</div>
-  <button id="tap-talk-btn" title="Tap to activate" onclick="tapToTalk()"
-    style="background:none;border:1px solid rgba(255,160,40,0.2);color:rgba(255,200,100,0.45);font-size:10px;padding:3px 8px;border-radius:10px;cursor:pointer;flex-shrink:0;letter-spacing:0.15em;">
-    TAP
+  <button id="tap-talk-btn" title="Tap to speak" onclick="tapToTalk()"
+    style="background:none;border:1px solid rgba(255,160,40,0.2);color:rgba(255,200,100,0.45);font-size:10px;padding:5px 12px;border-radius:10px;cursor:pointer;flex-shrink:0;letter-spacing:0.15em;min-width:44px;min-height:36px;-webkit-tap-highlight-color:transparent;">
+    🎤
   </button>
   <div id="wake-dot"></div>
 </div>
@@ -1391,12 +1391,13 @@ function toggleMuteMobile() {
   document.getElementById('mute-btn').classList.toggle('muted', muted);
   document.getElementById('mobile-mute-btn').textContent = muted ? '🔇 Microphone (muted)' : '🎤 Microphone';
   if (muted) { if (recognition) recognition.stop(); setTranscript('Muted'); }
-  else { if (recognition) { try { recognition.start(); } catch(e) {} } setTranscript('Say "Botler…" to wake'); }
+  else { if (!IS_IOS && recognition) { try { recognition.start(); } catch(e) {} } setTranscript(IS_IOS ? 'Tap to speak' : 'Say "Botler…" to wake'); }
   closeMobileMenu();
 }
 
 // ─── Tap to talk ─────────────────────────────────────────────────────────────
 function tapToTalk() {
+  if (IS_IOS) { startIOSTalk(); return; }
   clearTimeout(wakeTimer);
   wakeExpiresAt = Date.now() + WAKE_WINDOW_MS;
   enterActiveListening();
@@ -1828,75 +1829,147 @@ function setTranscript(text, isFinal = false) {
 }
 
 // ─── STT — Web Speech API ─────────────────────────────────────────────────────
-function initVoice() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { setTranscript('Voice not supported in this browser'); return; }
+// iOS Safari: continuous SpeechRecognition is not supported — requires tap-to-talk mode
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+const IS_MOBILE = IS_IOS || /Android/i.test(navigator.userAgent);
+let iosListening = false; // iOS PTT state
 
-  // Explicitly request mic permission first so browsers show the prompt
-  // rather than silently failing when SpeechRecognition fires post-load.
-  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-    navigator.mediaDevices.getUserMedia({ audio: true })
-      .then(stream => { stream.getTracks().forEach(t => t.stop()); })
-      .catch(() => {});
+function handleRecognitionResult(evt) {
+  if (muted) return;
+  let interim = '', final = '';
+  for (let i = evt.resultIndex; i < evt.results.length; i++) {
+    const t = evt.results[i][0].transcript;
+    evt.results[i].isFinal ? (final += t) : (interim += t);
   }
 
+  if (interim && state !== 'thinking') setTranscript(interim);
+  if (!final) return;
+
+  const lower = final.toLowerCase().trim();
+  const wakeIdx = findWakeWord(lower);
+
+  if (wakeIdx >= 0) {
+    if (state === 'speaking' || state === 'thinking') {
+      console.log('[Botler] barge-in — interrupting');
+      abortCurrentRun();
+    }
+    if (!activeListening) enterActiveListening();
+    clearTimeout(wakeTimer);
+    wakeExpiresAt = Date.now() + WAKE_WINDOW_MS;
+    wakeTimer = setTimeout(exitActiveListening, WAKE_WINDOW_MS);
+    const afterWake = final.slice(wakeIdx).trim();
+    if (afterWake.length > 2) accumulateSpeech(afterWake);
+  } else if (activeListening || IS_IOS) {
+    clearTimeout(wakeTimer);
+    wakeExpiresAt = Date.now() + WAKE_WINDOW_MS;
+    wakeTimer = setTimeout(exitActiveListening, WAKE_WINDOW_MS);
+    accumulateSpeech(final.trim());
+  }
+}
+
+function initVoice() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    setTranscript(IS_IOS ? 'Tap the mic button to speak' : 'Voice not supported in this browser');
+    // Show prominent PTT button on unsupported browsers
+    const btn = document.getElementById('tap-talk-btn');
+    if (btn) { btn.style.display = 'block'; btn.style.fontSize = '14px'; }
+    return;
+  }
+
+  // On iOS: request permission once via getUserMedia before starting recognition
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(stream => { stream.getTracks().forEach(t => t.stop()); startRecognition(); })
+      .catch(() => setTranscript('Microphone permission denied'));
+    return;
+  }
+
+  startRecognition();
+}
+
+function startRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return;
   recognition = new SR();
-  recognition.continuous = true;
-  recognition.interimResults = true;
+  // iOS does not support continuous:true — use single-shot with auto-restart
+  recognition.continuous = !IS_IOS;
+  recognition.interimResults = !IS_IOS; // interim results also unreliable on iOS
   recognition.lang = 'en-US';
+  recognition.maxAlternatives = 1;
 
-  recognition.onresult = (evt) => {
-    if (muted) return;
-    let interim = '', final = '';
-    for (let i = evt.resultIndex; i < evt.results.length; i++) {
-      const t = evt.results[i][0].transcript;
-      evt.results[i].isFinal ? (final += t) : (interim += t);
-    }
+  recognition.onresult = handleRecognitionResult;
 
-    // Always show interim as a dim hint in the transcript bar (ambient or active)
-    if (interim && state !== 'thinking') setTranscript(interim);
-
-    if (!final) return;
-
-    const lower = final.toLowerCase().trim();
-    const wakeIdx = findWakeWord(lower);
-
-    if (wakeIdx >= 0) {
-      // Wake word detected — barge-in if speaking/thinking
-      if (state === 'speaking' || state === 'thinking') {
-        console.log('[Botler] barge-in — interrupting');
-        abortCurrentRun();
-      }
-      if (!activeListening) enterActiveListening();
-      // Reset the exit timer
-      clearTimeout(wakeTimer);
-      wakeExpiresAt = Date.now() + WAKE_WINDOW_MS;
-      wakeTimer = setTimeout(exitActiveListening, WAKE_WINDOW_MS);
-      // Queue any query that came after the wake word in this same utterance
-      const afterWake = final.slice(wakeIdx).trim();
-      if (afterWake.length > 2) accumulateSpeech(afterWake);
-
-    } else if (activeListening) {
-      // Inside wake window — accumulate toward the lull buffer
-      clearTimeout(wakeTimer);
-      wakeExpiresAt = Date.now() + WAKE_WINDOW_MS;
-      wakeTimer = setTimeout(exitActiveListening, WAKE_WINDOW_MS);
-      accumulateSpeech(final.trim());
-    }
-    // Ambient mode: do nothing with final (mic is always on, just watching)
+  recognition.onstart = () => {
+    if (IS_IOS && iosListening) setTranscript('Listening…');
   };
 
   recognition.onend = () => {
-    // Restart unless muted or suppressed while Botler is speaking (echo prevention)
-    if (!muted && !echoSuppressed) { try { recognition.start(); } catch(e) {} }
+    if (IS_IOS) {
+      // iOS PTT: after result arrives, finish and wait for next tap
+      iosListening = false;
+      const tapBtn = document.getElementById('tap-talk-btn');
+      if (tapBtn) { tapBtn.textContent = '🎤'; tapBtn.style.opacity = '1'; }
+      if (speechBuffer.trim()) {
+        flushSpeechBuffer();
+      } else if (state !== 'speaking' && state !== 'thinking') {
+        setTranscript('Tap to speak');
+      }
+      return;
+    }
+    // Desktop: restart continuously unless muted or echo-suppressed
+    if (!muted && !echoSuppressed) {
+      setTimeout(() => { try { recognition.start(); } catch(e) {} }, 150);
+    }
   };
 
   recognition.onerror = (e) => {
-    if (e.error === 'not-allowed') setTranscript('Microphone access denied');
-    if (e.error !== 'aborted') { try { recognition.start(); } catch(err) {} }
+    console.warn('[Botler] STT error:', e.error);
+    if (e.error === 'not-allowed') {
+      setTranscript('Microphone access denied');
+      return;
+    }
+    if (IS_IOS) {
+      iosListening = false;
+      const tapBtn = document.getElementById('tap-talk-btn');
+      if (tapBtn) { tapBtn.textContent = '🎤'; tapBtn.style.opacity = '1'; }
+      setTranscript('Tap to speak');
+      return;
+    }
+    if (e.error !== 'aborted' && e.error !== 'no-speech') {
+      setTimeout(() => { try { recognition.start(); } catch(err) {} }, 300);
+    }
   };
 
-  try { recognition.start(); } catch(e) {}
+  if (!IS_IOS) {
+    try { recognition.start(); } catch(e) {}
+  } else {
+    // iOS: show tap-to-speak UI instead of ambient always-on mic
+    setTranscript('Tap to speak');
+    const tapBtn = document.getElementById('tap-talk-btn');
+    if (tapBtn) {
+      tapBtn.style.display = 'inline-block';
+      tapBtn.style.fontSize = '18px';
+      tapBtn.style.padding = '4px 14px';
+      tapBtn.textContent = '🎤';
+    }
+  }
+}
+
+// Called by tap-talk-btn on mobile AND tapToTalk() on desktop
+function startIOSTalk() {
+  if (!recognition) return;
+  if (iosListening) return; // already going
+  iosListening = true;
+  enterActiveListening();
+  const tapBtn = document.getElementById('tap-talk-btn');
+  if (tapBtn) { tapBtn.textContent = '⏹'; tapBtn.style.opacity = '0.7'; }
+  setTranscript('Listening…');
+  try { recognition.start(); } catch(e) {
+    // If already started, stop and restart
+    recognition.stop();
+    setTimeout(() => { try { recognition.start(); } catch(err) {} }, 200);
+  }
 }
 
 // Chrome STT mishears "Botler" consistently. Add any new variants you see in
@@ -1944,8 +2017,8 @@ document.getElementById('mute-btn').addEventListener('click', () => {
     if (recognition) recognition.stop();
     setTranscript('Muted');
   } else {
-    if (recognition) { try { recognition.start(); } catch(e) {} }
-    setTranscript('Say "Botler…" to wake');
+    if (!IS_IOS && recognition) { try { recognition.start(); } catch(e) {} }
+    setTranscript(IS_IOS ? 'Tap to speak' : 'Say "Botler…" to wake');
   }
 });
 
@@ -2135,15 +2208,16 @@ function pumpTTS() {
       wakeExpiresAt = 0;
       setWakeIndicator(false);
       setState('idle');
-      setTranscript('Say "Botler…" to wake');
+      setTranscript(IS_IOS ? 'Tap to speak' : 'Say "Botler…" to wake');
     }, WAKE_FOLLOW_UP_MS);
-    if (!muted && recognition) { try { recognition.start(); } catch(e) {} }
+    if (!IS_IOS && !muted && recognition) { try { recognition.start(); } catch(e) {} }
+    if (IS_IOS) setTranscript('Tap to speak');
   };
   utt.onerror = () => {
     ttsSpeaking = false;
     if (ttsQueue.length > 0) { pumpTTS(); return; }
     echoSuppressed = false;
-    if (!muted && recognition) { try { recognition.start(); } catch(e) {} }
+    if (!IS_IOS && !muted && recognition) { try { recognition.start(); } catch(e) {} }
   };
   speechSynthesis.speak(utt);
 }
