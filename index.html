@@ -979,13 +979,18 @@ const scene = new THREE.Scene();
 const bgScene = new THREE.Scene();
 const bgCam   = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 const bgMat   = new THREE.ShaderMaterial({
-  uniforms: { time: { value: 0 }, aspect: { value: aspect }, tint: { value: new THREE.Color(1.0, 0.60, 0.08) } },
+  uniforms: {
+    time:   { value: 0 },
+    aspect: { value: aspect },
+    tint:   { value: new THREE.Color(1.0, 0.60, 0.08) },
+    faceX:  { value: 0.0 }   // UV offset for face center slide (0 = screen center)
+  },
   vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position,1.0); }`,
   fragmentShader: `
-    uniform float time; uniform float aspect; uniform vec3 tint;
+    uniform float time; uniform float aspect; uniform vec3 tint; uniform float faceX;
     varying vec2 vUv;
     void main(){
-      vec2 c = (vUv - 0.5) * vec2(aspect, 1.0);
+      vec2 c = (vUv - vec2(0.5 + faceX, 0.5)) * vec2(aspect, 1.0);
       float d = length(c);
       float breathe = sin(time * 0.65) * 0.05;
       vec3 inner = tint;
@@ -1015,9 +1020,14 @@ const LIP_TH  = () => S() * 0.013;
 const edit = { mustacheY:0, mustacheSX:1, mustacheSY:1, eyeY:0, eyeSepOff:0, eyeSize:1, monoSize:1 };
 let editMode = false;
 let drag     = null;
-// Face drift — spring physics so the face floats above rendered content
-let faceDriftY = 0, faceDriftV = 0, faceDriftYTarget = 0;
-let _frameN    = 0;
+// Face drift — spring physics: Y floats above content, X slides into available space
+let faceDriftY = 0, faceDriftV  = 0, faceDriftYTarget = 0;
+let faceDriftX = 0, faceDriftVX = 0, faceDriftXTarget = 0;
+// Peek system — Botler glances toward the panel then returns
+let _peekLookX = 0, _peekActive = false, _peekTimer = 0;
+let _panelObserveTimer = 0;
+let _lastPanelContext = '';
+let _frameN = 0;
 
 // ─── Coord helpers ────────────────────────────────────────────────────────────
 function toScreen(sx, sy) {
@@ -1374,6 +1384,40 @@ function handleLocalCommand(query) {
     if (RE_SCROLL_DOWN.test(q)) { panelScroll('down'); return true; }
     if (RE_SCROLL_UP.test(q))   { panelScroll('up'); return true; }
     if (RE_PANEL_CLOSE.test(q)) { closePanel(); speak('Closing the panel.'); return true; }
+
+    // Media playback commands
+    if (/\b(pause|stop the video|pause the video|pause it)\b/i.test(q)) {
+      panelClick('pause') || panelPressKey(' ');
+      speak('Paused.'); return true;
+    }
+    if (/\b(play|resume|unpause|continue the video|play the video|play it)\b/i.test(q)) {
+      panelClick('play') || panelPressKey(' ');
+      speak('Playing.'); return true;
+    }
+    if (/\b(mute|unmute|silence the video)\b/i.test(q)) {
+      panelPressKey('m'); speak('Done.'); return true;
+    }
+    if (/\b(full ?screen|expand the video|make it bigger)\b/i.test(q)) {
+      panelPressKey('f'); speak('Full screen.'); return true;
+    }
+    if (/\b(skip|fast.?forward|jump ahead|next)\b/i.test(q)) {
+      panelPressKey('l'); speak('Skipping ahead.'); return true;
+    }
+    if (/\b(back|rewind|go back a bit)\b/i.test(q) && !/back to the top/i.test(q)) {
+      panelPressKey('j'); speak('Rewinding.'); return true;
+    }
+
+    // "Dig deeper" / "look that up" / "tell me more" — research current panel context
+    if (/\b(dig deeper|look that up|tell me more|more on that|research that|what.?s that about|explain that|learn more|find out more)\b/i.test(q)) {
+      _digDeeper(); return true;
+    }
+
+    // "Back to the video / what we were watching"
+    if (/\b(back to the video|back to what|resume the video|go back to (?:the )?video|focus on the video)\b/i.test(q)) {
+      panelClick('play') || panelPressKey(' ');
+      speak('Back to it.'); return true;
+    }
+
     const clickMatch = RE_CLICK.exec(q);
     if (clickMatch) {
       const target = (clickMatch[1] || clickMatch[2] || '').trim();
@@ -1386,7 +1430,61 @@ function handleLocalCommand(query) {
     }
   }
 
+  // "Dig deeper" even when panel is closed (uses last known context)
+  if (/\b(dig deeper|tell me more|look that up|more on that|research that)\b/i.test(q)) {
+    _digDeeper(); return true;
+  }
+
   return false;
+}
+
+// Press a key into the focused panel iframe
+function panelPressKey(key) {
+  const frame = document.getElementById('browser-frame');
+  if (!frame?.contentWindow) return;
+  try {
+    const doc = frame.contentDocument;
+    const el = doc.activeElement || doc.body;
+    ['keydown','keypress','keyup'].forEach(type => {
+      el.dispatchEvent(new KeyboardEvent(type, { key, code: `Key${key.toUpperCase()}`, bubbles: true, cancelable: true }));
+    });
+  } catch(e) {}
+}
+
+// Dig deeper — extract context from panel and have Botler research it
+function _digDeeper() {
+  let ctx = _lastPanelContext;
+  if (!ctx && currentPanelUrl) ctx = currentPanelUrl;
+  if (!ctx) { speak("I'm not sure what to dig into — what topic?"); return; }
+
+  // Extract a short topic phrase from context
+  const topicMatch = ctx.match(/(?:watch|search|view|read)(?:ing)?\s+(.{5,60})/i)
+    || ctx.match(/[""]([^""]{5,60})[""]/)
+    || ctx.match(/^(.{10,80})/);
+  const topic = topicMatch ? topicMatch[1].trim() : ctx.slice(0, 80);
+
+  speak(`Looking that up — give me a moment.`);
+  // Open a DuckDuckGo search for the topic in the panel while Botler researches
+  openPanel(`https://duckduckgo.com/?q=${encodeURIComponent(topic)}&kae=d`, `Research: ${topic}`);
+  handleQuery(`Dig deeper into this for me: "${topic}". Give me the key insights, context, and anything I'd want to know. Be concise — I'm listening.`);
+}
+
+// Silent background observation — Botler notes what's on screen without speaking
+function _silentObservePanel() {
+  const frame = document.getElementById('browser-frame');
+  if (!frame) return;
+  let text = '', title = currentPanelUrl || '';
+  try {
+    const doc = frame.contentDocument;
+    if (doc && doc.body) {
+      title = doc.title || title;
+      const clone = doc.body.cloneNode(true);
+      clone.querySelectorAll('script,style,nav,footer').forEach(el => el.remove());
+      text = (clone.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 400);
+    }
+  } catch(e) {}
+  // Store context for "dig deeper" and system prompt enrichment
+  _lastPanelContext = text ? `${title}: ${text}` : title;
 }
 
 // ─── Update edit handles ──────────────────────────────────────────────────────
@@ -1425,18 +1523,48 @@ function animate(){
   const t=clock.getElapsedTime(), dt=0.016;
   bgMat.uniforms.time.value=t; bgMat.uniforms.aspect.value=aspect;
   const fy=Math.sin(t*0.55)*0.022;
-  if(!drag){look.x+=(mouse.x-look.x)*0.055; look.y+=(mouse.y-look.y)*0.055;}
+
+  // Peek behavior — Botler periodically glances toward the panel
+  const panelNowOpen = document.getElementById('side-panel')?.classList.contains('open') && !IS_MOBILE;
+  if (panelNowOpen) {
+    _panelObserveTimer += dt;
+    _peekTimer += dt;
+    // Glance toward panel every ~18s for ~2s then return
+    if (!_peekActive && _peekTimer > 18) { _peekActive = true; _peekTimer = 0; }
+    if (_peekActive) {
+      // Panel is on the right — eyes drift right
+      _peekLookX += (0.65 - _peekLookX) * 0.04;
+      if (_peekTimer > 2.2) { _peekActive = false; _peekLookX = 0; }
+    }
+    // Silent observe every 45s
+    if (_panelObserveTimer > 45) { _panelObserveTimer = 0; _silentObservePanel(); }
+  } else {
+    _peekLookX = 0; _peekActive = false; _peekTimer = 0; _panelObserveTimer = 0;
+  }
+
+  const peekBlend = _peekActive ? _peekLookX : 0;
+  if(!drag){look.x+=(mouse.x+peekBlend-look.x)*0.055; look.y+=(mouse.y-look.y)*0.055;}
   const driftX=state==='thinking'?Math.sin(t*1.05)*0.03:look.x*0.012;
   const driftY=state==='thinking'?0:look.y*0.008;
-  // Spring physics — float face above content when bubbles appear
+
+  // Spring physics Y — float face above content when bubbles appear
   _frameN++;
   if(_frameN%24===0) updateFaceTarget();
-  faceDriftV += (faceDriftYTarget - faceDriftY) * 0.08;
-  faceDriftV *= 0.72;
-  faceDriftY += faceDriftV;
+  faceDriftV  += (faceDriftYTarget - faceDriftY) * 0.08;
+  faceDriftV  *= 0.72;
+  faceDriftY  += faceDriftV;
+
+  // Spring physics X — slide face into available space when panel is open
+  faceDriftVX += (faceDriftXTarget - faceDriftX) * 0.055;
+  faceDriftVX *= 0.74;
+  faceDriftX  += faceDriftVX;
+
+  // Sync background gradient center with face position
+  bgMat.uniforms.faceX.value = faceDriftX / (2.0 * aspect);
+
   const eyeWY=EYE_Y()+fy+driftY+edit.eyeY+faceDriftY;
   ;[leftEye,rightEye].forEach(eye=>{
-    eye.g.position.x=eye.xSign*(EYE_SEP()+edit.eyeSepOff)+driftX;
+    eye.g.position.x=eye.xSign*(EYE_SEP()+edit.eyeSepOff)+driftX+faceDriftX;
     eye.g.position.y=eyeWY; eye.g.position.z=0.1; eye.g.scale.set(edit.eyeSize,edit.eyeSize,1);
   });
   if(rightEye.monoGroup){
@@ -1448,8 +1576,9 @@ function animate(){
   stepChain(rightEye.g.position.x,rightEye.g.position.y,edit.eyeSize*edit.monoSize);
   const my=MOUTH_Y()+fy, mustacheH=LIP_TH()*1.3*1.25*0.5;
   mouthGroup.position.y=my+faceDriftY;
+  mouthGroup.position.x=faceDriftX;
   mustacheGroup.position.y=my+mustacheH*2.2+edit.mustacheY+faceDriftY;
-  mustacheGroup.position.x=0; mustacheGroup.scale.set(edit.mustacheSX,edit.mustacheSY,1);
+  mustacheGroup.position.x=faceDriftX; mustacheGroup.scale.set(edit.mustacheSX,edit.mustacheSY,1);
   blinkTimer+=dt;
   if(!blinking&&blinkTimer>blinkInterval){blinking=true;blinkTimer=0;blinkInterval=2.5+Math.random()*4;}
   if(blinking){
@@ -1474,10 +1603,11 @@ animate();
 
 // ─── Face position — float above chat content ─────────────────────────────────
 function updateFaceTarget() {
-  // Collect all content rectangles that might overlap Botler's face
   const topPxCandidates = [];
+  const panel = document.getElementById('side-panel');
+  const panelOpen = panel && panel.classList.contains('open');
 
-  // Chat bubbles (any mode — desktop or voice)
+  // Chat bubbles
   const chat = document.getElementById('chat-bubbles');
   if (chat && !chat.classList.contains('hidden')) {
     Array.from(chat.children)
@@ -1493,26 +1623,36 @@ function updateFaceTarget() {
     if (r.height > 16) topPxCandidates.push(r.top);
   }
 
-  // Side panel covers the right side on desktop — on mobile it covers bottom,
-  // but the canvas (left / full-screen) still shows behind it.
-  // Treat side-panel top edge as a content boundary when it's open on mobile.
-  const panel = document.getElementById('side-panel');
-  if (panel && panel.classList.contains('open') && IS_MOBILE) {
+  // Mobile: panel comes up from bottom — treat its top edge as content boundary
+  if (panelOpen && IS_MOBILE) {
     const r = panel.getBoundingClientRect();
     if (r.height > 16) topPxCandidates.push(r.top);
   }
 
-  if (!topPxCandidates.length) { faceDriftYTarget = 0; return; }
+  // Y targeting
+  if (!topPxCandidates.length) {
+    faceDriftYTarget = 0;
+  } else {
+    const topPx  = Math.min(...topPxCandidates);
+    const topFrac = topPx / window.innerHeight;
+    if (topFrac > 0.82) {
+      faceDriftYTarget = 0;
+    } else {
+      const contentTopY3 = 1 - topFrac * 2;
+      const targetEyeWY  = Math.min(contentTopY3 + 0.14, 0.80);
+      const base = EYE_Y() + edit.eyeY;
+      faceDriftYTarget = Math.max(0, targetEyeWY - base);
+    }
+  }
 
-  const topPx  = Math.min(...topPxCandidates);
-  const topFrac = topPx / window.innerHeight;
-  if (topFrac > 0.82) { faceDriftYTarget = 0; return; }
-
-  // Three.js orthographic Y: 1=top, -1=bottom
-  const contentTopY3 = 1 - topFrac * 2;
-  const targetEyeWY  = Math.min(contentTopY3 + 0.14, 0.80);
-  const base = EYE_Y() + edit.eyeY;
-  faceDriftYTarget = Math.max(0, targetEyeWY - base);
+  // X targeting — slide face into unused space when panel is open on desktop
+  if (panelOpen && !IS_MOBILE) {
+    const panelFrac = panel.offsetWidth / window.innerWidth;
+    // Center face in the available left area: Three.js X = -panelFrac * aspect
+    faceDriftXTarget = -panelFrac * aspect;
+  } else {
+    faceDriftXTarget = 0;
+  }
 }
 
 window.addEventListener('resize',()=>{
@@ -1790,8 +1930,15 @@ You have access to the panel UI where you can open files, run code, browse docs,
   const listCtx = list.length > 0
     ? `Shopping list has ${list.length} item${list.length!==1?'s':''}: ${list.join(', ')}.`
     : 'Shopping list is empty.';
-  return `You are Botler, the Stewart household AI butler — distinguished, warm, and precise. Speak in short warm sentences (≤15 words). No markdown, bullets, or headers — you are heard, not read.
 
+  // Current panel context — what's on screen right now
+  const panelEl = document.getElementById('side-panel');
+  const panelCtx = panelEl?.classList.contains('open')
+    ? `\n## What's on screen right now\nPanel URL: ${currentPanelUrl || '(unknown)'}${_lastPanelContext ? `\nPage context: ${_lastPanelContext.slice(0, 300)}` : ''}\nThe user can say "pause", "play", "skip", "rewind", "dig deeper", "back to the video" and you should confirm the action.`
+    : '';
+
+  return `You are Botler, the Stewart household AI butler — distinguished, warm, and precise. Speak in short warm sentences (≤15 words). No markdown, bullets, or headers — you are heard, not read.
+${panelCtx}
 ${userLine}
 
 ## Persistent memory
@@ -3586,6 +3733,7 @@ function closePanel() {
   document.getElementById('browser-frame').src = 'about:blank';
   const title = document.getElementById('panel-title')?.textContent;
   _setPanelHandle(title || '');
+  faceDriftXTarget = 0; // face slides back to center
   setTimeout(updateFaceTarget, 200);
 }
 
