@@ -864,6 +864,9 @@ body.adult-mode #adult-timer { display: block; }
     <!-- Active sessions bar -->
     <div id="fp-sessions-bar" style="margin-bottom:28px;"></div>
 
+    <!-- Session Intelligence -->
+    <div id="fp-session-metrics" style="margin-bottom:32px;"></div>
+
     <!-- Kids cards -->
     <div id="family-kids-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px;margin-bottom:32px;"></div>
 
@@ -1311,6 +1314,37 @@ const RE_CLICK        = /click (?:the )?(?:one )?(?:with |that |on )?(.+)|(?:tap
 function handleLocalCommand(query) {
   const q = query.trim();
 
+  // ── Conversational session memory ──────────────────────────────────────────
+  // "Did you hear/see/catch that?" → respond with current panel observation
+  if (/\b(did you hear|did you see|did you catch|you hear that|you see that|you catch that|what was that|what did they say)\b/i.test(q)) {
+    const obs = _lastPanelContext || (_session?.events || []).filter(e=>e.t==='observation').slice(-1)[0]?.ctx;
+    if (obs) {
+      // Pass to model with context so it responds conversationally
+      handleQuery(`[The user asked "did you hear that?" — current screen context: "${obs.slice(0,300)}". Respond naturally as if you were watching along. Reference this content and any related topics from previous sessions if relevant.]`);
+    } else {
+      handleQuery(`[The user asked "did you hear that?" but there's no active panel context. Respond naturally — ask what they're referring to.]`);
+    }
+    return true;
+  }
+
+  // "What do you know about this?" / "what are your thoughts?" on current content
+  if (/\b(what do you (know|think) about (this|that)|your thoughts|what.?s your take|weigh in|chime in)\b/i.test(q)) {
+    const obs = _lastPanelContext;
+    if (obs) {
+      handleQuery(`[User wants Botler's thoughts on what's on screen: "${obs.slice(0,300)}". Respond with 1-2 insightful sentences. Reference previous session context if relevant: ${_sessionMemoryForPrompt().slice(0,200)}]`);
+      return true;
+    }
+  }
+
+  // "What were we working on?" / "catch me up" / session recap
+  if (/\b(catch me up|what were we|remind me|what did we|where were we|last time|recap|summary of (today|our session))\b/i.test(q)) {
+    const mem = _sessionMemoryForPrompt();
+    if (mem) {
+      handleQuery(`[User wants a session recap. Session memory: ${mem.slice(0,500)}. Give a 2-sentence natural recap of what's happened, like a colleague catching them up.]`);
+      return true;
+    }
+  }
+
   // User identification — say "I'm Quan", "this is Julia", etc.
   const detectedId = detectUserFromText(q);
   if (detectedId) {
@@ -1464,7 +1498,7 @@ function _digDeeper() {
   const topic = topicMatch ? topicMatch[1].trim() : ctx.slice(0, 80);
 
   speak(`Looking that up — give me a moment.`);
-  // Open a DuckDuckGo search for the topic in the panel while Botler researches
+  trackEvent('dig_deeper', { topic: topic.slice(0, 100), url: currentPanelUrl });
   openPanel(`https://duckduckgo.com/?q=${encodeURIComponent(topic)}&kae=d`, `Research: ${topic}`);
   handleQuery(`Dig deeper into this for me: "${topic}". Give me the key insights, context, and anything I'd want to know. Be concise — I'm listening.`);
 }
@@ -1483,8 +1517,8 @@ function _silentObservePanel() {
       text = (clone.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 400);
     }
   } catch(e) {}
-  // Store context for "dig deeper" and system prompt enrichment
   _lastPanelContext = text ? `${title}: ${text}` : title;
+  if (_lastPanelContext) trackEvent('observation', { ctx: _lastPanelContext.slice(0, 200), url: currentPanelUrl });
 }
 
 // ─── Update edit handles ──────────────────────────────────────────────────────
@@ -1691,6 +1725,248 @@ const DEVICE_ID = (() => {
   return id;
 })();
 
+// ═══════════════════════════════════════════════════════════════════════════════
+//  SESSION TRACKING — schema, storage, analysis
+// ═══════════════════════════════════════════════════════════════════════════════
+const SESSION_LIVE_KEY    = 'botler_session_live';
+const SESSION_ARCHIVE_KEY = 'botler_sessions';
+const SESSION_MAX_EVENTS  = 600;
+const SESSION_MAX_ARCHIVE = 21; // 3 weeks of daily sessions
+
+let _session = null;
+let _panelOpenTime = 0;
+let _lastInteractionTime = Date.now();
+let _autoresearchTimer = null;
+let _sessionFlushTimer = null;
+
+function _initSession() {
+  const today = new Date().toDateString();
+  try {
+    const saved = JSON.parse(localStorage.getItem(SESSION_LIVE_KEY) || 'null');
+    if (saved && saved.date === today && saved.deviceId === DEVICE_ID) {
+      _session = saved;
+      return;
+    }
+    if (saved) _archiveSession(saved);
+  } catch(e) {}
+  _session = {
+    id: `s_${Date.now()}`,
+    date: today,
+    deviceId: DEVICE_ID,
+    startedAt: Date.now(),
+    endedAt: null,
+    userId: null,
+    events: [],
+    insights: null,
+  };
+  _flushSession();
+}
+
+function _flushSession() {
+  if (!_session) return;
+  clearTimeout(_sessionFlushTimer);
+  _sessionFlushTimer = setTimeout(() => {
+    try { localStorage.setItem(SESSION_LIVE_KEY, JSON.stringify(_session)); } catch(e) {}
+  }, 400);
+}
+
+function trackEvent(type, data) {
+  if (!_session) return;
+  _lastInteractionTime = Date.now();
+  _session.events.push({ t: type, ts: Date.now(), ...data });
+  if (_session.events.length > SESSION_MAX_EVENTS) _session.events.splice(0, 80);
+  _flushSession();
+  _scheduleAutoresearch();
+}
+
+function _archiveSession(sess) {
+  try {
+    if (!sess || !sess.events?.length) return;
+    const archive = JSON.parse(localStorage.getItem(SESSION_ARCHIVE_KEY) || '[]');
+    // Deduplicate by id
+    const filtered = archive.filter(s => s.id !== sess.id);
+    filtered.unshift(sess);
+    if (filtered.length > SESSION_MAX_ARCHIVE) filtered.length = SESSION_MAX_ARCHIVE;
+    localStorage.setItem(SESSION_ARCHIVE_KEY, JSON.stringify(filtered));
+  } catch(e) {}
+}
+
+function getSessionArchive() {
+  try { return JSON.parse(localStorage.getItem(SESSION_ARCHIVE_KEY) || '[]'); } catch { return []; }
+}
+
+// Derive aggregated stats from session events
+function _sessionStats(sess) {
+  if (!sess) return {};
+  const events = sess.events || [];
+  const panelTimes = {};
+  const queries = [];
+  const observations = [];
+  const components = [];
+  const digs = [];
+  let panelOpenAt = null, panelUrl = null;
+
+  for (const ev of events) {
+    if (ev.t === 'panel_open') { panelOpenAt = ev.ts; panelUrl = ev.url; }
+    if (ev.t === 'panel_close' && panelOpenAt && panelUrl) {
+      const dur = ev.ts - panelOpenAt;
+      panelTimes[panelUrl] = (panelTimes[panelUrl] || 0) + dur;
+      panelOpenAt = null; panelUrl = null;
+    }
+    if (ev.t === 'query') queries.push(ev.q || '');
+    if (ev.t === 'observation') observations.push(ev.ctx || '');
+    if (ev.t === 'component') components.push({ title: ev.title, isGame: ev.isGame });
+    if (ev.t === 'dig_deeper') digs.push(ev.topic || '');
+  }
+
+  const totalMs = (sess.endedAt || Date.now()) - sess.startedAt;
+  const clickCount = events.filter(e => e.t === 'panel_click').length;
+  const queryCount = queries.length;
+
+  return { panelTimes, queries, observations, components, digs, totalMs, clickCount, queryCount };
+}
+
+// Session memory injected into system prompt
+function _sessionMemoryForPrompt() {
+  const today = _sessionStats(_session);
+  const archive = getSessionArchive().slice(0, 3);
+
+  const recentObs = (_session?.events || [])
+    .filter(e => e.t === 'observation' && e.ctx)
+    .slice(-3)
+    .map(e => e.ctx.slice(0, 120))
+    .join(' | ');
+
+  const recentTopics = [...new Set(
+    (_session?.events || []).filter(e => e.t === 'query' && e.q).slice(-8).map(e => e.q.slice(0, 60))
+  )].join('; ');
+
+  const prevSummaries = archive
+    .filter(s => s.insights && s.date !== _session?.date)
+    .slice(0, 2)
+    .map(s => `${s.date}: ${s.insights.slice(0, 200)}`)
+    .join('\n');
+
+  const panelCtx = Object.entries(today.panelTimes || {})
+    .sort((a,b) => b[1]-a[1]).slice(0, 3)
+    .map(([url, ms]) => `${new URL(url).hostname} (${Math.round(ms/60000)}m)`)
+    .join(', ');
+
+  let out = '';
+  if (recentObs) out += `\nWhat you've been watching/reading: ${recentObs}`;
+  if (recentTopics) out += `\nTopics discussed this session: ${recentTopics}`;
+  if (panelCtx) out += `\nPanels visited today: ${panelCtx}`;
+  if (prevSummaries) out += `\n\nPrevious sessions:\n${prevSummaries}`;
+  if (_session?.insights) out += `\nEarlier today (your own analysis): ${_session.insights.slice(0, 200)}`;
+  return out;
+}
+
+// End-of-session AI analysis (called on idle or unload)
+let _analysisPending = false;
+async function generateSessionInsights() {
+  if (!_session || _analysisPending) return;
+  const stats = _sessionStats(_session);
+  if (!stats.queryCount && !Object.keys(stats.panelTimes).length) return;
+  _analysisPending = true;
+  try {
+    const summaryData = {
+      date: _session.date,
+      duration: Math.round(stats.totalMs / 60000) + ' min',
+      queries: stats.queries.slice(-20),
+      panelVisits: Object.entries(stats.panelTimes).map(([u, ms]) => ({ url: u, min: Math.round(ms/60000) })),
+      digs: stats.digs,
+      components: stats.components.map(c => c.title),
+      observations: stats.observations.slice(-5),
+      prevInsights: getSessionArchive().slice(0,2).filter(s=>s.insights).map(s=>({date:s.date,insight:s.insights?.slice(0,150)})),
+    };
+    const prompt = `Analyze this Botler session and write 2-3 sentences of insight: what was the user exploring, what patterns or connections do you notice across sessions, what would be worth following up on? Be specific and conversational — write as Botler reflecting on what happened. Data: ${JSON.stringify(summaryData)}`;
+
+    const res = await fetch('/api/stream', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 300,
+        system: 'You are Botler, a household AI. Analyze the session data and give brief, insightful observations in first person. Reference previous sessions if relevant.',
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    if (res.ok) {
+      let text = '';
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = dec.decode(value);
+        for (const line of chunk.split('\n')) {
+          if (line.startsWith('data:')) {
+            try {
+              const d = JSON.parse(line.slice(5));
+              if (d.type === 'content_block_delta') text += d.delta?.text || '';
+            } catch(e) {}
+          }
+        }
+      }
+      if (text.trim()) {
+        _session.insights = text.trim();
+        _session.endedAt = Date.now();
+        _archiveSession(_session);
+        _flushSession();
+      }
+    }
+  } catch(e) {}
+  _analysisPending = false;
+}
+
+// Autoresearch: after 8min idle with panel open, Botler researches what's on screen
+function _scheduleAutoresearch() {
+  clearTimeout(_autoresearchTimer);
+  _autoresearchTimer = setTimeout(async () => {
+    const panelOpen = document.getElementById('side-panel')?.classList.contains('open');
+    if (!panelOpen || !_lastPanelContext) return;
+    const idleMs = Date.now() - _lastInteractionTime;
+    if (idleMs < 7 * 60 * 1000) return; // only if 7+ min idle
+    // Run background research — silent (no speak), stores into session insights
+    try {
+      const prompt = `The user has been looking at this page for a while: "${_lastPanelContext.slice(0, 400)}". As Botler, generate 2-3 proactive insights or questions they might find valuable. Be brief and specific. This is for your internal notes, not spoken.`;
+      const res = await fetch('/api/stream', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 200, system: 'You are Botler. Generate brief proactive research notes from what you observe on screen.', messages: [{ role: 'user', content: prompt }] })
+      });
+      if (res.ok) {
+        let text = '';
+        const reader = res.body.getReader(); const dec = new TextDecoder();
+        while (true) { const { done, value } = await reader.read(); if (done) break; const chunk = dec.decode(value); for (const line of chunk.split('\n')) { if (line.startsWith('data:')) { try { const d = JSON.parse(line.slice(5)); if (d.type === 'content_block_delta') text += d.delta?.text || ''; } catch(e) {} } } }
+        if (text.trim()) {
+          trackEvent('autoresearch', { notes: text.trim().slice(0, 300), url: currentPanelUrl });
+          // Append to session insights
+          _session.insights = (_session.insights ? _session.insights + ' ' : '') + '[Auto-research: ' + text.trim().slice(0, 150) + ']';
+          _flushSession();
+        }
+      }
+    } catch(e) {}
+  }, 8 * 60 * 1000);
+}
+
+// Archive on page unload
+window.addEventListener('beforeunload', () => {
+  if (_session) {
+    _session.endedAt = Date.now();
+    try { localStorage.setItem(SESSION_LIVE_KEY, JSON.stringify(_session)); } catch(e) {}
+    _archiveSession(_session);
+  }
+});
+
+// Generate insights after 12 min of idle
+setInterval(() => {
+  const idleMs = Date.now() - _lastInteractionTime;
+  if (idleMs > 12 * 60 * 1000) generateSessionInsights();
+}, 3 * 60 * 1000);
+
+_initSession();
+
 const HOUSEHOLD = {
   quan:   { name:'Quan',   isAdult:true,  context:'Head of household and founder of Stewart Inc. Full admin access — finance, trading (Impulse), business ops (TideFlow), and all system controls.' },
   julia:  { name:'Julia',  isAdult:true,  context:"Quan's partner. Full household and family access." },
@@ -1722,8 +1998,9 @@ function _loadUserLook(userId) {
 
 function setCurrentUser(id) {
   const u = HOUSEHOLD[id]; if (!u) return;
-  // Save current user's look before switching
   if (currentUser) _saveUserLook(currentUser.id);
+  trackEvent('user_switch', { userId: id });
+  if (_session) _session.userId = id;
   currentUser = { id, ...u };
   localStorage.setItem('botler_current_user', JSON.stringify(currentUser));
   kidsLocked = !u.isAdult;
@@ -1780,6 +2057,10 @@ function saveFamilyNotes() {
 function renderFamilyPortal() {
   const data = getFamilyData();
   document.getElementById('family-notes').value = data.notes || '';
+
+  // Session metrics section
+  _renderSessionMetrics();
+
   const grid = document.getElementById('family-kids-grid');
   grid.innerHTML = '';
   for (const kid of KIDS) {
@@ -1814,6 +2095,98 @@ function saveFamilyField(el) {
   if (!d[kid]) d[kid] = {};
   d[kid][field] = el.value;
   saveFamilyData(d);
+}
+
+function _renderSessionMetrics() {
+  const el = document.getElementById('fp-session-metrics');
+  if (!el) return;
+  const s = _session;
+  const archive = getSessionArchive();
+  const stats = _sessionStats(s);
+  const S = (css) => `style="${css}"`;
+
+  const hdr = (label) => `<div ${S('font-size:9px;letter-spacing:.4em;text-transform:uppercase;color:rgba(255,160,40,.35);margin-bottom:10px;')}>${label}</div>`;
+  const card = (content, extra='') => `<div ${S(`background:rgba(255,160,40,0.03);border:1px solid rgba(255,160,40,.1);border-radius:6px;padding:14px 16px;${extra}`)}>${content}</div>`;
+  const fmtDur = (ms) => ms < 60000 ? `${Math.round(ms/1000)}s` : ms < 3600000 ? `${Math.round(ms/60000)}m` : `${(ms/3600000).toFixed(1)}h`;
+
+  // Today's timeline (mini bar per event cluster)
+  const evs = s?.events || [];
+  const sessionDurMs = Date.now() - (s?.startedAt || Date.now());
+  let timeline = '';
+  if (evs.length > 0 && sessionDurMs > 0) {
+    const W = 100;
+    const bars = evs.map(ev => {
+      const pct = Math.round(((ev.ts - s.startedAt) / sessionDurMs) * W);
+      const color = ev.t === 'panel_open' ? '#f59e0b' : ev.t === 'query' ? '#4488ff' : ev.t === 'observation' ? '#22c55e' : ev.t === 'dig_deeper' ? '#a855f7' : ev.t === 'component' ? '#ff6b6b' : 'rgba(255,160,40,.2)';
+      return `<div title="${ev.t}: ${(ev.q||ev.url||ev.title||ev.topic||'').slice(0,40)}" ${S(`position:absolute;left:${Math.min(pct,99)}%;top:0;width:3px;height:100%;background:${color};opacity:0.7;border-radius:1px;`)}></div>`;
+    }).join('');
+    const legendItems = [['#f59e0b','Panel open'],['#4488ff','Query'],['#22c55e','Observed'],['#a855f7','Research'],['#ff6b6b','Component']];
+    const legend = legendItems.map(([c,l])=>`<span ${S(`display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:9px;color:rgba(255,200,100,.4);`)}><span ${S(`display:inline-block;width:8px;height:8px;border-radius:2px;background:${c};`)}></span>${l}</span>`).join('');
+    timeline = `
+      ${hdr('Today\'s Activity Timeline')}
+      <div ${S('position:relative;height:32px;background:rgba(255,160,40,0.04);border:1px solid rgba(255,160,40,.08);border-radius:4px;overflow:hidden;margin-bottom:8px;')}>
+        ${bars}
+      </div>
+      <div ${S('margin-bottom:4px;')}>${legend}</div>
+      <div ${S('font-size:9px;color:rgba(255,200,100,.3);letter-spacing:.1em;')}>${evs.length} events · session ${fmtDur(sessionDurMs)}</div>`;
+  }
+
+  // Top panels by time
+  const topPanels = Object.entries(stats.panelTimes || {})
+    .sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const maxPanelMs = topPanels[0]?.[1] || 1;
+  let panelRows = '';
+  for (const [url, ms] of topPanels) {
+    let host = url;
+    try { host = new URL(url).hostname.replace(/^www\./,''); } catch(e) {}
+    const pct = Math.round((ms / maxPanelMs) * 100);
+    panelRows += `<div ${S('margin-bottom:8px;')}>
+      <div ${S('display:flex;justify-content:space-between;margin-bottom:3px;')}>
+        <span ${S('font-size:10px;color:rgba(255,220,120,.65);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;')}>${host}</span>
+        <span ${S('font-size:9px;color:rgba(255,200,100,.35);letter-spacing:.1em;')}>${fmtDur(ms)}</span>
+      </div>
+      <div ${S('height:3px;background:rgba(255,160,40,.08);border-radius:2px;')}>
+        <div ${S(`width:${pct}%;height:100%;background:linear-gradient(90deg,#f59e0b,rgba(255,160,40,.4));border-radius:2px;`)}></div>
+      </div>
+    </div>`;
+  }
+
+  // Recent queries
+  const recentQ = [...new Set(stats.queries.slice(-12).reverse())].slice(0,6);
+  const queryTags = recentQ.map(q => `<span ${S('display:inline-block;background:rgba(68,136,255,0.08);border:1px solid rgba(68,136,255,.18);border-radius:12px;padding:3px 10px;font-size:9px;color:rgba(140,180,255,.7);margin:2px;letter-spacing:.05em;')}>${q.slice(0,40)}</span>`).join('');
+
+  // AI insights from previous sessions
+  const insights = [...(s?.insights ? [{date:'Today', insights: s.insights}] : []), ...archive.filter(a=>a.insights && a.date!==s?.date).slice(0,3)];
+  const insightCards = insights.map(i => `
+    <div ${S('padding:10px 0;border-bottom:1px solid rgba(255,160,40,.07);')}>
+      <div ${S('font-size:8px;color:rgba(255,160,40,.3);letter-spacing:.3em;margin-bottom:4px;')}>${i.date}</div>
+      <div ${S('font-size:11px;color:rgba(255,220,120,.65);line-height:1.6;font-family:Georgia,serif;font-style:italic;')}>"${(i.insights||'').slice(0,280)}"</div>
+    </div>`).join('');
+
+  // Generate insights button
+  const genBtn = `<button onclick="_runManualInsights()" ${S('margin-top:10px;background:rgba(255,160,40,0.06);border:1px solid rgba(255,160,40,.2);color:rgba(255,200,100,.5);font-size:9px;padding:5px 14px;border-radius:3px;cursor:pointer;font-family:Georgia,serif;letter-spacing:.2em;')}>⚡ Analyze Session Now</button>`;
+
+  el.innerHTML = `
+    <div ${S('margin-bottom:24px;')}>
+      ${hdr('Session Intelligence')}
+      <div ${S('display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;')}>
+        ${card(`<div ${S('font-size:22px;color:rgba(255,220,120,.8);font-family:Georgia,serif;')}>${stats.queryCount}</div><div ${S('font-size:9px;color:rgba(255,160,40,.35);letter-spacing:.25em;margin-top:2px;')}>QUERIES</div>`)}
+        ${card(`<div ${S('font-size:22px;color:rgba(255,220,120,.8);font-family:Georgia,serif;')}>${topPanels.length}</div><div ${S('font-size:9px;color:rgba(255,160,40,.35);letter-spacing:.25em;margin-top:2px;')}>PANELS VISITED</div>`)}
+        ${card(`<div ${S('font-size:22px;color:rgba(255,220,120,.8);font-family:Georgia,serif;')}>${stats.clickCount}</div><div ${S('font-size:9px;color:rgba(255,160,40,.35);letter-spacing:.25em;margin-top:2px;')}>PANEL CLICKS</div>`)}
+        ${card(`<div ${S('font-size:22px;color:rgba(255,220,120,.8);font-family:Georgia,serif;')}>${stats.digs.length}</div><div ${S('font-size:9px;color:rgba(255,160,40,.35);letter-spacing:.25em;margin-top:2px;')}>DEEP DIVES</div>`)}
+      </div>
+      ${timeline ? card(timeline, 'margin-bottom:12px;') : ''}
+      ${topPanels.length ? card(`${hdr('Time in Panel')}<div style="margin-top:4px;">${panelRows}</div>`, 'margin-bottom:12px;') : ''}
+      ${recentQ.length ? card(`${hdr('Topics This Session')}<div style="margin-top:4px;">${queryTags}</div>`, 'margin-bottom:12px;') : ''}
+      ${insightCards ? card(`${hdr('Botler\'s Session Notes')}<div>${insightCards}</div>${genBtn}`) : card(`${hdr('Botler\'s Session Notes')}<div ${S('font-size:10px;color:rgba(255,200,100,.25);')}>${evs.length < 5 ? 'Keep browsing — Botler will generate insights after your session.' : 'Insights will be generated after 12 minutes of idle, or click below.'}</div>${genBtn}`)}
+    </div>`;
+}
+
+async function _runManualInsights() {
+  const btn = document.querySelector('#fp-session-metrics button');
+  if (btn) { btn.textContent = '⏳ Analyzing…'; btn.disabled = true; }
+  await generateSessionInsights();
+  _renderSessionMetrics();
 }
 
 function fmtAgo(ms) {
@@ -1934,11 +2307,15 @@ You have access to the panel UI where you can open files, run code, browse docs,
   // Current panel context — what's on screen right now
   const panelEl = document.getElementById('side-panel');
   const panelCtx = panelEl?.classList.contains('open')
-    ? `\n## What's on screen right now\nPanel URL: ${currentPanelUrl || '(unknown)'}${_lastPanelContext ? `\nPage context: ${_lastPanelContext.slice(0, 300)}` : ''}\nThe user can say "pause", "play", "skip", "rewind", "dig deeper", "back to the video" and you should confirm the action.`
+    ? `\n## What's on screen right now\nURL: ${currentPanelUrl || '(unknown)'}${_lastPanelContext ? `\nContent: ${_lastPanelContext.slice(0, 300)}` : ''}\nVoice panel controls: "pause", "play", "skip", "rewind", "dig deeper", "back to the video".`
     : '';
 
+  // Session memory — what's happened in this and previous sessions
+  const sessionMem = _sessionMemoryForPrompt();
+  const sessionCtx = sessionMem ? `\n## Session memory (use this to respond contextually — "just like yesterday", "earlier you were looking at...")\n${sessionMem}` : '';
+
   return `You are Botler, the Stewart household AI butler — distinguished, warm, and precise. Speak in short warm sentences (≤15 words). No markdown, bullets, or headers — you are heard, not read.
-${panelCtx}
+${panelCtx}${sessionCtx}
 ${userLine}
 
 ## Persistent memory
@@ -2550,6 +2927,7 @@ function renderComponentInline(spec) {
     wrapper.appendChild(actions);
   }
 
+  trackEvent('component', { title, isGame });
   bubbles.appendChild(wrapper);
   bubbles.scrollTop = bubbles.scrollHeight;
   setTimeout(updateFaceTarget, 200);
@@ -3357,6 +3735,7 @@ function maybeThinkFiller(query) {
 }
 
 async function processQuery(query) {
+  trackEvent('query', { q: query.slice(0, 120), agent: activeAgent });
   // Local UI commands — handled without sending to any model
   if (handleLocalCommand(query)) return;
   // Extend adult mode timeout on any interaction
@@ -3601,6 +3980,11 @@ function openPanel(url, title) {
   const displayUrl = (isLocal || isAlreadyProxy || isNativeEmbed) ? url
     : `${location.origin}/api/browse?url=${encodeURIComponent(url)}`;
 
+  // Track panel open
+  if (_panelOpenTime && currentPanelUrl) trackEvent('panel_close', { url: currentPanelUrl, dur: Date.now() - _panelOpenTime });
+  _panelOpenTime = Date.now();
+  trackEvent('panel_open', { url, title });
+
   // Mark nav-read btn as inactive during load
   const readBtn = document.getElementById('nav-read-btn');
   if (readBtn) readBtn.classList.remove('active');
@@ -3733,7 +4117,9 @@ function closePanel() {
   document.getElementById('browser-frame').src = 'about:blank';
   const title = document.getElementById('panel-title')?.textContent;
   _setPanelHandle(title || '');
-  faceDriftXTarget = 0; // face slides back to center
+  if (_panelOpenTime && currentPanelUrl) trackEvent('panel_close', { url: currentPanelUrl, dur: Date.now() - _panelOpenTime });
+  _panelOpenTime = 0;
+  faceDriftXTarget = 0;
   setTimeout(updateFaceTarget, 200);
 }
 
@@ -3792,6 +4178,7 @@ function panelScroll(dir, px) {
 // Attempt to click something in the panel — with animated cursor
 const ORDINAL_MAP = { first:0,'1st':0,second:1,'2nd':1,third:2,'3rd':2,fourth:3,'4th':3,fifth:4,'5th':4 };
 function panelClick(query) {
+  trackEvent('panel_click', { q: query.slice(0, 60), url: currentPanelUrl });
   const frame = document.getElementById('browser-frame');
   if (!frame) return false;
 
