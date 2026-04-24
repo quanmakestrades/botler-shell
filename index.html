@@ -274,6 +274,23 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
 /* Voice mode: hide bubbles (face only) */
 body.voice-mode #chat-bubbles { display: none; }
 
+/* Typing indicator */
+.thinking-bubble {
+  display: flex !important; align-items: center; gap: 7px;
+  padding: 11px 16px !important; max-width: 72px !important;
+}
+.tdot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: rgba(255,200,100,0.6); flex-shrink: 0;
+  animation: tdot 1.3s infinite ease-in-out;
+}
+.tdot:nth-child(2) { animation-delay: 0.22s; }
+.tdot:nth-child(3) { animation-delay: 0.44s; }
+@keyframes tdot {
+  0%,60%,100% { transform: translateY(0); opacity: 0.45; }
+  30% { transform: translateY(-7px); opacity: 1; }
+}
+
 .bubble {
   max-width: 84%; padding: 8px 13px; border-radius: 16px; font-size: 13px;
   line-height: 1.6; letter-spacing: 0.02em; backdrop-filter: blur(16px);
@@ -399,14 +416,15 @@ body.night-mode canvas { filter: brightness(0.52) saturate(0.7); }
   background: rgba(12,5,0,0.95); border-top: 1px solid rgba(255,160,40,0.15);
   padding: 10px 12px; gap: 8px; align-items: center; backdrop-filter: blur(12px);
 }
-/* Silent mode — triggered by typing, suppresses TTS */
+/* Voice / Text mode toggle badge — always visible */
 #silent-badge {
-  display: none; font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase;
+  display: block; font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase;
   color: rgba(255,160,40,0.55); border: 1px solid rgba(255,160,40,0.2);
-  padding: 2px 7px; border-radius: 10px; flex-shrink: 0; cursor: pointer;
+  padding: 2px 7px; border-radius: 10px; flex-shrink: 0; cursor: pointer; transition: all 0.2s;
+  white-space: nowrap;
 }
 #silent-badge:hover { color: rgba(255,200,100,0.8); border-color: rgba(255,160,40,0.45); }
-body.silent-mode #silent-badge { display: block; }
+#silent-badge.text-mode { color: rgba(255,100,80,0.55); border-color: rgba(255,100,80,0.25); }
 body.silent-mode #text-input-bar { border-top-color: rgba(255,160,40,0.35); }
 #text-query {
   flex: 1; background: rgba(255,160,40,0.06); border: 1px solid rgba(255,160,40,0.22);
@@ -528,19 +546,17 @@ body.adult-mode #adult-timer { display: block; }
     onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendTextQuery()}"
     oninput="autoExpandTextarea(this)"
     autocomplete="off" autocorrect="off" spellcheck="false"></textarea>
-  <span id="silent-badge" onclick="exitSilentMode()" title="Text mode — click to return to voice">SILENT</span>
+  <span id="silent-badge" onclick="toggleVoiceMode()" title="Toggle voice / text mode">VOICE</span>
   <button id="text-send" onclick="sendTextQuery()">↑</button>
 </div>
 
 <div id="chat-bubbles"></div>
 
-<div id="voice-bar">
-  <button id="mute-btn" title="Mute / unmute">🎤</button>
-  <div id="transcript">Say "Botler…" to wake</div>
-  <button id="tap-talk-btn" title="Tap to speak" onclick="tapToTalk()"
-    style="background:none;border:1px solid rgba(255,160,40,0.2);color:rgba(255,200,100,0.45);font-size:10px;padding:5px 12px;border-radius:10px;cursor:pointer;flex-shrink:0;letter-spacing:0.15em;min-width:44px;min-height:36px;-webkit-tap-highlight-color:transparent;">
-    🎤
-  </button>
+<!-- Voice bar removed — hidden elements kept for JS compatibility -->
+<div id="voice-bar" style="display:none">
+  <button id="mute-btn">🎤</button>
+  <div id="transcript"></div>
+  <button id="tap-talk-btn" onclick="tapToTalk()">🎤</button>
   <div id="wake-dot"></div>
 </div>
 
@@ -863,57 +879,39 @@ const OPEN  ={idle:0.0, listening:0.0, thinking:0.0,speaking:0.4,pleased:0.08};
 let state='idle';
 const statusEl=document.getElementById('status');
 
+let _thinkBubble = null;
+function showThinkingBubble() {
+  if (_thinkBubble) return;
+  const el = document.getElementById('chat-bubbles');
+  if (!el) return;
+  _thinkBubble = document.createElement('div');
+  _thinkBubble.className = 'bubble bot thinking-bubble';
+  _thinkBubble.innerHTML = '<span class="tdot"></span><span class="tdot"></span><span class="tdot"></span>';
+  el.appendChild(_thinkBubble);
+  el.scrollTop = el.scrollHeight;
+  setTimeout(updateFaceTarget, 150);
+}
+function hideThinkingBubble() {
+  if (_thinkBubble) { _thinkBubble.remove(); _thinkBubble = null; }
+}
+
 function setState(s){
   state=s;
-  // Clear thinking timer whenever we leave thinking state
   if (s !== 'thinking' && thinkingTimer) { clearInterval(thinkingTimer); thinkingTimer = null; }
+  if (s === 'thinking') showThinkingBubble(); else hideThinkingBubble();
   statusEl.textContent = LABELS[s];
   document.querySelectorAll('.btn[data-state]').forEach(b=>b.classList.toggle('active',b.dataset.state===s));
   if(s!=='speaking') buildMouth(SMILES[s],OPEN[s]);
 }
-const THINK_STEPS = [
-  'Searching knowledge base',
-  'Analysing your request',
-  'Considering options',
-  'Composing response',
-  'Reviewing details',
-  'Refining answer',
-  'Almost ready',
-];
-const THINK_STEPS_GAME = [
-  'Designing game architecture',
-  'Writing game logic',
-  'Building controls',
-  'Adding polish',
-  'Almost ready to launch',
-];
-const THINK_STEPS_SEARCH = [
-  'Looking that up',
-  'Searching knowledge',
-  'Gathering results',
-  'Preparing response',
-];
-let _thinkStep = 0, _thinkDot = 0, _thinkSteps = THINK_STEPS;
-
 function startThinkingTimer(query) {
   if (thinkingTimer) clearInterval(thinkingTimer);
-  _thinkStep = 0; _thinkDot = 0;
-  const q = (query || '').toLowerCase();
-  _thinkSteps = /game|play|shoot|puzzle|quiz|trivia|chess|snake|asteroi/.test(q) ? THINK_STEPS_GAME
-              : /search|find|look up|google|news|weather/.test(q) ? THINK_STEPS_SEARCH
-              : THINK_STEPS;
   thinkingStart = Date.now();
+  let dots = 0;
   thinkingTimer = setInterval(() => {
     if (state !== 'thinking') { clearInterval(thinkingTimer); thinkingTimer = null; return; }
-    _thinkDot = (_thinkDot + 1) % 4;
-    const dots = '.'.repeat(_thinkDot || 1);
-    const label = _thinkSteps[Math.min(_thinkStep, _thinkSteps.length - 1)];
-    statusEl.style.opacity = '0';
-    setTimeout(() => {
-      if (state === 'thinking') { statusEl.textContent = label + dots; statusEl.style.opacity = '1'; }
-    }, 140);
-    if (_thinkDot === 0) _thinkStep++;
-  }, 600);
+    dots = (dots + 1) % 4;
+    statusEl.textContent = 'Thinking' + '.'.repeat(dots || 1);
+  }, 500);
 }
 document.querySelectorAll('.btn[data-state]').forEach(btn=>
   btn.addEventListener('click',()=>setState(btn.dataset.state)));
@@ -1488,7 +1486,7 @@ Content & navigation:
 <cmd>{"action":"youtube","query":"...","autoplay":true}</cmd>
 <cmd>{"action":"youtube","videoId":"..."}</cmd>
 <cmd>{"action":"url","url":"https://...","title":"..."}</cmd>
-<cmd>{"action":"url","url":"https://html.duckduckgo.com/html/?q=QUERY","title":"Search: QUERY"}</cmd>  ← for web searches
+<cmd>{"action":"open_url_external","url":"https://duckduckgo.com/?q=QUERY"}</cmd>  ← for web searches (opens real browser; search engines block iframes)
 <cmd>{"action":"shopping_list","title":"...","items":["a","b"]}</cmd>
 <cmd>{"action":"render_component","title":"...","html":"..."}</cmd>
 <cmd>{"action":"finance"}</cmd>
@@ -1760,6 +1758,32 @@ function _renderHistory(messages, agentId) {
 
 // ─── Silent mode (text input disables TTS; voice re-enables it) ──────────────
 let silentMode = false;
+let alwaysListening = !IS_IOS; // voice mode: mic always on, no wake word required
+
+function toggleVoiceMode() {
+  if (silentMode) {
+    // Switch to voice
+    silentMode = false;
+    alwaysListening = !IS_IOS;
+    document.getElementById('silent-badge').textContent = 'VOICE';
+    document.getElementById('silent-badge').classList.remove('text-mode');
+    document.body.classList.remove('silent-mode');
+    if (!IS_IOS && recognition) { try { recognition.start(); } catch(e) {} }
+    enterActiveListening();
+    setTranscript('Listening…');
+  } else {
+    // Switch to text-only
+    silentMode = true;
+    alwaysListening = false;
+    document.getElementById('silent-badge').textContent = 'TEXT';
+    document.getElementById('silent-badge').classList.add('text-mode');
+    document.body.classList.add('silent-mode');
+    if (recognition) { try { recognition.stop(); } catch(e) {} }
+    exitActiveListening();
+    stopSpeaking();
+  }
+}
+
 function enterSilentMode() {
   silentMode = true;
   document.body.classList.add('silent-mode');
@@ -2152,7 +2176,19 @@ function _execCmdsFromRaw(raw) {
   const re = /<cmd>([\s\S]*?)<\/cmd>/g;
   let m;
   while ((m = re.exec(raw)) !== null) {
-    try { execCmd(JSON.parse(m[1].trim())); } catch(e) { console.warn('[Botler] bad cmd:', m[1]); }
+    const cmdStr = m[1].trim();
+    try {
+      execCmd(JSON.parse(cmdStr));
+    } catch(e) {
+      // Model sometimes writes literal newlines inside JSON strings (e.g. multi-line game HTML).
+      // Normalize: replace actual \n/\r with a space so JSON.parse can handle it.
+      try {
+        const flat = cmdStr.replace(/[\n\r]+/g, ' ').replace(/\t/g, ' ');
+        execCmd(JSON.parse(flat));
+      } catch(e2) {
+        console.warn('[Botler] bad cmd (even after normalize):', e2.message, cmdStr.slice(0, 140));
+      }
+    }
   }
 }
 
@@ -2203,15 +2239,24 @@ const IS_MOBILE = IS_IOS || /Android/i.test(navigator.userAgent);
 let iosListening = false; // iOS PTT state
 
 function handleRecognitionResult(evt) {
-  if (muted) return;
+  if (muted || silentMode) return;
   let interim = '', final = '';
   for (let i = evt.resultIndex; i < evt.results.length; i++) {
     const t = evt.results[i][0].transcript;
     evt.results[i].isFinal ? (final += t) : (interim += t);
   }
 
-  if (interim && state !== 'thinking') setTranscript(interim);
+  // Show interim in text query field as live preview
+  if (interim && state !== 'thinking' && state !== 'speaking') {
+    const ta = document.getElementById('text-query');
+    if (ta && !ta.value) ta.placeholder = interim + '…';
+  }
+
   if (!final) return;
+
+  // Restore placeholder on final
+  const ta = document.getElementById('text-query');
+  if (ta) ta.placeholder = `Ask ${AGENT_NAMES[activeAgent] || 'Botler'} anything…`;
 
   const lower = final.toLowerCase().trim();
   const wakeIdx = findWakeWord(lower);
@@ -2222,11 +2267,20 @@ function handleRecognitionResult(evt) {
       abortCurrentRun();
     }
     if (!activeListening) enterActiveListening();
-    clearTimeout(wakeTimer);
-    wakeExpiresAt = Date.now() + WAKE_WINDOW_MS;
-    wakeTimer = setTimeout(exitActiveListening, WAKE_WINDOW_MS);
     const afterWake = final.slice(wakeIdx).trim();
     if (afterWake.length > 2) accumulateSpeech(afterWake);
+    // Keep wake window alive — no timeout in alwaysListening mode
+    if (!alwaysListening) {
+      clearTimeout(wakeTimer);
+      wakeExpiresAt = Date.now() + WAKE_WINDOW_MS;
+      wakeTimer = setTimeout(exitActiveListening, WAKE_WINDOW_MS);
+    }
+  } else if (alwaysListening) {
+    // Voice mode: ALL speech is a command, no wake word needed
+    if (state === 'speaking') { abortCurrentRun(); }
+    if (!activeListening) enterActiveListening();
+    const q = final.trim();
+    if (q.length > 2) accumulateSpeech(q);
   } else if (activeListening || IS_IOS) {
     clearTimeout(wakeTimer);
     wakeExpiresAt = Date.now() + WAKE_WINDOW_MS;
@@ -2433,7 +2487,7 @@ function execCmd(cmd) {
       if (cmd.url) window.open(cmd.url, '_blank');
       break;
     case 'web_search':
-      if (cmd.query) openPanel(`https://duckduckgo.com/?q=${encodeURIComponent(cmd.query)}&kae=d`, `Search: ${cmd.query}`);
+      if (cmd.query) { const su=`https://duckduckgo.com/?q=${encodeURIComponent(cmd.query)}`; window.open(su,'_blank'); }
       break;
     case 'shopping_list':
       // Merge cmd items into persistent list, then render inline
@@ -2588,20 +2642,30 @@ function pumpTTS() {
     ttsSpeaking = false;
     if (ttsQueue.length > 0) { pumpTTS(); return; }
 
-    // All done speaking — re-enable STT and extend the follow-up wake window.
+    // All done speaking — re-enable STT
     echoSuppressed = false;
-    setState('listening');
-    setWakeIndicator(true);
-    setTranscript('Listening…');
-    clearTimeout(wakeTimer);
-    wakeExpiresAt = Date.now() + WAKE_FOLLOW_UP_MS;
-    wakeTimer = setTimeout(() => {
-      wakeExpiresAt = 0;
-      setWakeIndicator(false);
-      setState('idle');
-      setTranscript(IS_IOS ? 'Tap to speak' : 'Say "Botler…" to wake');
-    }, WAKE_FOLLOW_UP_MS);
-    if (!IS_IOS && !muted && recognition) { try { recognition.start(); } catch(e) {} }
+    if (!IS_IOS && !muted && !silentMode && recognition) {
+      setTimeout(() => { try { recognition.start(); } catch(e) {} }, 80);
+    }
+    if (alwaysListening) {
+      // In always-on voice mode: stay active, no timeout
+      setState('listening');
+      setWakeIndicator(true);
+      setTranscript('Listening…');
+      if (!activeListening) enterActiveListening();
+    } else {
+      setState('listening');
+      setWakeIndicator(true);
+      setTranscript('Listening…');
+      clearTimeout(wakeTimer);
+      wakeExpiresAt = Date.now() + WAKE_FOLLOW_UP_MS;
+      wakeTimer = setTimeout(() => {
+        wakeExpiresAt = 0;
+        setWakeIndicator(false);
+        setState('idle');
+        setTranscript(IS_IOS ? 'Tap to speak' : 'Say "Botler…" to wake');
+      }, WAKE_FOLLOW_UP_MS);
+    }
     if (IS_IOS) setTranscript('Tap to speak');
   };
   utt.onerror = () => {
@@ -2862,7 +2926,7 @@ async function executeTool(name, input) {
     case 'browser_navigate':
       openPanel(input.url, input.title || input.url); return `Navigating to ${input.url}`;
     case 'web_search':
-      openPanel(`https://duckduckgo.com/?q=${encodeURIComponent(input.query)}&kae=d`, `Search: ${input.query}`);
+      { const su=`https://duckduckgo.com/?q=${encodeURIComponent(input.query)}`; window.open(su,'_blank'); }
       return `Searching for: ${input.query}`;
     case 'finance_query':
       openFinance(); return 'Finance dashboard opened';
