@@ -11,7 +11,7 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
 #hud, #controls, #edit-btn, #edit-ui { z-index: 1; }
 
 #hud { position: fixed; inset: 0; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 32px 0 28px; }
-#status { color: rgba(255,200,100,0.32); font-size: 11px; letter-spacing: 0.42em; text-transform: uppercase; pointer-events: none; }
+#status { color: rgba(255,200,100,0.32); font-size: 11px; letter-spacing: 0.42em; text-transform: uppercase; pointer-events: none; transition: opacity 0.14s; }
 #name-tag { color: rgba(255,200,100,0.16); font-size: 11px; letter-spacing: 0.62em; text-transform: uppercase; }
 #tunnel-tag { color: rgba(255,200,100,0.22); font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; pointer-events: all; cursor: pointer; text-decoration: none; display: none; }
 #tunnel-tag:hover { color: rgba(255,220,120,0.55); }
@@ -240,6 +240,21 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
 .setup-err { color: rgba(220,100,80,0.7); font-size: 10px; letter-spacing: 0.2em; display: none; }
 .setup-err.visible { display: block; }
 .setup-divider { width: 100%; border: none; border-top: 1px solid rgba(255,160,40,0.1); margin: 2px 0; }
+
+/* ── Botler cursor ── */
+#botler-cursor {
+  position: fixed; width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid var(--bc, #ff8800);
+  background: rgba(255,136,0,0.12);
+  box-shadow: 0 0 10px var(--bc, #ff8800), 0 0 28px rgba(255,136,0,0.25);
+  pointer-events: none; z-index: 9998;
+  opacity: 0; transform: translate(-50%,-50%) scale(1);
+  transition: left 0.48s cubic-bezier(.4,0,.2,1),
+              top  0.48s cubic-bezier(.4,0,.2,1),
+              opacity 0.25s, transform 0.12s;
+}
+#botler-cursor.bc-visible { opacity: 1; }
+#botler-cursor.bc-click { transform: translate(-50%,-50%) scale(2.0); }
 
 /* ── Chat Bubbles ── */
 #chat-bubbles {
@@ -650,8 +665,11 @@ body.adult-mode #adult-timer { display: block; }
     <div id="comp-modal-title">Component</div>
     <button id="comp-modal-close" onclick="closeCompModal()">✕ CLOSE</button>
   </div>
-  <iframe id="comp-modal-frame" sandbox="allow-scripts"></iframe>
+  <iframe id="comp-modal-frame" sandbox="allow-scripts allow-same-origin"></iframe>
 </div>
+
+<!-- Botler cursor — animated glowing circle for panel interactions -->
+<div id="botler-cursor"></div>
 
 <!-- First-run setup (hidden by default — auto-connects on load) -->
 <div id="setup-overlay" class="hidden">
@@ -853,14 +871,49 @@ function setState(s){
   document.querySelectorAll('.btn[data-state]').forEach(b=>b.classList.toggle('active',b.dataset.state===s));
   if(s!=='speaking') buildMouth(SMILES[s],OPEN[s]);
 }
-function startThinkingTimer() {
+const THINK_STEPS = [
+  'Searching knowledge base',
+  'Analysing your request',
+  'Considering options',
+  'Composing response',
+  'Reviewing details',
+  'Refining answer',
+  'Almost ready',
+];
+const THINK_STEPS_GAME = [
+  'Designing game architecture',
+  'Writing game logic',
+  'Building controls',
+  'Adding polish',
+  'Almost ready to launch',
+];
+const THINK_STEPS_SEARCH = [
+  'Looking that up',
+  'Searching knowledge',
+  'Gathering results',
+  'Preparing response',
+];
+let _thinkStep = 0, _thinkDot = 0, _thinkSteps = THINK_STEPS;
+
+function startThinkingTimer(query) {
   if (thinkingTimer) clearInterval(thinkingTimer);
+  _thinkStep = 0; _thinkDot = 0;
+  const q = (query || '').toLowerCase();
+  _thinkSteps = /game|play|shoot|puzzle|quiz|trivia|chess|snake|asteroi/.test(q) ? THINK_STEPS_GAME
+              : /search|find|look up|google|news|weather/.test(q) ? THINK_STEPS_SEARCH
+              : THINK_STEPS;
   thinkingStart = Date.now();
   thinkingTimer = setInterval(() => {
     if (state !== 'thinking') { clearInterval(thinkingTimer); thinkingTimer = null; return; }
-    const s = Math.floor((Date.now() - thinkingStart) / 1000);
-    statusEl.textContent = s > 0 ? `Thinking… ${s}s` : 'Thinking…';
-  }, 500);
+    _thinkDot = (_thinkDot + 1) % 4;
+    const dots = '.'.repeat(_thinkDot || 1);
+    const label = _thinkSteps[Math.min(_thinkStep, _thinkSteps.length - 1)];
+    statusEl.style.opacity = '0';
+    setTimeout(() => {
+      if (state === 'thinking') { statusEl.textContent = label + dots; statusEl.style.opacity = '1'; }
+    }, 140);
+    if (_thinkDot === 0) _thinkStep++;
+  }, 600);
 }
 document.querySelectorAll('.btn[data-state]').forEach(btn=>
   btn.addEventListener('click',()=>setState(btn.dataset.state)));
@@ -1435,15 +1488,18 @@ Content & navigation:
 <cmd>{"action":"youtube","query":"...","autoplay":true}</cmd>
 <cmd>{"action":"youtube","videoId":"..."}</cmd>
 <cmd>{"action":"url","url":"https://...","title":"..."}</cmd>
+<cmd>{"action":"url","url":"https://html.duckduckgo.com/html/?q=QUERY","title":"Search: QUERY"}</cmd>  ← for web searches
 <cmd>{"action":"shopping_list","title":"...","items":["a","b"]}</cmd>
 <cmd>{"action":"render_component","title":"...","html":"..."}</cmd>
 <cmd>{"action":"finance"}</cmd>
 <cmd>{"action":"homeschool"}</cmd>
+<cmd>{"action":"family_portal"}</cmd>   ← opens the family monitoring portal for Quan/Julia
 <cmd>{"action":"panel","name":"system-map"}</cmd>
 <cmd>{"action":"close_panel"}</cmd>
 <cmd>{"action":"panel_scroll","dir":"down"}</cmd>
 <cmd>{"action":"panel_scroll","dir":"up"}</cmd>
-<cmd>{"action":"panel_click","query":"text to find and click"}</cmd>
+<cmd>{"action":"panel_click","query":"text to find and click"}</cmd>  ← my cursor moves there and clicks
+<cmd>{"action":"panel_click","query":"second video"}</cmd>  ← ordinals work: first/second/third
 
 Appearance (delta:true = relative change):
 <cmd>{"action":"change_color","hex":"#3b82f6"}</cmd>
@@ -1859,23 +1915,29 @@ function renderComponentInline(spec) {
   header.className = 'comp-header';
   header.innerHTML = `<span class="comp-label">${title}</span><span class="comp-expand">⤢ EXPAND</span>`;
   header.onclick = () => openCompModal(title, srcdoc);
+  // Also allow collapsing from within the modal back to inline
+  wrapper.dataset.srcdoc = btoa(unescape(encodeURIComponent(srcdoc))).slice(0, 200); // tiny key
   wrapper.appendChild(header);
 
   // Inline preview iframe — capped preview height, click to expand
+  // Detect game/app by keywords — give them more vertical real estate
+  const isGame = /game|play|level|score|board|puzzle|quiz|asteroi|snake|chess|shoot/i.test(title + (spec.html || '').slice(0, 200));
+  const maxH = isGame ? 420 : 300;
+
   const frame = document.createElement('iframe');
-  frame.sandbox = 'allow-scripts';
+  frame.sandbox = 'allow-scripts allow-same-origin';
   frame.srcdoc = srcdoc;
-  frame.style.height = '200px'; // collapsed default
+  frame.style.height = (isGame ? 320 : 200) + 'px';
   frame.title = title;
   frame.onload = () => {
-    // Try to auto-size up to 260px preview (show first couple items, not the whole list)
     try {
       const natural = frame.contentDocument.body.scrollHeight + 16;
-      frame.style.height = Math.min(natural, 260) + 'px';
-    } catch { frame.style.height = '220px'; }
+      frame.style.height = Math.min(natural, maxH) + 'px';
+    } catch { frame.style.height = (isGame ? 340 : 220) + 'px'; }
     setTimeout(() => wrapper.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 120);
   };
-  frame.onclick = () => openCompModal(title, srcdoc);
+  // Single tap/click on iframe body → expand to modal; prevent accidental expand on game interaction
+  frame.ondblclick = () => openCompModal(title, srcdoc);
   wrapper.appendChild(frame);
 
   bubbles.appendChild(wrapper);
@@ -2401,8 +2463,19 @@ function execCmd(cmd) {
       // Generic named panel
       if (cmd.name === 'finance') { openFinance(); break; }
       if (cmd.name === 'homeschool') { openHomeschool(); break; }
+      if (cmd.name === 'family-portal' || cmd.name === 'family') { openFamilyPortal(); break; }
       if (cmd.name === 'system-map' || cmd.name === 'agent-map') {
         openPanel(`${location.origin}/agent-system-map.html`, 'System Map'); break;
+      }
+      break;
+    case 'family_portal':
+      openFamilyPortal();
+      break;
+    case 'game_move':
+      // Botler announcing a game move — relay to frontmost game iframe
+      { const frames = document.querySelectorAll('#chat-bubbles iframe');
+        const gf = frames[frames.length - 1];
+        if (gf?.contentWindow) gf.contentWindow.postMessage({ type: 'botler_move', move: cmd.move, game: cmd.game }, '*');
       }
       break;
     case 'homeschool':
@@ -2641,7 +2714,7 @@ async function processQueryDirect(query) {
   }
 
   setState('thinking');
-  startThinkingTimer();
+  startThinkingTimer(query);
   setTranscript(query, true);
   streamText = ''; spokenUpTo = 0;
   let fullText = '';
@@ -2747,7 +2820,7 @@ async function processQueryGateway(query) {
   else stopSpeaking();
 
   setState('thinking');
-  startThinkingTimer();
+  startThinkingTimer(query);
   setTranscript(query, true);
   streamText = ''; spokenUpTo = 0;
 
@@ -2757,7 +2830,6 @@ async function processQueryGateway(query) {
       sessionKey: getSessionKey(),
       message: query,
       idempotencyKey: idKey,
-      metadata: { deviceId: DEVICE_ID, userId: currentUser?.id || 'unknown' },
     });
     currentRunId = ack?.runId ?? idKey;
     expectedRunId = currentRunId;
@@ -2869,45 +2941,110 @@ function closePanel() {
   document.getElementById('browser-frame').src = 'about:blank';
 }
 
+// ─── Botler cursor ────────────────────────────────────────────────────────────
+const _bc = document.getElementById('botler-cursor');
+let _bcHideTimer = null;
+
+function _bcUpdateColor() {
+  // Sync cursor color to current Botler head color
+  try {
+    const col = bgMat?.uniforms?.tint?.value;
+    if (col) {
+      const hex = '#' + [col.r, col.g, col.b].map(v => Math.round(v*255).toString(16).padStart(2,'0')).join('');
+      _bc.style.setProperty('--bc', hex);
+    }
+  } catch(e) {}
+}
+
+function bcShow(x, y) {
+  _bcUpdateColor();
+  _bc.style.left = x + 'px';
+  _bc.style.top  = y + 'px';
+  _bc.classList.add('bc-visible');
+  if (_bcHideTimer) clearTimeout(_bcHideTimer);
+}
+
+function bcMoveTo(x, y, onArrival) {
+  _bcUpdateColor();
+  _bc.style.left = x + 'px';
+  _bc.style.top  = y + 'px';
+  _bc.classList.add('bc-visible');
+  // After transition lands (~520ms), pulse and execute
+  setTimeout(() => {
+    _bc.classList.add('bc-click');
+    setTimeout(() => {
+      _bc.classList.remove('bc-click');
+      if (onArrival) onArrival();
+      _bcHideTimer = setTimeout(() => _bc.classList.remove('bc-visible'), 900);
+    }, 200);
+  }, 520);
+}
+
 // ─── Panel remote control ─────────────────────────────────────────────────────
 function panelScroll(dir, px) {
   const frame = document.getElementById('browser-frame');
   if (!frame) return;
   const amount = (dir === 'up' || dir === 'top') ? -(px || 320) : (px || 320);
-  // Try same-origin first; fall back to postMessage for cross-origin
+  // Show cursor briefly at panel edge as visual feedback
+  const r = frame.getBoundingClientRect();
+  bcShow(r.left + r.width / 2, amount > 0 ? r.bottom - 40 : r.top + 40);
+  _bcHideTimer = setTimeout(() => _bc.classList.remove('bc-visible'), 700);
   try { frame.contentWindow.scrollBy({ top: amount, behavior: 'smooth' }); }
-  catch(e) { frame.contentWindow.postMessage({ type: 'botler_scroll', top: amount }, '*'); }
+  catch(e) { try { frame.contentWindow.postMessage({ type: 'botler_scroll', top: amount }, '*'); } catch(e2) {} }
 }
 
-// Attempt to click something in the panel by text content match or selector
+// Attempt to click something in the panel — with animated cursor
+const ORDINAL_MAP = { first:0,'1st':0,second:1,'2nd':1,third:2,'3rd':2,fourth:3,'4th':3,fifth:4,'5th':4 };
 function panelClick(query) {
   const frame = document.getElementById('browser-frame');
   if (!frame) return false;
-  try {
-    const doc = frame.contentDocument;
-    if (!doc) return false;
-    const q = query.toLowerCase();
-    // Walk all interactive elements and find best text match
-    const candidates = [...doc.querySelectorAll('a, button, [role="button"], [role="link"], h1, h2, h3, li, .result, article')];
-    let best = null, bestScore = 0;
-    for (const el of candidates) {
-      const text = (el.textContent || '').toLowerCase();
-      // Score = number of query words found in element text
+
+  const frameRect = frame.getBoundingClientRect();
+  const q = query.toLowerCase();
+  const ordMatch = q.match(/\b(first|1st|second|2nd|third|3rd|fourth|4th|fifth|5th)\b/);
+  const ordIdx = ordMatch ? ORDINAL_MAP[ordMatch[1]] ?? null : null;
+
+  let doc = null;
+  try { doc = frame.contentDocument; } catch(e) { doc = null; }
+
+  if (doc && doc.body) {
+    const SELECTORS = 'a[href], button, [role="button"], [role="link"], h1, h2, h3, li, article, ytd-video-renderer, ytd-compact-video-renderer, [class*="video"], [class*="result"], [class*="item"]';
+    const all = [...doc.querySelectorAll(SELECTORS)].filter(el => {
+      const r = el.getBoundingClientRect();
+      return r.width > 10 && r.height > 10;
+    });
+
+    let target = null;
+    if (ordIdx != null) {
+      // "click the second video" — pick by position order
+      const visible = all.filter(el => el.getBoundingClientRect().top >= -20);
+      target = visible[ordIdx] ?? null;
+    } else {
       const words = q.split(/\s+/).filter(w => w.length > 2);
-      const score = words.filter(w => text.includes(w)).length;
-      if (score > bestScore) { bestScore = score; best = el; }
+      let bestScore = 0;
+      for (const el of all) {
+        const score = words.filter(w => (el.textContent||'').toLowerCase().includes(w)).length;
+        if (score > bestScore) { bestScore = score; target = el; }
+      }
     }
-    if (best && bestScore > 0) {
-      best.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      best.click();
+
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const r = target.getBoundingClientRect();
+      const sx = frameRect.left + r.left + r.width / 2;
+      const sy = frameRect.top  + r.top  + r.height / 2;
+      bcMoveTo(sx, sy, () => { try { target.click(); } catch(e) {} });
       return true;
     }
-    return false;
-  } catch(e) {
-    // Cross-origin: relay via postMessage
-    frame.contentWindow.postMessage({ type: 'botler_click', query }, '*');
-    return true;
   }
+
+  // Cross-origin fallback: animate cursor to panel center then postMessage
+  const cx = frameRect.left + frameRect.width / 2;
+  const cy = frameRect.top  + frameRect.height / 2;
+  bcMoveTo(cx, cy, () => {
+    try { frame.contentWindow.postMessage({ type: 'botler_click', query, ordIdx }, '*'); } catch(e) {}
+  });
+  return true;
 }
 
 // Capture a screenshot of the panel content for visual grounding
