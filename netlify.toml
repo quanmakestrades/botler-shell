@@ -9,6 +9,11 @@
   path = "/api/stream"
   function = "stream"
 
+# Browse proxy — strips X-Frame-Options so external pages load in Botler's panel
+[[edge_functions]]
+  path = "/api/browse"
+  function = "browse"
+
 # Netlify Function for YouTube search
 [[redirects]]
   from = "/api/yt-search"

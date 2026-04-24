@@ -1169,7 +1169,7 @@ function toggleEdit(){
 // ─── Color Picker ─────────────────────────────────────────────────────────────
 const SWATCHES=['#ff8800','#ff4422','#ff2266','#cc44ff','#4455ff','#00aaff','#00cc88','#aacc00','#ffcc00','#ffffff','#ff6600','#884400','#002233','#1a0800','#333333'];
 let colorPanelOpen=false;
-function applyColor(hex){const c=new THREE.Color(hex);bgMat.uniforms.tint.value.set(c);document.querySelectorAll('.swatch').forEach(s=>s.classList.toggle('active',s.dataset.hex===hex));}
+function applyColor(hex){const c=new THREE.Color(hex);bgMat.uniforms.tint.value.set(c);document.querySelectorAll('.swatch').forEach(s=>s.classList.toggle('active',s.dataset.hex===hex));clearTimeout(applyColor._t);applyColor._t=setTimeout(()=>{if(currentUser)_saveUserLook(currentUser.id);},800);}
 function toggleColorPanel(e){e.stopPropagation();colorPanelOpen=!colorPanelOpen;document.getElementById('color-panel').classList.toggle('open',colorPanelOpen);}
 document.addEventListener('click',()=>{colorPanelOpen=false;document.getElementById('color-panel').classList.remove('open');});
 const swatchContainer=document.getElementById('color-swatches');
@@ -1237,7 +1237,7 @@ function resetAdultTimer() {
 const RE_ADULT_SHOW   = /\b(show|open|display|bring up|reveal)\b.{0,18}\b(controls?|buttons?|admin|panel|settings?|menu)\b/i;
 const RE_ADULT_HIDE   = /\b(hide|close|lock|exit|dismiss)\b.{0,18}\b(controls?|buttons?|admin|panel|settings?|menu)\b/i;
 const RE_COLORS_SHOW  = /\b(show|see|open|pick|let me|show me|can i see)\b.{0,22}\b(colors?|colou?rs?|picker|palette|rainbow)\b/i;
-const RE_OPEN_PROJECT  = /(?:let'?s?|open|start|load|work on|continue|resume|pick up|switch to) (?:the )?(?:project |)?(?:on |for |called |named )?"?([^"]{3,40})"?/i;
+const RE_OPEN_PROJECT  = /(?:let'?s?|work on|continue|resume|pick up|switch to) (?:the )?(?:project |)?(?:on |for |called |named )?"?([^"]{3,40})"?/i;
 const RE_PAUSE_PROJECT = /(?:pause|save|set aside|bookmark|park) (?:the )?project|let'?s take a break|come back to this/i;
 const RE_LIST_PROJECTS = /(?:list|show|what are(?: my)?|any) projects?/i;
 const RE_NIGHT_MODE   = /night.?mode|too bright|dim(?:mer)?|dark(?:en|er)|lower.{0,8}light|switch to dark/i;
@@ -1279,6 +1279,24 @@ function handleLocalCommand(query) {
     applyColor('#ff8800');
     speak('There we are.');
     return true;
+  }
+
+  // ── Direct navigation — any action word + known destination opens it immediately
+  // (prevents model from outputting folder emoji instead of acting)
+  const NAV_ACTION = /\b(open|show|pull up|bring up|launch|go to|take me to|display|load|start|view|get|navigate to)\b/i;
+  if (NAV_ACTION.test(q)) {
+    const ql = q.toLowerCase();
+    if (/\b(family|family portal|family monitor|parental|parent)\b/.test(ql)) { openFamilyPortal(); return true; }
+    if (/\b(system map|agent map|agent system|agents)\b/.test(ql)) { openPanel(`${location.origin}/agent-system-map.html`, 'System Map'); return true; }
+    if (/\b(finance|finances|budget|cash board|money)\b/.test(ql)) { openFinance(); return true; }
+    if (/\b(school|homeschool|school board|education)\b/.test(ql)) { openHomeschool(); return true; }
+    if (/\b(shopping list|grocery|groceries)\b/.test(ql)) { execCmd({ action: 'shopping_list_render' }); return true; }
+    // Google images shortcut
+    const imgMatch = ql.match(/\b(?:google )?images? (?:of |for )?(.+)/);
+    if (imgMatch) { openPanel(`https://www.google.com/search?q=${encodeURIComponent(imgMatch[1].trim())}&tbm=isch`, `Images: ${imgMatch[1].trim()}`); return true; }
+    // YouTube shortcut
+    const ytMatch = ql.match(/\b(?:play|youtube|watch)\b.*?(?:on youtube)?\s+(.{3,})/i);
+    if (ytMatch) { execCmd({ action: 'youtube', query: ytMatch[1].trim() }); return true; }
   }
 
   if (RE_ADULT_SHOW.test(q)) {
@@ -1499,8 +1517,23 @@ document.addEventListener('DOMContentLoaded', () => {
   if (fpBtn) fpBtn.style.display = kidsLocked ? 'none' : '';
 });
 
+// Per-user appearance — each household member keeps their own Botler look
+function _saveUserLook(userId) {
+  if (!userId) return;
+  try { localStorage.setItem(`botler_look_${userId}`, JSON.stringify(getCurrentLook())); } catch(e) {}
+}
+function _loadUserLook(userId) {
+  try {
+    const saved = localStorage.getItem(`botler_look_${userId}`);
+    if (saved) { applyLook(JSON.parse(saved)); return true; }
+  } catch(e) {}
+  return false;
+}
+
 function setCurrentUser(id) {
   const u = HOUSEHOLD[id]; if (!u) return;
+  // Save current user's look before switching
+  if (currentUser) _saveUserLook(currentUser.id);
   currentUser = { id, ...u };
   localStorage.setItem('botler_current_user', JSON.stringify(currentUser));
   kidsLocked = !u.isAdult;
@@ -1508,6 +1541,13 @@ function setCurrentUser(id) {
   // Show family portal button only for parents
   const fpBtn = document.getElementById('family-portal-btn');
   if (fpBtn) fpBtn.style.display = u.isAdult ? '' : 'none';
+  // Load this user's saved look (or fall back to agent default)
+  if (!_loadUserLook(id) && typeof applyLook === 'function' && AGENT_LOOKS?.botler) {
+    applyLook(AGENT_LOOKS.botler);
+  }
+  // Update textarea placeholder with their name
+  const ta = document.getElementById('text-query');
+  if (ta) ta.placeholder = `Ask Botler anything, ${u.name}…`;
 }
 
 // ─── Family Portal ────────────────────────────────────────────────────────────
@@ -1620,9 +1660,9 @@ function renderPortalActivity(sessions, agents) {
 
   // Command center: all agents
   const cc = document.getElementById('fp-command-center');
-  const agentOrder = ['botler','cash','dev','impulse','jim','loki'];
-  const agentColors = { botler:'#ff8800', cash:'#4caf50', dev:'#4488ff', impulse:'#ff3820', jim:'#bb40ff', loki:'#20b0a0' };
-  const agentRoles  = { botler:'Household AI', cash:'Finance', dev:'Engineering', impulse:'Trading', jim:'Music & Social', loki:'Business Ops' };
+  const agentOrder = ['botler','hermes','cash','dev','impulse','jim','loki'];
+  const agentColors = { botler:'#ff8800', hermes:'#e040fb', cash:'#4caf50', dev:'#4488ff', impulse:'#ff3820', jim:'#bb40ff', loki:'#20b0a0' };
+  const agentRoles  = { botler:'Household AI', hermes:'Agent Coordinator', cash:'Finance', dev:'Engineering', impulse:'Trading', jim:'Music & Social', loki:'Business Ops' };
   cc.innerHTML = '';
   const agentMap = Object.fromEntries((agents||[]).map(a=>[a.id,a]));
   for (const aid of agentOrder) {
@@ -1660,7 +1700,7 @@ function detectUserFromText(text) {
 
 // Per-device session — isolates audio responses to the originating device
 function getSessionKey() { return `agent:${activeAgent}:device:${DEVICE_ID}`; }
-const AGENT_NAMES = { botler:'Botler', cash:'Cash', dev:'Dev', impulse:'Impulse', jim:'Jim', loki:'Loki' };
+const AGENT_NAMES = { botler:'Botler', cash:'Cash', dev:'Dev', hermes:'Hermes', impulse:'Impulse', jim:'Jim', loki:'Loki' };
 const DIRECT_API_URL   = `${location.origin}/api/stream`; // Anthropic proxy in botler-serve
 
 // System prompt — built dynamically so it includes the current user's context and persistent state
@@ -3157,7 +3197,7 @@ async function processQueryDirect(query) {
         model: MODEL_IDS[activeModel] || 'claude-sonnet-4-6',
         system: buildDirectSystem(),
         messages: apiMessages,
-        max_tokens: 2048,
+        max_tokens: 8192,
         stream: true,
       }),
     });
@@ -3712,6 +3752,9 @@ function applyLook(look) {
   const { color, ...editParams } = look;
   Object.assign(edit, editParams);
   buildMustache();
+  // Auto-persist look for current user (debounced)
+  clearTimeout(applyLook._saveTimer);
+  applyLook._saveTimer = setTimeout(() => { if (currentUser) _saveUserLook(currentUser.id); }, 800);
 }
 function saveLook(name) {
   const looks = JSON.parse(localStorage.getItem('botler_looks') || '{}');
