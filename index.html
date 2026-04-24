@@ -920,8 +920,16 @@ function resetAdultTimer() {
 const RE_ADULT_SHOW   = /\b(show|open|display|bring up|reveal)\b.{0,18}\b(controls?|buttons?|admin|panel|settings?|menu)\b/i;
 const RE_ADULT_HIDE   = /\b(hide|close|lock|exit|dismiss)\b.{0,18}\b(controls?|buttons?|admin|panel|settings?|menu)\b/i;
 const RE_COLORS_SHOW  = /\b(show|see|open|pick|let me|show me|can i see)\b.{0,22}\b(colors?|colou?rs?|picker|palette|rainbow)\b/i;
+const RE_OPEN_PROJECT  = /(?:let'?s?|open|start|load|work on|continue|resume|pick up|switch to) (?:the )?(?:project |)?(?:on |for |called |named )?"?([^"]{3,40})"?/i;
+const RE_PAUSE_PROJECT = /(?:pause|save|set aside|bookmark|park) (?:the )?project|let'?s take a break|come back to this/i;
+const RE_LIST_PROJECTS = /(?:list|show|what are(?: my)?|any) projects?/i;
 const RE_NIGHT_MODE   = /night.?mode|too bright|dim(?:mer)?|dark(?:en|er)|lower.{0,8}light|switch to dark/i;
 const RE_DAY_MODE     = /day.?mode|light(?:er)? mode|brighten|normal.{0,6}mode|too dark/i;
+const RE_SCROLL_DOWN  = /scroll (?:down|forward|more)|next (?:page|section)|(?:page|move) down/i;
+const RE_SCROLL_UP    = /scroll (?:up|back(?:ward)?)|(?:go|move|page) (?:back )?up/i;
+const RE_SCROLL_TOP   = /(?:go to|back to) (?:the )?top|scroll to top/i;
+const RE_PANEL_CLOSE  = /close (?:the )?(?:panel|browser|page|tab|side)|go back to (?:you|face)/i;
+const RE_CLICK        = /click (?:the )?(?:one )?(?:with |that |on )?(.+)|(?:tap|open|select|choose|play) (?:the )?(?:one )?(?:with |that |on )?(.+)/i;
 
 function handleLocalCommand(query) {
   const q = query.trim();
@@ -935,6 +943,12 @@ function handleLocalCommand(query) {
     speak(wasNew ? `Welcome, ${name}. How may I assist you?` : `Switching to ${name}'s session.`);
     return true;
   }
+
+  // Project management
+  if (RE_LIST_PROJECTS.test(q)) { listProjects(); return true; }
+  if (RE_PAUSE_PROJECT.test(q)) { pauseProject(); return true; }
+  const projMatch = RE_OPEN_PROJECT.exec(q);
+  if (projMatch) { openProject(projMatch[1].trim()); return true; }
 
   // Night / day mode
   if (RE_NIGHT_MODE.test(q)) {
@@ -966,6 +980,27 @@ function handleLocalCommand(query) {
     speak('Here you go — pick any color.');
     return true;
   }
+
+  // Panel remote control
+  const panel = document.getElementById('side-panel');
+  const panelOpen = panel && panel.classList.contains('open');
+  if (panelOpen) {
+    if (RE_SCROLL_TOP.test(q))  { panelScroll('top', 99999); speak('Back to the top.'); return true; }
+    if (RE_SCROLL_DOWN.test(q)) { panelScroll('down'); return true; }
+    if (RE_SCROLL_UP.test(q))   { panelScroll('up'); return true; }
+    if (RE_PANEL_CLOSE.test(q)) { closePanel(); speak('Closing the panel.'); return true; }
+    const clickMatch = RE_CLICK.exec(q);
+    if (clickMatch) {
+      const target = (clickMatch[1] || clickMatch[2] || '').trim();
+      if (target.length > 1) {
+        speak(`Looking for "${target}"…`);
+        const found = panelClick(target);
+        if (!found) speak('I couldn\'t find that on the page.');
+        return true;
+      }
+    }
+  }
+
   return false;
 }
 
@@ -1215,6 +1250,9 @@ Your text should be one natural spoken sentence like "Here's your list." or "Don
 <cmd>{"action":"night_mode","on":true}</cmd>   — dim + dark mode
 <cmd>{"action":"night_mode","on":false}</cmd>  — return to normal brightness
 
+## Project context
+${activeProject ? `ACTIVE PROJECT: "${activeProject.name}"\nNotes so far:\n${activeProject.notes || '(none yet)'}\n\nWhen the user mentions saving a note or key finding, embed: <cmd>{"action":"project_note","note":"..."}</cmd>\nWhen switching topics, reassure the user we\'ll pick up the project where we left off.` : 'No active project. If user wants to start one, embed: <cmd>{"action":"project_context","name":"PROJECT NAME"}</cmd>'}
+
 ## Ambient / driving conversation style
 In flowing conversations (driving, cooking, etc.): keep mental track of the task, confirm additions aloud in ≤8 words ("Got it — almond milk, dog food, apples."), offer to render at natural pauses ("Shall I pull up the list?"). When rendering, say one sentence then let the component appear.
 
@@ -1245,6 +1283,9 @@ Content & navigation:
 <cmd>{"action":"homeschool"}</cmd>
 <cmd>{"action":"panel","name":"system-map"}</cmd>
 <cmd>{"action":"close_panel"}</cmd>
+<cmd>{"action":"panel_scroll","dir":"down"}</cmd>
+<cmd>{"action":"panel_scroll","dir":"up"}</cmd>
+<cmd>{"action":"panel_click","query":"text to find and click"}</cmd>
 
 Appearance (delta:true = relative change):
 <cmd>{"action":"change_color","hex":"#3b82f6"}</cmd>
@@ -1521,6 +1562,74 @@ function addToShoppingList(items) {
   const next = [...cur, ...items.filter(i => !cur.map(c=>c.toLowerCase()).includes(i.toLowerCase()))];
   setShoppingList(next);
   return next;
+}
+
+// ─── Project collaboration context ────────────────────────────────────────────
+// Named projects persist across sessions. The active project injects its notes
+// and saved research into the system prompt so Botler picks up mid-task.
+let activeProject = null;
+
+function getProjects() {
+  try { return JSON.parse(localStorage.getItem('botler_projects') || '{}'); } catch { return {}; }
+}
+function saveProjects(p) { localStorage.setItem('botler_projects', JSON.stringify(p)); }
+
+function openProject(name) {
+  const projects = getProjects();
+  const key = name.toLowerCase().trim();
+  let proj = Object.values(projects).find(p => p.name.toLowerCase() === key);
+  if (!proj) {
+    proj = { id: crypto.randomUUID(), name, notes: '', milestones: [], history: [], createdAt: Date.now() };
+    projects[proj.id] = proj;
+    saveProjects(projects);
+  }
+  activeProject = proj;
+  // Restore project conversation history
+  if (proj.history && proj.history.length) {
+    conversationHistory = [...proj.history.slice(-16)];
+  } else {
+    conversationHistory = [];
+  }
+  speak(`Project "${name}" loaded. Where were we?`);
+  addBubble('bot', `📁 Project: ${name}`);
+}
+
+function saveActiveProject() {
+  if (!activeProject) return;
+  const projects = getProjects();
+  activeProject.history = conversationHistory.slice(-20);
+  activeProject.lastActive = Date.now();
+  projects[activeProject.id] = activeProject;
+  saveProjects(projects);
+}
+
+function pauseProject() {
+  if (!activeProject) { speak("No active project."); return; }
+  saveActiveProject();
+  speak(`Saved. We can pick up "${activeProject.name}" any time.`);
+  activeProject = null;
+}
+
+function addProjectNote(note) {
+  if (!activeProject) return;
+  activeProject.notes = (activeProject.notes ? activeProject.notes + '\n' : '') + note;
+  saveActiveProject();
+}
+
+function listProjects() {
+  const projects = getProjects();
+  const list = Object.values(projects);
+  if (!list.length) { speak("No saved projects yet."); return; }
+  const names = list.map(p => p.name).join(', ');
+  speak(`Your projects: ${names}.`);
+  renderComponentInline({
+    title: 'Projects',
+    html: `<style>body{background:#0a0400;color:rgba(255,200,100,.8);font-family:Georgia,serif;padding:16px}
+    li{padding:9px 4px;border-bottom:1px solid rgba(255,160,40,.08);font-size:14px;cursor:pointer}
+    li:hover{color:rgba(255,220,120,1)}
+    .ts{font-size:10px;color:rgba(255,160,40,.35);letter-spacing:.2em;float:right}</style>
+    <ul>${list.map(p=>`<li onclick="openProject('${p.name.replace(/'/g,"\\'")}')">${p.name}<span class="ts">${p.lastActive ? new Date(p.lastActive).toLocaleDateString() : 'new'}</span></li>`).join('')}</ul>`,
+  });
 }
 
 function buildShoppingListHTML(items) {
@@ -2150,6 +2259,18 @@ function execCmd(cmd) {
     case 'shopping_list_render':
       renderComponentInline({ title: 'Shopping List', type: 'shopping_list' });
       break;
+    case 'panel_scroll':
+      panelScroll(cmd.dir || 'down', cmd.px);
+      break;
+    case 'panel_click':
+      if (!panelClick(cmd.query || cmd.text || '')) speak('I could not find that on screen.');
+      break;
+    case 'project_context':
+      if (cmd.name) openProject(cmd.name);
+      break;
+    case 'project_note':
+      if (cmd.note) addProjectNote(cmd.note);
+      break;
     default:
       console.log('[Botler] unknown cmd action:', cmd.action);
   }
@@ -2336,7 +2457,7 @@ async function processQueryDirect(query) {
         model: 'claude-haiku-4-5-20251001',
         system: buildDirectSystem(),
         messages: apiMessages,
-        max_tokens: 512,
+        max_tokens: 2048,
         stream: true,
       }),
     });
@@ -2365,7 +2486,7 @@ async function processQueryDirect(query) {
           // Anthropic SSE: content_block_delta with text_delta type
           if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') {
             fullText += ev.delta.text;
-            const clean = fullText.replace(/<cmd>[\s\S]*?<\/cmd>/g, '').replace(/\s{2,}/g, ' ').trim();
+            const clean = fullText.replace(/<cmd>[\s\S]*?<\/cmd>/g, '').replace(/<cmd>[\s\S]*/g, '').replace(/\s{2,}/g, ' ').trim();
             if (clean.length > spokenUpTo) {
               let chunk = clean.slice(spokenUpTo);
               while (chunk.length > 0) {
@@ -2384,7 +2505,11 @@ async function processQueryDirect(query) {
 
     if (currentRunId !== myRunId) return; // barged-in, don't finalize
 
-    const cleanFull = fullText.replace(/<cmd>[\s\S]*?<\/cmd>/g, '').replace(/\s{2,}/g, ' ').trim();
+    // Strip complete cmd blocks, then any unclosed <cmd> tail (model hit token limit mid-tag)
+    const cleanFull = fullText
+      .replace(/<cmd>[\s\S]*?<\/cmd>/g, '')
+      .replace(/<cmd>[\s\S]*/g, '')
+      .replace(/\s{2,}/g, ' ').trim();
     const leftover = cleanFull.slice(spokenUpTo).trim();
     if (leftover) speak(leftover);
 
@@ -2400,6 +2525,7 @@ async function processQueryDirect(query) {
 
     currentRunId = null; streamText = ''; spokenUpTo = 0;
     if (ttsQueue.length === 0 && !ttsSpeaking) setState('idle');
+    saveActiveProject(); // persist conversation progress into active project if open
 
   } catch (err) {
     console.error('[Botler] direct API error:', err);
@@ -2544,6 +2670,59 @@ function closePanel() {
   const btn = document.getElementById('panel-expand');
   if (btn) btn.textContent = '⤢';
   document.getElementById('browser-frame').src = 'about:blank';
+}
+
+// ─── Panel remote control ─────────────────────────────────────────────────────
+function panelScroll(dir, px) {
+  const frame = document.getElementById('browser-frame');
+  if (!frame) return;
+  const amount = (dir === 'up' || dir === 'top') ? -(px || 320) : (px || 320);
+  // Try same-origin first; fall back to postMessage for cross-origin
+  try { frame.contentWindow.scrollBy({ top: amount, behavior: 'smooth' }); }
+  catch(e) { frame.contentWindow.postMessage({ type: 'botler_scroll', top: amount }, '*'); }
+}
+
+// Attempt to click something in the panel by text content match or selector
+function panelClick(query) {
+  const frame = document.getElementById('browser-frame');
+  if (!frame) return false;
+  try {
+    const doc = frame.contentDocument;
+    if (!doc) return false;
+    const q = query.toLowerCase();
+    // Walk all interactive elements and find best text match
+    const candidates = [...doc.querySelectorAll('a, button, [role="button"], [role="link"], h1, h2, h3, li, .result, article')];
+    let best = null, bestScore = 0;
+    for (const el of candidates) {
+      const text = (el.textContent || '').toLowerCase();
+      // Score = number of query words found in element text
+      const words = q.split(/\s+/).filter(w => w.length > 2);
+      const score = words.filter(w => text.includes(w)).length;
+      if (score > bestScore) { bestScore = score; best = el; }
+    }
+    if (best && bestScore > 0) {
+      best.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      best.click();
+      return true;
+    }
+    return false;
+  } catch(e) {
+    // Cross-origin: relay via postMessage
+    frame.contentWindow.postMessage({ type: 'botler_click', query }, '*');
+    return true;
+  }
+}
+
+// Capture a screenshot of the panel content for visual grounding
+function capturePanelScreenshot() {
+  const frame = document.getElementById('browser-frame');
+  if (!frame) return null;
+  try {
+    const doc = frame.contentDocument;
+    if (!doc) return null;
+    // For same-origin: use html2canvas if available, else null
+    return null; // Phase 2: inject html2canvas
+  } catch(e) { return null; }
 }
 
 function togglePanelExpand() {
