@@ -1841,8 +1841,9 @@ class GatewayClient {
     const id = crypto.randomUUID();
     const params = {
       minProtocol: 3, maxProtocol: 3,
-      client: { id: `openclaw-control-ui-${DEVICE_ID}`, version: 'dev',
-                displayName: currentUser?.name || 'Botler Shell', platform: navigator.platform || 'web', mode: 'webchat' },
+      client: { id: 'openclaw-control-ui', version: 'dev',
+                displayName: currentUser?.name || 'Botler Shell', platform: navigator.platform || 'web', mode: 'webchat',
+                deviceId: DEVICE_ID },
       role: 'operator',
       scopes: ['operator.admin'],
       auth: this.token ? { password: this.token } : undefined,

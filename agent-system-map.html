@@ -5,21 +5,106 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Stewart Inc. — Agent System Map</title>
 <style>
+/* ── Reset + base ─────────────────────────────────────────────────────────── */
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body {
-  background: #0d0501; font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
-  color: rgba(255,215,120,0.8); display: flex; height: 100vh; overflow: hidden;
-  font-size: 12px;
+body { background: #0a0400; font-family: 'Georgia', serif; color: rgba(255,215,120,0.8); min-height: 100vh; }
+
+/* ── Top bar (always visible) ─────────────────────────────────────────────── */
+#topbar {
+  position: fixed; top: 0; left: 0; right: 0; height: 42px; z-index: 200;
+  background: rgba(10,4,0,0.92); backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(255,160,40,0.15);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 16px; gap: 12px;
+}
+#topbar-left { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+#conn-dot { width: 6px; height: 6px; border-radius: 50%; background: #cc5540; flex-shrink: 0; }
+#conn-dot.ok { background: #44cc44; box-shadow: 0 0 5px #44cc44; }
+#conn-text { font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase; color: rgba(255,180,60,0.4); }
+#topbar-title { font-size: 9px; letter-spacing: 0.5em; text-transform: uppercase; color: rgba(255,200,100,0.25); flex: 1; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#topbar-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+#last-refresh { font-size: 9px; letter-spacing: 0.2em; color: rgba(255,180,60,0.25); white-space: nowrap; }
+#toggle-view-btn {
+  background: rgba(255,160,40,0.07); border: 1px solid rgba(255,160,40,0.2);
+  color: rgba(255,200,100,0.55); font-family: 'Georgia', serif;
+  font-size: 10px; letter-spacing: 0.2em; padding: 4px 12px;
+  border-radius: 2px; cursor: pointer; white-space: nowrap;
+  transition: all 0.15s;
+}
+#toggle-view-btn:hover { background: rgba(255,160,40,0.13); color: rgba(255,220,140,0.9); }
+
+/* ── Infographic view ─────────────────────────────────────────────────────── */
+#view-infographic {
+  padding: 62px 20px 48px;
 }
 
-/* ── Sidebar ── */
-#sidebar {
-  width: 220px; min-width: 180px; background: rgba(8,3,0,0.97);
+.section-label { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: rgba(255,180,60,0.3); margin: 24px 0 10px; }
+
+.agent-card {
+  background: rgba(255,140,20,0.04); border: 1px solid rgba(255,160,40,0.14);
+  border-radius: 3px; padding: 14px 16px; margin-bottom: 10px;
+}
+.agent-card.orchestrator { border-color: rgba(255,200,80,0.28); background: rgba(255,160,40,0.07); }
+.agent-card.worker       { border-color: rgba(255,160,40,0.08); opacity: 0.85; }
+.agent-card.autonomous   { border-color: rgba(160,120,255,0.18); }
+.agent-card.error        { border-color: rgba(220,80,60,0.28); }
+
+.agent-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+.agent-badge { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,160,40,0.3); flex-shrink: 0; transition: all 0.3s; }
+.agent-badge.active { background: #44cc44; box-shadow: 0 0 6px #44cc44; }
+.agent-badge.warn   { background: #ffaa40; box-shadow: 0 0 6px #ffaa40; }
+.agent-badge.error  { background: #cc5540; box-shadow: 0 0 6px #cc5540; }
+.agent-name { font-size: 12px; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(255,220,120,0.85); }
+.agent-role { font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase; color: rgba(255,180,60,0.35); }
+.agent-meta { margin-left: auto; font-size: 9px; letter-spacing: 0.2em; color: rgba(255,200,100,0.4); text-align: right; }
+
+.agent-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.tag {
+  font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 2px;
+  background: rgba(255,160,40,0.07); border: 1px solid rgba(255,160,40,0.15);
+  color: rgba(255,200,100,0.5);
+}
+.tag.model    { border-color: rgba(100,180,255,0.2); color: rgba(140,200,255,0.55); }
+.tag.schedule { border-color: rgba(180,255,160,0.18); color: rgba(160,220,140,0.55); }
+.tag.count    { border-color: rgba(255,200,100,0.2); color: rgba(255,220,140,0.65); }
+.tag.tag-error { border-color: rgba(220,100,80,0.3); color: rgba(230,140,110,0.7); }
+
+.session-list { margin-top: 10px; font-size: 10px; color: rgba(255,200,100,0.45); max-height: 140px; overflow-y: auto; padding-top: 4px; border-top: 1px solid rgba(255,160,40,0.08); }
+.session-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 9px; letter-spacing: 0.05em; border-bottom: 1px dashed rgba(255,160,40,0.05); }
+.session-row:last-child { border-bottom: none; }
+.session-key { color: rgba(255,200,100,0.55); font-family: 'Courier New', monospace; }
+.session-meta { color: rgba(255,180,60,0.35); }
+
+.cron-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 9px; letter-spacing: 0.05em; }
+.cron-label { color: rgba(255,200,100,0.55); }
+.cron-status { color: rgba(160,220,140,0.55); }
+.cron-status.err { color: rgba(220,100,80,0.7); }
+
+.divider { border: none; border-top: 1px solid rgba(255,160,40,0.08); margin: 20px 0; }
+
+.stat-bar { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; justify-content: center; }
+.stat { text-align: center; min-width: 60px; }
+.stat-val { font-size: 18px; color: rgba(255,220,120,0.7); letter-spacing: 0.05em; }
+.stat-val.red { color: rgba(220,120,100,0.8); }
+.stat-val.green { color: rgba(140,220,120,0.8); }
+.stat-lbl { font-size: 8px; letter-spacing: 0.35em; text-transform: uppercase; color: rgba(255,180,60,0.3); margin-top: 2px; }
+
+/* ── Explorer view ────────────────────────────────────────────────────────── */
+#view-explorer {
+  display: none;
+  position: fixed; top: 42px; left: 0; right: 0; bottom: 0;
+  font-family: 'Menlo', 'Monaco', 'Consolas', monospace;
+  font-size: 12px; overflow: hidden;
+}
+
+#ex-sidebar {
+  width: 220px; min-width: 160px; background: rgba(8,3,0,0.97);
   border-right: 1px solid rgba(255,160,40,0.1);
   display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0;
 }
-#sidebar-header {
-  padding: 14px 12px 10px;
+#ex-sidebar-header {
+  padding: 12px 12px 9px;
   font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase;
   color: rgba(255,160,40,0.3); border-bottom: 1px solid rgba(255,160,40,0.07);
   flex-shrink: 0;
@@ -36,157 +121,415 @@ body {
   border-left-color: rgba(255,160,40,0.6);
   background: rgba(255,160,40,0.08); color: rgba(255,230,140,0.95);
 }
-.agent-dot {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: rgba(255,160,40,0.25); flex-shrink: 0;
-}
+.agent-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,160,40,0.25); flex-shrink: 0; }
 .agent-dot.up   { background: #4caf50; box-shadow: 0 0 4px #4caf50; }
 .agent-dot.warn { background: #ff9800; box-shadow: 0 0 4px #ff9800; }
 .agent-item-name { flex: 1; letter-spacing: 0.05em; }
 .agent-item-model { font-size: 9px; color: rgba(255,160,40,0.3); }
-#status-bar {
-  padding: 7px 12px; font-size: 9px; letter-spacing: 0.2em;
-  color: rgba(255,160,40,0.3); border-top: 1px solid rgba(255,160,40,0.07);
-  flex-shrink: 0;
-}
-#gw-dot {
-  display: inline-block; width: 5px; height: 5px; border-radius: 50%;
-  background: rgba(255,160,40,0.25); margin-right: 5px; vertical-align: middle;
-}
-#gw-dot.up { background: #4caf50; box-shadow: 0 0 4px #4caf50; }
+#ex-status { padding: 7px 12px; font-size: 9px; letter-spacing: 0.2em; color: rgba(255,160,40,0.3); border-top: 1px solid rgba(255,160,40,0.07); flex-shrink: 0; }
 
-/* ── Main explorer ── */
-#main {
-  flex: 1; display: flex; flex-direction: column; overflow: hidden;
-}
+#ex-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 #explorer-header {
-  display: flex; align-items: center; gap: 0;
+  display: flex; align-items: center;
   border-bottom: 1px solid rgba(255,160,40,0.08);
   flex-shrink: 0; background: rgba(10,4,0,0.8);
 }
 .breadcrumb {
   padding: 10px 16px; font-size: 11px;
-  color: rgba(255,200,100,0.45); letter-spacing: 0.1em;
-  flex: 1;
+  color: rgba(255,200,100,0.45); letter-spacing: 0.1em; flex: 1;
 }
 .breadcrumb span { color: rgba(255,160,40,0.3); margin: 0 5px; }
 .breadcrumb .crumb { cursor: pointer; color: rgba(255,200,100,0.55); }
 .breadcrumb .crumb:hover { color: rgba(255,230,140,0.9); }
-#toolbar {
-  display: flex; gap: 0; padding: 0 8px;
-}
+#ex-toolbar { display: flex; padding: 0 6px; }
 .tool-btn {
   background: none; border: none; color: rgba(255,160,40,0.35);
-  padding: 8px 10px; cursor: pointer; font-size: 13px;
-  transition: color 0.15s;
+  padding: 8px 9px; cursor: pointer; font-size: 13px; transition: color 0.15s;
 }
 .tool-btn:hover { color: rgba(255,220,120,0.8); }
 
-#file-pane {
-  flex: 1; overflow: auto; padding: 4px 0;
-}
+#file-pane { flex: 1; overflow: auto; padding: 4px 0; }
 
-/* File tree */
 .tree-row {
-  display: flex; align-items: center; gap: 0;
+  display: flex; align-items: center;
   padding: 3px 0; cursor: pointer; user-select: none;
-  border-left: 2px solid transparent;
-  transition: background 0.1s;
+  border-left: 2px solid transparent; transition: background 0.1s;
 }
 .tree-row:hover { background: rgba(255,160,40,0.05); }
 .tree-row.selected { background: rgba(255,160,40,0.1); border-left-color: rgba(255,160,40,0.4); }
 .tree-indent { display: inline-block; flex-shrink: 0; }
-.tree-arrow {
-  display: inline-block; width: 16px; text-align: center;
-  color: rgba(255,160,40,0.3); font-size: 9px; flex-shrink: 0;
-  transition: transform 0.15s;
-}
+.tree-arrow { display: inline-block; width: 16px; text-align: center; color: rgba(255,160,40,0.3); font-size: 9px; flex-shrink: 0; transition: transform 0.15s; }
 .tree-arrow.open { transform: rotate(90deg); }
 .tree-icon { width: 16px; flex-shrink: 0; text-align: center; font-size: 12px; }
-.tree-name {
-  flex: 1; color: rgba(255,215,120,0.8); letter-spacing: 0.03em;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  padding-right: 8px;
-}
+.tree-name { flex: 1; color: rgba(255,215,120,0.8); letter-spacing: 0.03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 8px; }
 .tree-name.dir { color: rgba(255,200,100,0.85); }
 .tree-size { font-size: 9px; color: rgba(255,160,40,0.25); padding-right: 12px; flex-shrink: 0; }
 
-/* File preview pane */
+/* Preview pane */
 #preview-pane {
-  width: 340px; min-width: 280px; border-left: 1px solid rgba(255,160,40,0.08);
+  width: 340px; min-width: 260px; border-left: 1px solid rgba(255,160,40,0.08);
   background: rgba(8,3,0,0.97); display: flex; flex-direction: column;
-  overflow: hidden; flex-shrink: 0;
+  overflow: hidden; flex-shrink: 0; position: relative;
 }
-#preview-header {
-  padding: 10px 14px; font-size: 9px; letter-spacing: 0.35em;
-  text-transform: uppercase; color: rgba(255,160,40,0.3);
-  border-bottom: 1px solid rgba(255,160,40,0.07); flex-shrink: 0;
+#preview-handle {
+  display: none;
+  position: absolute; left: -28px; top: 50%; transform: translateY(-50%);
+  width: 28px; height: 56px;
+  background: rgba(255,160,40,0.12); border: 1px solid rgba(255,160,40,0.2);
+  border-right: none; border-radius: 4px 0 0 4px;
+  align-items: center; justify-content: center;
+  cursor: pointer; color: rgba(255,200,100,0.5); font-size: 14px; z-index: 10;
 }
+#preview-header { padding: 10px 14px; font-size: 9px; letter-spacing: 0.35em; text-transform: uppercase; color: rgba(255,160,40,0.3); border-bottom: 1px solid rgba(255,160,40,0.07); flex-shrink: 0; }
 #preview-content {
-  flex: 1; overflow: auto; padding: 14px;
-  font-size: 11px; line-height: 1.65;
+  flex: 1; overflow: auto; padding: 14px; font-size: 11px; line-height: 1.65;
   color: rgba(255,215,120,0.65); white-space: pre-wrap; word-break: break-word;
 }
-#preview-content.empty { color: rgba(255,160,40,0.2); font-style: italic; padding: 20px 14px; }
-
-/* Agent info card (shows when agent selected, no file) */
-#agent-card {
-  padding: 20px 16px; display: none;
-}
+#preview-content.empty { color: rgba(255,160,40,0.2); font-style: italic; }
+#agent-card { padding: 20px 16px; display: none; overflow: auto; }
 .ac-label { font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase; color: rgba(255,160,40,0.3); margin-bottom: 4px; margin-top: 14px; }
 .ac-label:first-child { margin-top: 0; }
 .ac-value { color: rgba(255,215,120,0.65); font-size: 11px; word-break: break-all; }
-.ac-badge {
-  display: inline-block; font-size: 9px; letter-spacing: 0.2em;
-  padding: 2px 8px; border-radius: 2px; border: 1px solid rgba(255,160,40,0.2);
-  color: rgba(255,200,100,0.5); text-transform: uppercase;
-}
+.ac-badge { display: inline-block; font-size: 9px; letter-spacing: 0.2em; padding: 2px 8px; border-radius: 2px; border: 1px solid rgba(255,160,40,0.2); color: rgba(255,200,100,0.5); text-transform: uppercase; }
 
 /* Scrollbars */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255,160,40,0.15); border-radius: 2px; }
 
-/* Empty state */
-.empty-state {
-  padding: 40px 20px; text-align: center;
-  color: rgba(255,160,40,0.2); font-size: 11px; letter-spacing: 0.2em;
+.empty-state { padding: 40px 20px; text-align: center; color: rgba(255,160,40,0.2); font-size: 11px; letter-spacing: 0.2em; }
+
+/* ── Mobile responsive (explorer) ─────────────────────────────────────────── */
+@media (max-width: 680px) {
+  #ex-sidebar { width: 130px !important; min-width: 100px !important; }
+  .agent-item-model { display: none; }
+  #preview-pane {
+    position: fixed; top: 42px; right: 0; bottom: 0;
+    width: 82vw; max-width: 320px;
+    transform: translateX(100%); transition: transform 0.25s ease;
+    z-index: 50; border-left: 2px solid rgba(255,160,40,0.2);
+  }
+  #preview-pane.drawer-open { transform: translateX(0); }
+  #preview-handle { display: flex; }
 }
+
+/* ── Explorer layout flex ─────────────────────────────────────────────────── */
+#view-explorer { display: none; }
+#view-explorer.active { display: flex; }
 </style>
 </head>
 <body>
 
-<!-- Sidebar -->
-<div id="sidebar">
-  <div id="sidebar-header">Agents</div>
-  <div id="agent-list"></div>
-  <div id="status-bar"><span id="gw-dot"></span><span id="gw-label">Offline</span></div>
+<!-- Top bar -->
+<div id="topbar">
+  <div id="topbar-left">
+    <div id="conn-dot"></div>
+    <span id="conn-text">Connecting…</span>
+  </div>
+  <div id="topbar-title">Stewart Inc. · Agent System Map</div>
+  <div id="topbar-right">
+    <span id="last-refresh"></span>
+    <button id="toggle-view-btn" onclick="toggleView()">Explorer ⤢</button>
+  </div>
 </div>
 
-<!-- Main explorer -->
-<div id="main">
-  <div id="explorer-header">
-    <div class="breadcrumb" id="breadcrumb">Select an agent</div>
-    <div id="toolbar">
-      <button class="tool-btn" title="Collapse all" onclick="collapseAll()">⊟</button>
-      <button class="tool-btn" title="Refresh" onclick="refreshTree()">↻</button>
-      <button class="tool-btn" title="Open in Botler" onclick="openInBotler()">⤢</button>
+<!-- View 1: Infographic (default) -->
+<div id="view-infographic">
+  <div class="stat-bar" id="stat-bar">
+    <div class="stat"><div class="stat-val" id="stat-agents">—</div><div class="stat-lbl">Agents</div></div>
+    <div class="stat"><div class="stat-val" id="stat-crons">—</div><div class="stat-lbl">Cron Jobs</div></div>
+    <div class="stat"><div class="stat-val" id="stat-sessions">—</div><div class="stat-lbl">Sessions</div></div>
+    <div class="stat"><div class="stat-val" id="stat-channels">—</div><div class="stat-lbl">Channels</div></div>
+    <div class="stat"><div class="stat-val" id="stat-errors">0</div><div class="stat-lbl">Errors (24h)</div></div>
+  </div>
+  <div class="section-label">Agents</div>
+  <div id="agents-container"></div>
+</div>
+
+<!-- View 2: Explorer -->
+<div id="view-explorer">
+  <div id="ex-sidebar">
+    <div id="ex-sidebar-header">Agents</div>
+    <div id="agent-list"></div>
+    <div id="ex-status">Offline</div>
+  </div>
+  <div id="ex-main">
+    <div id="explorer-header">
+      <div class="breadcrumb" id="breadcrumb">Select an agent</div>
+      <div id="ex-toolbar">
+        <button class="tool-btn" title="Collapse all" onclick="collapseAll()">⊟</button>
+        <button class="tool-btn" title="Refresh" onclick="refreshTree()">↻</button>
+        <button class="tool-btn" title="Open in Botler" onclick="openInBotler()">⤢</button>
+      </div>
+    </div>
+    <div id="file-pane">
+      <div class="empty-state">Select an agent to explore its workspace</div>
     </div>
   </div>
-  <div id="file-pane">
-    <div class="empty-state" id="empty-state">Select an agent to explore its workspace</div>
+  <div id="preview-pane">
+    <div id="preview-handle" onclick="togglePreviewDrawer()">‹</div>
+    <div id="preview-header">Preview</div>
+    <div id="agent-card"></div>
+    <div id="preview-content" class="empty">Select a file to preview</div>
   </div>
-</div>
-
-<!-- Preview pane -->
-<div id="preview-pane">
-  <div id="preview-header" id="preview-file-name">Preview</div>
-  <div id="agent-card"></div>
-  <div id="preview-content" class="empty">Select a file to preview</div>
 </div>
 
 <script>
-// ── Agent definitions (workspace paths on this machine) ───────────────────────
+// ── Gateway ───────────────────────────────────────────────────────────────────
+const _h = location.hostname;
+const GW_URL   = (_h === 'localhost' || _h === '127.0.0.1') ? 'ws://localhost:18789' : 'wss://stewartos-core.tail2d5e46.ts.net';
+const GW_TOKEN = 'StewartOS-Core-2026';
+
+class GatewayClient {
+  constructor() { this.ws = null; this.pending = new Map(); this.connected = false; this.closed = false; this._open(); }
+  _open() {
+    if (this.closed) return;
+    this.ws = new WebSocket(GW_URL);
+    this.ws.onopen = () => {
+      const id = crypto.randomUUID();
+      const p = new Promise((res,rej) => this.pending.set(id, {res,rej}));
+      this.ws.send(JSON.stringify({ type:'req', id, method:'connect', params:{
+        minProtocol:3, maxProtocol:3,
+        client:{ id:'openclaw-control-ui', version:'dev', displayName:'AgentMap', platform:'web', mode:'webchat' },
+        role:'operator', scopes:['operator.admin'], auth:{ password: GW_TOKEN }, caps:[]
+      }}));
+      p.then(() => { this.connected = true; onGatewayUp(); }).catch(e => { onGatewayDown(e.message); });
+    };
+    this.ws.onmessage = ev => {
+      const d = JSON.parse(ev.data);
+      if (d.type === 'res' && this.pending.has(d.id)) {
+        const { res, rej } = this.pending.get(d.id);
+        this.pending.delete(d.id);
+        d.ok ? res(d.payload) : rej(new Error(d.error?.message || 'rpc error'));
+      }
+    };
+    this.ws.onclose = () => { this.connected = false; onGatewayDown(); if (!this.closed) setTimeout(() => this._open(), 2500); };
+    this.ws.onerror = () => {};
+  }
+  call(method, params = {}) {
+    return new Promise((res, rej) => {
+      if (!this.connected) return rej(new Error('not connected'));
+      const id = crypto.randomUUID();
+      this.pending.set(id, { res, rej });
+      this.ws.send(JSON.stringify({ type:'req', id, method, params }));
+      setTimeout(() => { if (this.pending.has(id)) { this.pending.delete(id); rej(new Error('timeout')); } }, 10000);
+    });
+  }
+}
+
+let gw;
+let refreshTimer = null;
+
+function onGatewayUp() {
+  setConnBar(true);
+  document.getElementById('ex-status').textContent = 'Gateway connected';
+  refreshInfograhic();
+  refreshTimer = setInterval(refreshInfograhic, 10000);
+}
+function onGatewayDown(msg) {
+  setConnBar(false, msg);
+  document.getElementById('ex-status').textContent = 'Offline — cached structure';
+}
+function setConnBar(ok, msg) {
+  document.getElementById('conn-dot').className = ok ? 'ok' : '';
+  document.getElementById('conn-text').textContent = ok ? 'Live' : (msg ? `Disconnected — ${msg}` : 'Connecting…');
+}
+
+// ── View toggle ───────────────────────────────────────────────────────────────
+let explorerActive = false;
+function toggleView() {
+  explorerActive = !explorerActive;
+  const infog = document.getElementById('view-infographic');
+  const expl  = document.getElementById('view-explorer');
+  const btn   = document.getElementById('toggle-view-btn');
+  if (explorerActive) {
+    infog.style.display = 'none';
+    expl.classList.add('active');
+    btn.textContent = '← Infographic';
+    if (!activeAgent && AGENTS.length) selectAgent(AGENTS[0]);
+  } else {
+    expl.classList.remove('active');
+    infog.style.display = '';
+    btn.textContent = 'Explorer ⤢';
+  }
+}
+
+// ── Formatting helpers ────────────────────────────────────────────────────────
+function fmtAge(ms) {
+  if (!ms) return '—';
+  const d = Date.now() - ms;
+  if (d < 60_000)    return `${Math.round(d/1000)}s ago`;
+  if (d < 3600_000)  return `${Math.round(d/60_000)}m ago`;
+  if (d < 86400_000) return `${Math.round(d/3600_000)}h ago`;
+  return `${Math.round(d/86400_000)}d ago`;
+}
+function fmtIn(ms) {
+  if (!ms) return '—';
+  const d = ms - Date.now();
+  if (d < 0)         return 'overdue';
+  if (d < 60_000)    return `in ${Math.round(d/1000)}s`;
+  if (d < 3600_000)  return `in ${Math.round(d/60_000)}m`;
+  if (d < 86400_000) return `in ${Math.round(d/3600_000)}h`;
+  return `in ${Math.round(d/86400_000)}d`;
+}
+function fmtModel(m) {
+  if (!m) return '—';
+  return m.split('/').pop().replace('claude-','').replace('-2025-',' ').slice(0,26);
+}
+
+// ── INFOGRAPHIC ───────────────────────────────────────────────────────────────
+const AGENT_META = {
+  botler:  { label: 'Botler',  role: 'Orchestrator · Default',  kind: 'orchestrator' },
+  cash:    { label: 'Cash',    role: 'Financial · Worker',       kind: 'worker' },
+  dev:     { label: 'Dev',     role: 'Engineering · Worker',     kind: 'worker' },
+  impulse: { label: 'Impulse', role: 'Trading · ICT/IFVG',       kind: 'autonomous' },
+  jim:     { label: 'Jim',     role: 'Music · Social · Orders',  kind: 'autonomous' },
+  loki:    { label: 'Loki',    role: 'TideFlow · Contracts',     kind: 'autonomous' },
+};
+
+function mkTag(cls, text, style) {
+  const t = document.createElement('span');
+  t.className = 'tag ' + cls;
+  t.textContent = text;
+  if (style) t.style.cssText = style;
+  return t;
+}
+
+function renderAgentCard(agentId, data) {
+  const meta = AGENT_META[agentId] || { label: agentId, role: 'Unknown', kind: 'worker' };
+  const card = document.createElement('div');
+  card.className = 'agent-card ' + meta.kind + (data.hasError ? ' error' : '');
+
+  const header = document.createElement('div');
+  header.className = 'agent-header';
+  const dot = document.createElement('div');
+  dot.className = 'agent-badge ' + (data.dotClass || '');
+  const name = document.createElement('div'); name.className = 'agent-name'; name.textContent = meta.label;
+  const role = document.createElement('div'); role.className = 'agent-role'; role.textContent = meta.role;
+  const mRight = document.createElement('div'); mRight.className = 'agent-meta';
+  mRight.textContent = data.lastActive ? `Active ${fmtAge(data.lastActive)}` : 'No recent activity';
+  header.append(dot, name, role, mRight);
+  card.appendChild(header);
+
+  const row = document.createElement('div'); row.className = 'agent-row';
+  if (data.model)             row.appendChild(mkTag('model', fmtModel(data.model)));
+  if (data.fallbacks?.length) row.appendChild(mkTag('model', '+' + data.fallbacks.length + ' fallback', 'opacity:0.5'));
+  if (data.heartbeat?.enabled) row.appendChild(mkTag('schedule', `Heartbeat · ${data.heartbeat.every}`));
+  if (data.sessionCount > 0)  row.appendChild(mkTag('count', `${data.sessionCount} session${data.sessionCount===1?'':'s'}`));
+  if (data.cronCount > 0)     row.appendChild(mkTag('count', `${data.cronCount} cron${data.cronCount===1?'':'s'}`));
+  if (data.errorCount > 0)    row.appendChild(mkTag('tag-error', `${data.errorCount} error${data.errorCount===1?'':'s'} (24h)`));
+  card.appendChild(row);
+
+  if (data.crons?.length) {
+    const list = document.createElement('div'); list.className = 'session-list';
+    data.crons.forEach(c => {
+      const r = document.createElement('div'); r.className = 'cron-row';
+      const left = document.createElement('span'); left.className = 'cron-label';
+      left.textContent = `⏱  ${c.name} — ${fmtIn(c.nextRunAtMs)}`;
+      const right = document.createElement('span');
+      right.className = 'cron-status' + (c.lastStatus === 'error' ? ' err' : '');
+      right.textContent = c.lastStatus ? `${c.lastStatus} ${fmtAge(c.lastRunAtMs)}` : 'never run';
+      r.append(left, right); list.appendChild(r);
+    });
+    card.appendChild(list);
+  }
+
+  if (data.sessionSample?.length) {
+    const list = document.createElement('div'); list.className = 'session-list';
+    data.sessionSample.slice(0,5).forEach(s => {
+      const r = document.createElement('div'); r.className = 'session-row';
+      const k = document.createElement('span'); k.className = 'session-key';
+      k.textContent = s.key.replace(`agent:${agentId}:`, '');
+      const m = document.createElement('span'); m.className = 'session-meta';
+      m.textContent = `${fmtAge(s.lastActivityMs)} · ${fmtModel(s.model)}`;
+      r.append(k, m); list.appendChild(r);
+    });
+    card.appendChild(list);
+  }
+  return card;
+}
+
+async function refreshInfograhic() {
+  if (!gw?.connected) return;
+  try {
+    const [agentsRes, sessionsRes, cronsRes, runsRes, statusRes, channelsRes] = await Promise.all([
+      gw.call('agents.list'),
+      gw.call('sessions.list'),
+      gw.call('cron.list'),
+      gw.call('cron.runs'),
+      gw.call('status'),
+      gw.call('channels.status'),
+    ]);
+
+    const agents   = agentsRes.agents    || [];
+    const sessions = sessionsRes.sessions || [];
+    const crons    = cronsRes.jobs        || [];
+    const runs     = runsRes.entries      || [];
+    const heartbeats = statusRes.heartbeat?.agents || [];
+    const channels = channelsRes.channelMeta || [];
+
+    const byAgent = {};
+    for (const a of agents) {
+      byAgent[a.id] = {
+        model: a.model?.primary, fallbacks: a.model?.fallbacks || [],
+        sessionCount: 0, cronCount: 0, errorCount: 0, lastActive: 0,
+        heartbeat: heartbeats.find(h => h.agentId === a.id) || null,
+        crons: [], sessionSample: [], hasError: false, dotClass: '',
+      };
+    }
+    for (const s of sessions) {
+      const m = s.key.match(/^agent:([a-z0-9_-]+):/);
+      if (!m || !byAgent[m[1]]) continue;
+      const a = byAgent[m[1]];
+      a.sessionCount++;
+      a.sessionSample.push(s);
+      if (s.lastActivityMs > a.lastActive) a.lastActive = s.lastActivityMs;
+    }
+    for (const c of crons) {
+      if (!byAgent[c.agentId]) continue;
+      byAgent[c.agentId].cronCount++;
+      byAgent[c.agentId].crons.push({ name: c.name, nextRunAtMs: c.nextRunAtMs, lastStatus: c.lastStatus, lastRunAtMs: c.lastRunAtMs });
+    }
+    const cutoff = Date.now() - 24*3600*1000;
+    let totalErrors = 0;
+    for (const r of runs) {
+      if (r.ts < cutoff || r.status !== 'error') continue;
+      totalErrors++;
+      const job = crons.find(c => c.id === r.jobId);
+      if (job && byAgent[job.agentId]) { byAgent[job.agentId].errorCount++; byAgent[job.agentId].hasError = true; }
+    }
+    for (const aid of Object.keys(byAgent)) {
+      const a = byAgent[aid];
+      a.sessionSample.sort((x,y) => (y.lastActivityMs||0) - (x.lastActivityMs||0));
+      if (a.hasError) a.dotClass = 'error';
+      else if (a.lastActive && Date.now() - a.lastActive < 30*60*1000)   a.dotClass = 'active';
+      else if (a.lastActive && Date.now() - a.lastActive < 24*3600*1000) a.dotClass = 'warn';
+    }
+
+    document.getElementById('stat-agents').textContent   = agents.length;
+    document.getElementById('stat-crons').textContent    = crons.length;
+    document.getElementById('stat-sessions').textContent = sessions.length;
+    document.getElementById('stat-channels').textContent = channels.length;
+    const errEl = document.getElementById('stat-errors');
+    errEl.textContent = totalErrors;
+    errEl.className = 'stat-val ' + (totalErrors > 0 ? 'red' : 'green');
+
+    const order = ['botler','cash','dev','impulse','jim','loki'];
+    const container = document.getElementById('agents-container');
+    container.innerHTML = '';
+    for (const aid of order) {
+      if (byAgent[aid]) container.appendChild(renderAgentCard(aid, byAgent[aid]));
+    }
+    for (const aid of Object.keys(byAgent)) {
+      if (!order.includes(aid)) container.appendChild(renderAgentCard(aid, byAgent[aid]));
+    }
+    document.getElementById('last-refresh').textContent = new Date().toLocaleTimeString();
+  } catch(e) {
+    console.error('Refresh failed:', e);
+  }
+}
+
+// ── EXPLORER ──────────────────────────────────────────────────────────────────
 const AGENTS = [
   {
     id: 'botler', name: 'Botler', role: 'Household AI Butler',
@@ -194,14 +537,13 @@ const AGENTS = [
     workspace: '/Users/stewartos/.openclaw/agents/botler/workspace',
     agentDir:  '/Users/stewartos/.openclaw/agents/botler/agent',
     channels: ['webchat', 'tailscale'],
-    color: '#ff8800',
     knownTree: [
       { name: 'apps', type: 'dir', children: [
         { name: 'botler-shell', type: 'dir', children: [
           { name: 'index.html', type: 'file', desc: 'Main Botler Shell UI' },
-          { name: 'agent-system-map.html', type: 'file' },
-          { name: 'netlify/', type: 'dir', children: [
-            { name: 'edge-functions/', type: 'dir', children: [
+          { name: 'agent-system-map.html', type: 'file', desc: 'This file' },
+          { name: 'netlify', type: 'dir', children: [
+            { name: 'edge-functions', type: 'dir', children: [
               { name: 'stream.js', type: 'file', desc: 'Anthropic SSE proxy' },
             ]},
           ]},
@@ -220,7 +562,6 @@ const AGENTS = [
     workspace: '/Users/stewartos/.openclaw/agents/botler/workspace/agents/cash',
     agentDir:  '/Users/stewartos/.openclaw/agents/cash/agent',
     channels: ['telegram'],
-    color: '#4caf50',
     knownTree: [
       { name: 'finances', type: 'dir', children: [
         { name: 'sheets_sync.py', type: 'file', desc: 'Google Sheets sync (service account)' },
@@ -233,145 +574,52 @@ const AGENTS = [
     model: 'claude-sonnet-4-6', status: 'warn',
     workspace: '/Users/stewartos/.openclaw/agents/botler/workspace/agents/dev',
     agentDir:  '/Users/stewartos/.openclaw/agents/dev/agent',
-    channels: ['telegram'],
-    color: '#2196f3',
-    knownTree: [],
+    channels: ['telegram'], knownTree: [],
   },
   {
     id: 'jim', name: 'Jim', role: 'Music & Social & Orders',
-    model: 'gpt-5.4-codex', status: 'up',
+    model: 'gpt-4o', status: 'up',
     workspace: '/Users/stewartos/Downloads/JIM',
     agentDir:  '/Users/stewartos/.openclaw/agents/jim/agent',
     channels: ['telegram'],
-    color: '#9c27b0',
     knownTree: [
       { name: 'agent', type: 'dir', children: [
-        { name: 'IDENTITY.md', type: 'file', desc: 'Jim\'s identity and role' },
-        { name: 'SOUL.md', type: 'file' },
-        { name: 'TOOLS.md', type: 'file', desc: 'Claude Code invocation patterns' },
+        { name: 'IDENTITY.md', type: 'file', desc: "Jim's identity and role" },
+        { name: 'SOUL.md', type: 'file' }, { name: 'TOOLS.md', type: 'file', desc: 'Claude Code invocation patterns' },
         { name: 'skills', type: 'dir' },
       ]},
       { name: 'jim', type: 'dir', children: [
-        { name: 'projects', type: 'dir' },
-        { name: 'catalog', type: 'dir' },
-        { name: 'output', type: 'dir' },
-        { name: 'samples', type: 'dir' },
-        { name: 'uploads', type: 'dir' },
-        { name: 'architecture', type: 'dir' },
+        { name: 'projects', type: 'dir' }, { name: 'catalog', type: 'dir' },
+        { name: 'output', type: 'dir' }, { name: 'samples', type: 'dir' },
+        { name: 'uploads', type: 'dir' }, { name: 'architecture', type: 'dir' },
       ]},
-      { name: 'assets', type: 'dir' },
-      { name: 'audio', type: 'dir' },
-      { name: 'deploy', type: 'dir' },
-      { name: 'docs', type: 'dir' },
-      { name: 'inbox', type: 'dir', desc: 'Incoming orders to review' },
-      { name: 'memory', type: 'dir' },
-      { name: 'scripts', type: 'dir' },
-      { name: 'analytics.html', type: 'file' },
-      { name: 'studio.html', type: 'file' },
-      { name: 'index.html', type: 'file' },
-      { name: 'server.py', type: 'file' },
-      { name: 'IDENTITY.md', type: 'file' },
-      { name: 'SOUL.md', type: 'file' },
-      { name: 'TOOLS.md', type: 'file' },
-      { name: 'USER.md', type: 'file' },
+      { name: 'assets', type: 'dir' }, { name: 'audio', type: 'dir' },
+      { name: 'inbox', type: 'dir', desc: 'Incoming orders' }, { name: 'memory', type: 'dir' },
+      { name: 'analytics.html', type: 'file' }, { name: 'studio.html', type: 'file' },
+      { name: 'index.html', type: 'file' }, { name: 'server.py', type: 'file' },
+      { name: 'IDENTITY.md', type: 'file' }, { name: 'SOUL.md', type: 'file' },
     ],
   },
   {
     id: 'loki', name: 'Loki', role: 'TideFlow Business Ops',
-    model: 'gpt-5.4-codex', status: 'warn',
+    model: 'gpt-4o', status: 'warn',
     workspace: '/Users/stewartos/Downloads/TideFlow',
     agentDir:  '/Users/stewartos/.openclaw/agents/loki/agent',
-    channels: ['telegram'],
-    color: '#00bcd4',
-    knownTree: [],
+    channels: ['telegram'], knownTree: [],
   },
   {
     id: 'impulse', name: 'Impulse', role: 'Trading',
     model: 'claude-sonnet-4-6', status: 'warn',
     workspace: '/Users/stewartos/Downloads/Impulse',
     agentDir:  '/Users/stewartos/.openclaw/agents/impulse/agent',
-    channels: ['telegram'],
-    color: '#f44336',
-    knownTree: [],
+    channels: ['telegram'], knownTree: [],
   },
 ];
 
-// Gateway projects list (injected when gateway connects)
-let PROJECTS = [];
-
-// ── State ─────────────────────────────────────────────────────────────────────
 let activeAgent = null;
 let selectedPath = null;
 let expandedDirs = new Set();
-let gwConnected = false;
-let gw = null;
-
-// ── Gateway connection (reuse Botler's credentials) ───────────────────────────
-const GW_URL   = localStorage.getItem('botler_gw_url')   || 'wss://stewartos-core.tail2d5e46.ts.net';
-const GW_TOKEN = localStorage.getItem('botler_gw_token') || 'StewartOS-Core-2026';
-
-function connectGateway() {
-  try {
-    const ws = new WebSocket(GW_URL);
-    ws.onopen = () => {};
-    ws.onclose = () => { gwConnected = false; updateGwStatus(); };
-    ws.onmessage = ev => handleGwMsg(JSON.parse(ev.data), ws);
-    ws.onerror = () => {};
-    gw = ws;
-  } catch(e) {}
-}
-
-const pending = new Map();
-function gwRequest(ws, method, params) {
-  return new Promise((res, rej) => {
-    const id = crypto.randomUUID();
-    pending.set(id, { res, rej });
-    ws.send(JSON.stringify({ type: 'req', id, method, params }));
-    setTimeout(() => { if (pending.has(id)) { pending.delete(id); rej(new Error('timeout')); } }, 8000);
-  });
-}
-function handleGwMsg(f, ws) {
-  if (f.type === 'event' && f.event === 'connect.challenge') {
-    gwRequest(ws, 'connect', {
-      minProtocol: 3, maxProtocol: 3,
-      client: { id: 'system-map', version: 'dev', displayName: 'System Map', platform: 'web', mode: 'webchat' },
-      role: 'operator', scopes: ['operator.admin'],
-      auth: GW_TOKEN ? { password: GW_TOKEN } : undefined, caps: [],
-    }).then(() => { gwConnected = true; updateGwStatus(); loadGwData(ws); }).catch(() => {});
-  }
-  if (f.type === 'res') {
-    const p = pending.get(f.id);
-    if (p) { pending.delete(f.id); f.ok ? p.res(f.payload) : p.rej(new Error(f.error?.message || 'err')); }
-  }
-}
-function updateGwStatus() {
-  document.getElementById('gw-dot').className = gwConnected ? 'up' : '';
-  document.getElementById('gw-label').textContent = gwConnected ? 'Gateway connected' : 'Offline — showing cached structure';
-}
-async function loadGwData(ws) {
-  // Try to load projects list from botler_projects localStorage via parent frame
-  try {
-    const raw = window.parent?.localStorage?.getItem('botler_projects');
-    if (raw) {
-      PROJECTS = Object.values(JSON.parse(raw));
-      if (PROJECTS.length) renderProjects();
-    }
-  } catch(e) {}
-}
-
-// ── Render ────────────────────────────────────────────────────────────────────
-function init() {
-  renderAgentList();
-  updateGwStatus();
-  connectGateway();
-  // Load projects from parent window (if embedded in Botler panel)
-  setTimeout(() => {
-    try {
-      const raw = window.parent?.localStorage?.getItem('botler_projects');
-      if (raw) { PROJECTS = Object.values(JSON.parse(raw)); }
-    } catch(e) {}
-  }, 500);
-}
+let drawerOpen = false;
 
 function renderAgentList() {
   const list = document.getElementById('agent-list');
@@ -382,28 +630,11 @@ function renderAgentList() {
     item.innerHTML = `
       <div class="agent-dot ${ag.status}"></div>
       <div class="agent-item-name">${ag.name}</div>
-      <div class="agent-item-model">${ag.model.split('/').pop().replace('claude-','').replace('-4-','4.').slice(0,10)}</div>`;
+      <div class="agent-item-model">${ag.model.replace('claude-','').replace('-4-','4.').slice(0,10)}</div>`;
     item.onclick = () => selectAgent(ag);
     list.appendChild(item);
   }
-  // Projects section
-  if (PROJECTS.length) {
-    const sep = document.createElement('div');
-    sep.style.cssText = 'font-size:9px;letter-spacing:.4em;text-transform:uppercase;color:rgba(255,160,40,.2);padding:14px 12px 6px;border-top:1px solid rgba(255,160,40,.07);margin-top:6px;';
-    sep.textContent = 'Projects';
-    list.appendChild(sep);
-    for (const proj of PROJECTS) {
-      const item = document.createElement('div');
-      item.className = 'agent-item';
-      item.style.fontSize = '11px';
-      item.innerHTML = `<div class="agent-dot"></div><div class="agent-item-name" style="color:rgba(255,200,100,.5)">📁 ${proj.name}</div>`;
-      item.onclick = () => selectProject(proj);
-      list.appendChild(item);
-    }
-  }
 }
-
-function renderProjects() { renderAgentList(); }
 
 function selectAgent(ag) {
   activeAgent = ag;
@@ -413,27 +644,6 @@ function selectAgent(ag) {
   setBreadcrumb([{ label: ag.name, id: ag.id }]);
   renderTree(ag.knownTree, ag.workspace, '');
   showAgentCard(ag);
-}
-
-function selectProject(proj) {
-  activeAgent = null;
-  renderAgentList();
-  setBreadcrumb([{ label: '📁 ' + proj.name }]);
-  const filePane = document.getElementById('file-pane');
-  const notes = proj.notes || '(no notes yet)';
-  const hist = (proj.history || []).slice(-6).map(m =>
-    `<div style="margin-bottom:8px;opacity:${m.role==='user'?0.5:0.8}"><span style="font-size:9px;letter-spacing:.2em;color:rgba(255,160,40,.3)">${m.role.toUpperCase()}</span><br>${(m.content||'').slice(0,180)}${(m.content||'').length>180?'…':''}</div>`
-  ).join('');
-  filePane.innerHTML = `
-    <div style="padding:16px">
-      <div style="font-size:9px;letter-spacing:.4em;text-transform:uppercase;color:rgba(255,160,40,.3);margin-bottom:8px">Project Notes</div>
-      <div style="color:rgba(255,215,120,.65);font-size:11px;line-height:1.7;white-space:pre-wrap;margin-bottom:20px">${notes}</div>
-      <div style="font-size:9px;letter-spacing:.4em;text-transform:uppercase;color:rgba(255,160,40,.3);margin-bottom:8px">Recent Conversation</div>
-      ${hist || '<div style="color:rgba(255,160,40,.2);font-size:11px">No conversation history</div>'}
-    </div>`;
-  document.getElementById('agent-card').style.display = 'none';
-  document.getElementById('preview-content').textContent = 'Select a project note or message to preview';
-  document.getElementById('preview-content').className = 'empty';
 }
 
 function showAgentCard(ag) {
@@ -452,22 +662,20 @@ function showAgentCard(ag) {
 
 function setBreadcrumb(crumbs) {
   const bc = document.getElementById('breadcrumb');
-  bc.innerHTML = crumbs.map((c, i) =>
-    i < crumbs.length - 1
+  bc.innerHTML = crumbs.map((c,i) =>
+    i < crumbs.length-1
       ? `<span class="crumb" onclick="selectAgent(AGENTS.find(a=>a.id==='${c.id||''}'))">${c.label}</span><span> / </span>`
       : `<span>${c.label}</span>`
   ).join('');
 }
 
-// ── Tree rendering ────────────────────────────────────────────────────────────
 function renderTree(nodes, basePath, currentPath) {
   const pane = document.getElementById('file-pane');
   pane.innerHTML = '';
   if (!nodes || nodes.length === 0) {
-    pane.innerHTML = `<div class="empty-state">${gwConnected ? 'Empty workspace' : 'Structure not yet mapped.<br>Connect to gateway to explore.'}</div>`;
+    pane.innerHTML = `<div class="empty-state">Structure not yet mapped.<br>Connect to gateway to explore.</div>`;
     return;
   }
-  document.getElementById('empty-state')?.remove();
   renderNodes(pane, nodes, basePath, 0);
 }
 
@@ -476,118 +684,71 @@ function renderNodes(parent, nodes, basePath, depth) {
     const fullPath = basePath + '/' + node.name;
     const isDir = node.type === 'dir';
     const isExpanded = expandedDirs.has(fullPath);
-
     const row = document.createElement('div');
     row.className = 'tree-row' + (selectedPath === fullPath ? ' selected' : '');
-    row.dataset.path = fullPath;
+    row.dataset.path = fullPath; row.dataset.depth = depth;
 
-    const indent = document.createElement('div');
-    indent.className = 'tree-indent';
-    indent.style.width = (depth * 16 + 6) + 'px';
+    const indent = document.createElement('div'); indent.className = 'tree-indent'; indent.style.width = (depth*16+6)+'px';
+    const arrow  = document.createElement('div'); arrow.className = 'tree-arrow' + (isExpanded ? ' open' : ''); arrow.textContent = isDir ? '▶' : '';
+    const icon   = document.createElement('div'); icon.className = 'tree-icon'; icon.textContent = isDir ? (isExpanded ? '📂' : '📁') : getFileIcon(node.name);
+    const name   = document.createElement('div'); name.className = 'tree-name' + (isDir ? ' dir' : ''); name.textContent = node.name; if (node.desc) name.title = node.desc;
+    const size   = document.createElement('div'); size.className = 'tree-size'; size.textContent = node.desc ? '·' : ''; size.title = node.desc || '';
 
-    const arrow = document.createElement('div');
-    arrow.className = 'tree-arrow' + (isExpanded ? ' open' : '');
-    arrow.textContent = isDir ? '▶' : '';
-
-    const icon = document.createElement('div');
-    icon.className = 'tree-icon';
-    icon.textContent = isDir ? (isExpanded ? '📂' : '📁') : getFileIcon(node.name);
-
-    const name = document.createElement('div');
-    name.className = 'tree-name' + (isDir ? ' dir' : '');
-    name.textContent = node.name;
-    if (node.desc) name.title = node.desc;
-
-    const size = document.createElement('div');
-    size.className = 'tree-size';
-    size.textContent = node.desc ? '·' : '';
-    size.title = node.desc || '';
-
-    row.appendChild(indent);
-    row.appendChild(arrow);
-    row.appendChild(icon);
-    row.appendChild(name);
-    row.appendChild(size);
+    row.append(indent, arrow, icon, name, size);
     parent.appendChild(row);
 
-    row.onclick = (e) => {
+    row.onclick = e => {
       e.stopPropagation();
       selectedPath = fullPath;
       document.querySelectorAll('.tree-row.selected').forEach(r => r.classList.remove('selected'));
       row.classList.add('selected');
       if (isDir) {
-        if (expandedDirs.has(fullPath)) {
-          expandedDirs.delete(fullPath);
-          arrow.classList.remove('open');
-          icon.textContent = '📁';
-          // Remove children
-          let next = row.nextSibling;
-          while (next && next.dataset?.depth > depth) {
-            const n = next.nextSibling; next.remove(); next = n;
-          }
-          // Re-render children section cleanly
-          refreshTree();
-        } else {
-          expandedDirs.add(fullPath);
-          refreshTree();
-        }
+        if (expandedDirs.has(fullPath)) expandedDirs.delete(fullPath);
+        else expandedDirs.add(fullPath);
+        refreshTree();
       } else {
         showFilePreview(node, fullPath);
+        // On mobile, open the drawer when a file is selected
+        if (window.innerWidth <= 680) openPreviewDrawer();
       }
     };
-
-    if (isDir && isExpanded && node.children?.length) {
-      renderNodes(parent, node.children, fullPath, depth + 1);
-    }
+    if (isDir && isExpanded && node.children?.length) renderNodes(parent, node.children, fullPath, depth+1);
   }
 }
 
-function refreshTree() {
-  if (!activeAgent) return;
-  renderTree(activeAgent.knownTree, activeAgent.workspace, '');
-}
-
-function collapseAll() {
-  expandedDirs.clear();
-  refreshTree();
-}
+function refreshTree() { if (activeAgent) renderTree(activeAgent.knownTree, activeAgent.workspace, ''); }
+function collapseAll() { expandedDirs.clear(); refreshTree(); }
 
 function showFilePreview(node, path) {
   const header = document.getElementById('preview-header');
   const content = document.getElementById('preview-content');
   header.textContent = node.name;
   content.className = '';
-
   const ext = node.name.split('.').pop().toLowerCase();
   let display = path + '\n\n';
   if (node.desc) display += '// ' + node.desc + '\n\n';
-
-  if (ext === 'md') {
-    content.textContent = display + '(Markdown — connect to gateway to view contents)';
-  } else if (ext === 'html') {
-    content.textContent = display + '(HTML file — open in Botler panel to preview)';
-  } else if (ext === 'json' && node.name === 'google_credentials.json') {
-    content.textContent = display + '⚠ This file contains secrets.\nDownload from GCP → IAM & Admin → Service Accounts → Keys → Add Key → JSON';
-  } else {
-    content.textContent = display + '(Connect to gateway to view file contents)';
-  }
+  if (ext === 'md') display += '(Markdown — connect to gateway to view contents)';
+  else if (ext === 'html') display += '(HTML file — open in Botler panel to preview)';
+  else if (node.name === 'google_credentials.json') display += '⚠ This file contains secrets.\nDownload from GCP → IAM & Admin → Service Accounts → Keys → Add Key → JSON';
+  else display += '(Connect to gateway to view file contents)';
+  content.textContent = display;
   document.getElementById('agent-card').style.display = 'none';
 }
 
 function getFileIcon(name) {
   const ext = name.split('.').pop().toLowerCase();
-  const icons = { html: '🌐', js: '⚡', ts: '⚡', py: '🐍', md: '📝', json: '📋', toml: '⚙', sh: '📜', css: '🎨', mjs: '⚡', txt: '📄', csv: '📊' };
-  return icons[ext] || '📄';
+  return { html:'🌐', js:'⚡', ts:'⚡', py:'🐍', md:'📝', json:'📋', toml:'⚙', sh:'📜', css:'🎨', mjs:'⚡', txt:'📄', csv:'📊' }[ext] || '📄';
 }
 
-function openInBotler() {
-  if (activeAgent) {
-    window.parent?.postMessage({ type: 'botler_open_agent', agentId: activeAgent.id }, '*');
-  }
-}
+function openPreviewDrawer() { drawerOpen = true; document.getElementById('preview-pane').classList.add('drawer-open'); document.getElementById('preview-handle').textContent = '›'; }
+function closePreviewDrawer() { drawerOpen = false; document.getElementById('preview-pane').classList.remove('drawer-open'); document.getElementById('preview-handle').textContent = '‹'; }
+function togglePreviewDrawer() { drawerOpen ? closePreviewDrawer() : openPreviewDrawer(); }
+
+function openInBotler() { if (activeAgent) window.parent?.postMessage({ type: 'botler_open_agent', agentId: activeAgent.id }, '*'); }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-init();
+renderAgentList();
+gw = new GatewayClient();
 </script>
 </body>
 </html>
