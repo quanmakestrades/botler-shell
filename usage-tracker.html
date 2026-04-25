@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atlas · Usage</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #080300; font-family: 'Georgia', serif; color: rgba(255,210,100,0.8); }
+
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,160,40,0.15); border-radius: 2px; }
+
+/* ── Layout ── */
+#app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+/* ── Header ── */
+#header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; border-bottom: 1px solid rgba(255,160,40,0.12);
+  flex-shrink: 0; background: rgba(8,3,0,0.98);
+}
+#header-left { display: flex; align-items: center; gap: 8px; }
+#status-dot { width: 6px; height: 6px; border-radius: 50%; background: #cc5540; flex-shrink: 0; }
+#status-dot.ok { background: #44cc44; box-shadow: 0 0 5px #44cc44; }
+#title { font-size: 11px; letter-spacing: 0.4em; text-transform: uppercase; color: rgba(255,215,120,0.6); }
+#header-right { display: flex; align-items: center; gap: 10px; }
+#last-update { font-size: 9px; letter-spacing: 0.15em; color: rgba(255,160,40,0.25); }
+#refresh-btn {
+  background: none; border: 1px solid rgba(255,160,40,0.18); color: rgba(255,200,100,0.4);
+  font-size: 11px; width: 22px; height: 22px; border-radius: 3px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+}
+#refresh-btn:hover { background: rgba(255,160,40,0.1); color: rgba(255,220,120,0.9); }
+#refresh-btn.spinning { animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Scrollable content ── */
+#content { flex: 1; overflow-y: auto; padding: 12px 16px 20px; }
+
+/* ── Stat row ── */
+#stat-row { display: flex; gap: 0; margin-bottom: 14px; border: 1px solid rgba(255,160,40,0.1); border-radius: 3px; overflow: hidden; }
+.stat-cell {
+  flex: 1; padding: 10px 10px 8px; text-align: center;
+  border-right: 1px solid rgba(255,160,40,0.08);
+}
+.stat-cell:last-child { border-right: none; }
+.stat-num { font-size: 18px; color: rgba(255,220,120,0.8); letter-spacing: 0.02em; line-height: 1; }
+.stat-num.blue { color: rgba(140,200,255,0.7); }
+.stat-num.green { color: rgba(130,220,120,0.75); }
+.stat-num.orange { color: rgba(255,180,80,0.8); }
+.stat-lbl { font-size: 8px; letter-spacing: 0.3em; text-transform: uppercase; color: rgba(255,160,40,0.3); margin-top: 3px; }
+
+/* ── Section headers ── */
+.section-hdr { font-size: 8px; letter-spacing: 0.45em; text-transform: uppercase; color: rgba(255,160,40,0.28); margin: 14px 0 7px; }
+
+/* ── Provider table ── */
+#provider-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+#provider-table tr { border-bottom: 1px solid rgba(255,160,40,0.05); }
+#provider-table tr:last-child { border-bottom: none; }
+#provider-table td { padding: 6px 8px; font-size: 10px; vertical-align: middle; }
+.prov-name { color: rgba(255,215,120,0.7); letter-spacing: 0.05em; font-weight: normal; }
+.prov-bar-cell { width: 90px; padding: 6px 8px; }
+.prov-bar-bg { height: 4px; background: rgba(255,160,40,0.07); border-radius: 2px; overflow: hidden; }
+.prov-bar-fill { height: 100%; border-radius: 2px; transition: width 0.4s; }
+.prov-runs { color: rgba(255,200,100,0.45); text-align: right; min-width: 36px; }
+.prov-tokens { color: rgba(140,200,255,0.5); text-align: right; min-width: 52px; }
+.prov-model { color: rgba(255,160,40,0.28); font-size: 9px; letter-spacing: 0.05em; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prov-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; margin-right: 6px; }
+
+/* ── Trend chart ── */
+#trend-chart { display: flex; align-items: flex-end; gap: 4px; height: 52px; margin-bottom: 4px; }
+.trend-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; height: 100%; justify-content: flex-end; }
+.trend-bar { width: 100%; border-radius: 2px 2px 0 0; background: rgba(255,160,40,0.25); min-height: 2px; transition: height 0.4s; }
+.trend-bar.today { background: rgba(255,200,80,0.55); }
+.trend-day { font-size: 8px; color: rgba(255,160,40,0.25); letter-spacing: 0; text-align: center; white-space: nowrap; }
+.trend-val { font-size: 8px; color: rgba(255,200,100,0.35); text-align: center; white-space: nowrap; }
+
+/* ── Jobs table ── */
+#jobs-table { width: 100%; border-collapse: collapse; }
+#jobs-table tr { border-bottom: 1px solid rgba(255,160,40,0.05); }
+#jobs-table tr:last-child { border-bottom: none; }
+#jobs-table td { padding: 5px 6px; font-size: 10px; vertical-align: middle; }
+.job-name { color: rgba(255,210,100,0.65); letter-spacing: 0.03em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 160px; }
+.job-agent { font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: rgba(255,160,40,0.28); }
+.job-runs { color: rgba(255,200,100,0.45); text-align: right; }
+.job-tok { color: rgba(140,200,255,0.45); text-align: right; font-size: 9px; }
+.job-err { color: rgba(220,100,80,0.6); font-size: 9px; text-align: right; }
+
+/* ── Recent feed ── */
+#recent-feed { }
+.recent-entry { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-bottom: 1px solid rgba(255,160,40,0.04); }
+.recent-entry:last-child { border-bottom: none; }
+.re-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; background: rgba(255,160,40,0.2); }
+.re-ok  .re-dot { background: #44cc44; box-shadow: 0 0 3px #44cc44; }
+.re-err .re-dot { background: #cc5540; box-shadow: 0 0 3px #cc5540; }
+.re-ts { font-size: 9px; color: rgba(255,160,40,0.22); white-space: nowrap; flex-shrink: 0; min-width: 50px; }
+.re-body { flex: 1; min-width: 0; }
+.re-title { font-size: 10px; color: rgba(255,210,100,0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.re-sum { font-size: 9px; color: rgba(255,190,80,0.32); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.re-meta { font-size: 9px; color: rgba(255,160,40,0.22); flex-shrink: 0; text-align: right; }
+
+/* ── Footer ── */
+#footer { padding: 7px 16px; border-top: 1px solid rgba(255,160,40,0.08); flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; }
+#footer-left { font-size: 9px; letter-spacing: 0.15em; color: rgba(255,160,40,0.2); }
+#countdown { font-size: 9px; color: rgba(255,160,40,0.2); }
+
+/* ── Error state ── */
+#error-state { display: none; padding: 40px 16px; text-align: center; }
+#error-state.show { display: block; }
+.error-msg { font-size: 11px; color: rgba(220,100,80,0.6); letter-spacing: 0.1em; }
+.error-sub { font-size: 10px; color: rgba(255,160,40,0.3); margin-top: 8px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="header">
+    <div id="header-left">
+      <div id="status-dot"></div>
+      <div id="title">Atlas · Usage</div>
+    </div>
+    <div id="header-right">
+      <span id="last-update">—</span>
+      <button id="refresh-btn" onclick="load()" title="Refresh">↻</button>
+    </div>
+  </div>
+
+  <div id="content">
+    <div id="stat-row">
+      <div class="stat-cell"><div class="stat-num" id="s-runs">—</div><div class="stat-lbl">Total Runs</div></div>
+      <div class="stat-cell"><div class="stat-num blue" id="s-tokens">—</div><div class="stat-lbl">Tokens</div></div>
+      <div class="stat-cell"><div class="stat-num green" id="s-today">—</div><div class="stat-lbl">Today</div></div>
+      <div class="stat-cell"><div class="stat-num orange" id="s-providers">—</div><div class="stat-lbl">Providers</div></div>
+    </div>
+
+    <div class="section-hdr">Providers</div>
+    <table id="provider-table"><tbody id="provider-body"></tbody></table>
+
+    <div class="section-hdr">7-Day Trend</div>
+    <div id="trend-chart"></div>
+
+    <div class="section-hdr">Top Jobs</div>
+    <table id="jobs-table"><tbody id="jobs-body"></tbody></table>
+
+    <div class="section-hdr">Recent Activity</div>
+    <div id="recent-feed"></div>
+
+    <div id="error-state">
+      <div class="error-msg">Bridge offline</div>
+      <div class="error-sub">Start bridge: node bridge/server.mjs<br>Then refresh.</div>
+    </div>
+  </div>
+
+  <div id="footer">
+    <div id="footer-left">Stewart Inc. · Atlas</div>
+    <div id="countdown"></div>
+  </div>
+</div>
+
+<script>
+const BRIDGE = 'http://127.0.0.1:8780';
+const REFRESH_SECS = 60;
+let countdown = REFRESH_SECS;
+let timer = null;
+
+const PROV_COLORS = {
+  anthropic:      '#b48cff',
+  google:         '#64c864',
+  'openai-codex': '#64b4ff',
+  openrouter:     '#ffb450',
+};
+
+function fmt(n) {
+  if (n == null) return '—';
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1_000)     return (n / 1_000).toFixed(1) + 'K';
+  return String(n);
+}
+
+function fmtTs(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts);
+  const now = new Date();
+  const diffMs = now - d;
+  if (diffMs < 60_000)     return Math.round(diffMs / 1000) + 's ago';
+  if (diffMs < 3_600_000)  return Math.round(diffMs / 60_000) + 'm ago';
+  if (diffMs < 86_400_000) return Math.round(diffMs / 3_600_000) + 'h ago';
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+function fmtTime(ts) {
+  if (!ts) return '';
+  return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function topModel(models) {
+  if (!models) return '—';
+  return Object.entries(models).sort((a,b) => b[1]-a[1])[0]?.[0]?.split('/').pop() || '—';
+}
+
+function renderProviders(byProvider) {
+  const tbody = document.getElementById('provider-body');
+  tbody.innerHTML = '';
+  if (!byProvider || !Object.keys(byProvider).length) return;
+  const maxTok = Math.max(...Object.values(byProvider).map(p => p.total), 1);
+  const sorted = Object.entries(byProvider).sort((a,b) => b[1].total - a[1].total);
+  for (const [name, d] of sorted) {
+    const color = PROV_COLORS[name] || 'rgba(255,200,100,0.4)';
+    const pct = Math.max(2, Math.round((d.total / maxTok) * 100));
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="prov-name">
+        <span class="prov-dot" style="background:${color}80;box-shadow:0 0 3px ${color}50"></span>${name}
+      </td>
+      <td class="prov-bar-cell">
+        <div class="prov-bar-bg"><div class="prov-bar-fill" style="width:${pct}%;background:${color}60"></div></div>
+      </td>
+      <td class="prov-runs">${d.runs}</td>
+      <td class="prov-tokens">${fmt(d.total)}</td>
+      <td class="prov-model">${topModel(d.models)}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+function renderTrend(byDay) {
+  const chart = document.getElementById('trend-chart');
+  chart.innerHTML = '';
+  if (!byDay) return;
+  const today = new Date().toISOString().slice(0, 10);
+  const days = Object.entries(byDay).sort().slice(-7);
+  if (!days.length) return;
+  const maxTok = Math.max(...days.map(d => d[1].total), 1);
+  for (const [day, d] of days) {
+    const isToday = day === today;
+    const pct = Math.max(4, Math.round((d.total / maxTok) * 100));
+    const label = day.slice(5); // MM-DD
+    const wrap = document.createElement('div');
+    wrap.className = 'trend-bar-wrap';
+    wrap.title = `${day}\n${d.runs} runs · ${fmt(d.total)} tokens`;
+    wrap.innerHTML = `
+      <div class="trend-val">${d.total >= 1000 ? fmt(d.total) : ''}</div>
+      <div class="trend-bar${isToday ? ' today' : ''}" style="height:${pct}%"></div>
+      <div class="trend-day">${label}</div>`;
+    chart.appendChild(wrap);
+  }
+}
+
+function renderJobs(byJob) {
+  const tbody = document.getElementById('jobs-body');
+  tbody.innerHTML = '';
+  if (!byJob) return;
+  const entries = Object.entries(byJob).sort((a,b) => b[1].runs - a[1].runs).slice(0, 8);
+  for (const [, d] of entries) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>
+        <div class="job-name" title="${d.name}">${d.name}</div>
+        <div class="job-agent">${d.agentId || '?'}</div>
+      </td>
+      <td class="job-runs">${d.runs}</td>
+      <td class="job-tok">${fmt(d.input + d.output)}</td>
+      <td class="job-err">${d.errors ? d.errors + ' err' : ''}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+function renderRecent(recent) {
+  const feed = document.getElementById('recent-feed');
+  feed.innerHTML = '';
+  if (!recent?.length) { feed.innerHTML = '<div style="font-size:10px;color:rgba(255,160,40,0.2);padding:10px 0">No recent runs.</div>'; return; }
+  for (const r of recent.slice(0, 15)) {
+    const div = document.createElement('div');
+    div.className = 're-body';
+    const entry = document.createElement('div');
+    entry.className = 'recent-entry ' + (r.status === 'ok' ? 're-ok' : 're-err');
+    const dot = document.createElement('div'); dot.className = 're-dot';
+    const ts = document.createElement('div'); ts.className = 're-ts'; ts.textContent = fmtTs(r.ts);
+    const body = document.createElement('div'); body.className = 're-body';
+    const title = document.createElement('div'); title.className = 're-title';
+    title.textContent = r.name || r.jobId?.slice(0,8) || '—';
+    title.title = `${r.name} · ${r.model} · ${r.provider}`;
+    body.appendChild(title);
+    if (r.summary) {
+      const sum = document.createElement('div'); sum.className = 're-sum';
+      sum.textContent = r.summary.replace(/\n/g, ' ').slice(0, 100);
+      body.appendChild(sum);
+    }
+    const meta = document.createElement('div'); meta.className = 're-meta';
+    meta.textContent = r.usage ? fmt(r.usage.total_tokens) : '';
+    entry.append(dot, ts, body, meta);
+    feed.appendChild(entry);
+  }
+}
+
+async function load() {
+  const btn = document.getElementById('refresh-btn');
+  btn.classList.add('spinning');
+  try {
+    const resp = await fetch(BRIDGE + '/api/usage/summary', { cache: 'no-store' });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const d = await resp.json();
+    document.getElementById('status-dot').className = 'ok';
+    document.getElementById('error-state').classList.remove('show');
+
+    const today = new Date().toISOString().slice(0, 10);
+    const todayData = d.byDay?.[today];
+
+    document.getElementById('s-runs').textContent     = fmt(d.totalRuns);
+    document.getElementById('s-tokens').textContent   = fmt(d.totalTokens);
+    document.getElementById('s-today').textContent    = todayData ? todayData.runs : '0';
+    document.getElementById('s-providers').textContent = Object.keys(d.byProvider || {}).length;
+    document.getElementById('last-update').textContent = fmtTime(Date.now());
+
+    renderProviders(d.byProvider);
+    renderTrend(d.byDay);
+    renderJobs(d.byJob);
+    renderRecent(d.recent);
+  } catch (err) {
+    document.getElementById('status-dot').className = '';
+    document.getElementById('error-state').classList.add('show');
+    console.error('Usage load failed:', err);
+  } finally {
+    btn.classList.remove('spinning');
+  }
+}
+
+function startCountdown() {
+  if (timer) clearInterval(timer);
+  countdown = REFRESH_SECS;
+  timer = setInterval(() => {
+    countdown--;
+    document.getElementById('countdown').textContent = `Refresh in ${countdown}s`;
+    if (countdown <= 0) { countdown = REFRESH_SECS; load(); }
+  }, 1000);
+}
+
+load();
+startCountdown();
+</script>
+</body>
+</html>

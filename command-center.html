@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Atlas · Command Center</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { width: 100%; height: 100%; background: #080300; font-family: 'Georgia', serif; color: rgba(255,210,100,0.85); overflow: hidden; }
+
+#app { display: flex; flex-direction: column; height: 100vh; max-width: 640px; margin: 0 auto; }
+
+/* ── Header ── */
+#header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-bottom: 1px solid rgba(255,160,40,0.12);
+  background: rgba(8,3,0,0.98); flex-shrink: 0;
+}
+#title { font-size: 10px; letter-spacing: 0.45em; text-transform: uppercase; color: rgba(255,215,120,0.55); }
+#bridge-dot { width: 6px; height: 6px; border-radius: 50%; background: #cc5540; }
+#bridge-dot.ok { background: #44cc44; box-shadow: 0 0 5px #44cc44; }
+
+/* ── Agent selector ── */
+#agent-row {
+  display: flex; gap: 6px; padding: 10px 14px; flex-wrap: wrap;
+  border-bottom: 1px solid rgba(255,160,40,0.08); flex-shrink: 0;
+  background: rgba(10,4,0,0.6);
+}
+.agent-btn {
+  font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase;
+  padding: 5px 12px; border-radius: 3px; cursor: pointer;
+  background: rgba(255,160,40,0.05); border: 1px solid rgba(255,160,40,0.14);
+  color: rgba(255,200,100,0.4); font-family: 'Georgia', serif; transition: all 0.15s;
+  user-select: none;
+}
+.agent-btn:hover { background: rgba(255,160,40,0.1); color: rgba(255,220,120,0.8); }
+.agent-btn.active { background: rgba(255,160,40,0.18); border-color: rgba(255,160,40,0.55); color: rgba(255,235,140,0.95); }
+.agent-btn.dev-btn.active { border-color: rgba(100,180,255,0.5); color: rgba(140,200,255,0.95); background: rgba(100,180,255,0.08); }
+
+/* ── Output ── */
+#output-area {
+  flex: 1; overflow-y: auto; padding: 0; position: relative;
+  background: #060200;
+}
+#output-inner { padding: 12px 14px; min-height: 100%; }
+#output-inner.empty { display: flex; align-items: center; justify-content: center; color: rgba(255,160,40,0.18); font-size: 11px; letter-spacing: 0.2em; text-align: center; }
+
+.task-block { margin-bottom: 18px; border: 1px solid rgba(255,160,40,0.1); border-radius: 3px; overflow: hidden; }
+.task-header {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 12px; background: rgba(255,160,40,0.06);
+  border-bottom: 1px solid rgba(255,160,40,0.08);
+}
+.task-hdr-dot { width: 6px; height: 6px; border-radius: 50%; background: #ffaa40; }
+.task-hdr-dot.done { background: #44cc44; box-shadow: 0 0 4px #44cc44; animation: none; }
+.task-hdr-dot.error { background: #cc5540; box-shadow: 0 0 4px #cc5540; animation: none; }
+.task-hdr-dot.running { animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.task-hdr-agent { font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(255,200,100,0.45); }
+.task-hdr-agent.dev { color: rgba(140,200,255,0.55); }
+.task-hdr-msg { flex: 1; font-size: 10px; color: rgba(255,210,100,0.5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-hdr-time { font-size: 9px; color: rgba(255,160,40,0.22); flex-shrink: 0; }
+.task-output {
+  padding: 10px 12px; font-family: 'Menlo', 'Monaco', monospace; font-size: 10px;
+  line-height: 1.6; color: rgba(255,215,120,0.65); white-space: pre-wrap; word-break: break-word;
+  max-height: 500px; overflow-y: auto;
+}
+.task-output .stderr-chunk { color: rgba(220,140,100,0.6); }
+.task-output .cursor { display: inline-block; width: 7px; height: 12px; background: rgba(255,200,100,0.6); animation: blink 1s step-end infinite; vertical-align: text-bottom; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* ── Input ── */
+#input-area {
+  display: flex; flex-direction: column; gap: 0;
+  border-top: 1px solid rgba(255,160,40,0.12); flex-shrink: 0;
+  background: rgba(10,4,0,0.98);
+}
+#task-input {
+  width: 100%; padding: 12px 14px;
+  background: transparent; border: none; outline: none; resize: none;
+  font-family: 'Georgia', serif; font-size: 13px;
+  color: rgba(255,220,130,0.85); caret-color: rgba(255,200,100,0.8);
+  min-height: 72px; max-height: 160px;
+  line-height: 1.5;
+}
+#task-input::placeholder { color: rgba(255,160,40,0.2); }
+#input-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 14px 10px; gap: 8px;
+}
+#char-count { font-size: 9px; color: rgba(255,160,40,0.2); letter-spacing: 0.1em; }
+#run-btn {
+  padding: 8px 22px; border-radius: 3px; cursor: pointer;
+  background: rgba(255,160,40,0.12); border: 1px solid rgba(255,160,40,0.35);
+  color: rgba(255,220,120,0.85); font-family: 'Georgia', serif;
+  font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase;
+  transition: all 0.15s; min-width: 80px;
+}
+#run-btn:hover:not(:disabled) { background: rgba(255,160,40,0.22); border-color: rgba(255,160,40,0.65); }
+#run-btn:disabled { opacity: 0.35; cursor: default; }
+#run-btn.dev-mode { border-color: rgba(100,180,255,0.35); color: rgba(140,200,255,0.85); }
+#run-btn.dev-mode:hover:not(:disabled) { background: rgba(100,180,255,0.12); }
+
+/* ── Task history sidebar hint ── */
+#history-row {
+  display: flex; gap: 6px; padding: 6px 14px;
+  border-top: 1px solid rgba(255,160,40,0.06); flex-shrink: 0; overflow-x: auto;
+}
+.hist-pill {
+  flex-shrink: 0; font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 10px; cursor: pointer;
+  background: rgba(255,160,40,0.05); border: 1px solid rgba(255,160,40,0.1);
+  color: rgba(255,200,100,0.35); white-space: nowrap; transition: all 0.1s;
+}
+.hist-pill:hover { background: rgba(255,160,40,0.1); color: rgba(255,220,120,0.7); }
+.hist-pill.done  { border-color: rgba(100,220,100,0.18); }
+.hist-pill.error { border-color: rgba(220,100,80,0.2); color: rgba(220,140,100,0.4); }
+.hist-pill.running { border-color: rgba(255,180,60,0.3); color: rgba(255,200,100,0.55); animation: pulse 1.5s ease-in-out infinite; }
+
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,160,40,0.12); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="header">
+    <div id="title">Command Center</div>
+    <div id="bridge-dot"></div>
+  </div>
+
+  <div id="agent-row">
+    <button class="agent-btn dev-btn active" onclick="selectAgent('dev',this)" data-agent="dev">Dev ⚙</button>
+    <button class="agent-btn" onclick="selectAgent('botler',this)" data-agent="botler">Botler</button>
+    <button class="agent-btn" onclick="selectAgent('cash',this)" data-agent="cash">Cash</button>
+    <button class="agent-btn" onclick="selectAgent('impulse',this)" data-agent="impulse">Impulse</button>
+    <button class="agent-btn" onclick="selectAgent('loki',this)" data-agent="loki">Loki</button>
+    <button class="agent-btn" onclick="selectAgent('jim',this)" data-agent="jim">Jim</button>
+  </div>
+
+  <div id="output-area">
+    <div id="output-inner" class="empty">No tasks yet. Select an agent and send a command.</div>
+  </div>
+
+  <div id="history-row"></div>
+
+  <div id="input-area">
+    <textarea id="task-input" placeholder="Describe what you need…" rows="3" oninput="onInput()"></textarea>
+    <div id="input-footer">
+      <span id="char-count"></span>
+      <button id="run-btn" class="dev-mode" onclick="run()">Run ↵</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const BRIDGE = 'http://127.0.0.1:8780';
+let selectedAgent = 'dev';
+let taskHistory = [];
+let activeTaskId = null;
+
+function selectAgent(agent, btn) {
+  selectedAgent = agent;
+  document.querySelectorAll('.agent-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const runBtn = document.getElementById('run-btn');
+  if (agent === 'dev') {
+    runBtn.classList.add('dev-mode');
+  } else {
+    runBtn.classList.remove('dev-mode');
+  }
+  document.getElementById('task-input').placeholder = agent === 'dev'
+    ? 'Describe what to build or fix…'
+    : `Message ${agent}…`;
+}
+
+function onInput() {
+  const v = document.getElementById('task-input').value;
+  document.getElementById('char-count').textContent = v.length > 0 ? v.length + ' chars' : '';
+}
+
+async function checkBridge() {
+  try {
+    const r = await fetch(BRIDGE + '/health', { cache: 'no-store' });
+    document.getElementById('bridge-dot').className = r.ok ? 'ok' : '';
+  } catch {
+    document.getElementById('bridge-dot').className = '';
+  }
+}
+
+function formatElapsed(ms) {
+  if (ms < 1000) return ms + 'ms';
+  if (ms < 60000) return (ms / 1000).toFixed(1) + 's';
+  return (ms / 60000).toFixed(1) + 'm';
+}
+
+function createTaskBlock(taskId, agent, message) {
+  const block = document.createElement('div');
+  block.className = 'task-block';
+  block.id = 'task-' + taskId;
+
+  const hdr = document.createElement('div');
+  hdr.className = 'task-header';
+  hdr.innerHTML = `
+    <div class="task-hdr-dot running" id="dot-${taskId}"></div>
+    <div class="task-hdr-agent ${agent === 'dev' ? 'dev' : ''}">${agent}</div>
+    <div class="task-hdr-msg" title="${escHtml(message)}">${escHtml(message.slice(0, 80))}</div>
+    <div class="task-hdr-time" id="hdrtime-${taskId}">running…</div>`;
+  block.appendChild(hdr);
+
+  const out = document.createElement('div');
+  out.className = 'task-output';
+  out.id = 'out-' + taskId;
+  out.innerHTML = '<span class="cursor"></span>';
+  block.appendChild(out);
+  return block;
+}
+
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function appendOutput(taskId, text, stream) {
+  const out = document.getElementById('out-' + taskId);
+  if (!out) return;
+  const cursor = out.querySelector('.cursor');
+  const span = document.createElement('span');
+  span.className = stream === 'stderr' ? 'stderr-chunk' : '';
+  span.textContent = text;
+  if (cursor) out.insertBefore(span, cursor);
+  else out.appendChild(span);
+  out.scrollTop = out.scrollHeight;
+  const outputArea = document.getElementById('output-area');
+  outputArea.scrollTop = outputArea.scrollHeight;
+}
+
+function markTaskDone(taskId, status, durationMs) {
+  const dot = document.getElementById('dot-' + taskId);
+  const timeEl = document.getElementById('hdrtime-' + taskId);
+  const out = document.getElementById('out-' + taskId);
+  if (dot) { dot.classList.remove('running'); dot.classList.add(status); }
+  if (timeEl) timeEl.textContent = formatElapsed(durationMs || 0);
+  if (out) { const c = out.querySelector('.cursor'); if (c) c.remove(); }
+  updateHistoryPill(taskId, status);
+}
+
+function updateHistoryPill(taskId, status) {
+  const pill = document.getElementById('pill-' + taskId);
+  if (pill) { pill.classList.remove('running'); pill.classList.add(status); }
+}
+
+function addHistoryPill(taskId, agent, message) {
+  const row = document.getElementById('history-row');
+  const pill = document.createElement('div');
+  pill.className = 'hist-pill running';
+  pill.id = 'pill-' + taskId;
+  pill.textContent = agent + ': ' + message.slice(0, 24);
+  pill.title = message;
+  pill.onclick = () => {
+    const block = document.getElementById('task-' + taskId);
+    if (block) block.scrollIntoView({ behavior: 'smooth' });
+  };
+  row.insertBefore(pill, row.firstChild);
+  if (row.children.length > 8) row.lastChild.remove();
+}
+
+async function run() {
+  const input = document.getElementById('task-input');
+  const message = input.value.trim();
+  if (!message) return;
+  const agent = selectedAgent;
+
+  const runBtn = document.getElementById('run-btn');
+  runBtn.disabled = true;
+  input.disabled = true;
+
+  // Clear empty state
+  const inner = document.getElementById('output-inner');
+  if (inner.classList.contains('empty')) { inner.classList.remove('empty'); inner.innerHTML = ''; }
+
+  // Create task block
+  const tempId = crypto.randomUUID();
+  const block = createTaskBlock(tempId, agent, message);
+  inner.appendChild(block);
+  block.scrollIntoView({ behavior: 'smooth' });
+
+  try {
+    const resp = await fetch(BRIDGE + '/api/task/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agent, message })
+    });
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || 'start failed');
+    const taskId = data.taskId;
+
+    // Re-id the block
+    block.id = 'task-' + taskId;
+    document.getElementById('dot-' + tempId).id = 'dot-' + taskId;
+    document.getElementById('out-' + tempId).id = 'out-' + taskId;
+    document.getElementById('hdrtime-' + tempId).id = 'hdrtime-' + taskId;
+
+    addHistoryPill(taskId, agent, message);
+    taskHistory.unshift({ taskId, agent, message });
+    activeTaskId = taskId;
+
+    const startMs = Date.now();
+    const es = new EventSource(BRIDGE + '/api/task/' + taskId + '/events');
+    es.addEventListener('output', ev => {
+      const d = JSON.parse(ev.data);
+      appendOutput(taskId, d.text, d.stream);
+    });
+    es.addEventListener('done', ev => {
+      const d = JSON.parse(ev.data);
+      markTaskDone(taskId, d.status, Date.now() - startMs);
+      es.close();
+      runBtn.disabled = false;
+      input.disabled = false;
+      input.value = '';
+      document.getElementById('char-count').textContent = '';
+      input.focus();
+    });
+    es.onerror = () => {
+      markTaskDone(taskId, 'error', Date.now() - startMs);
+      es.close();
+      runBtn.disabled = false;
+      input.disabled = false;
+    };
+  } catch (err) {
+    appendOutput(tempId, '[Error] ' + err.message + '\n', 'stderr');
+    markTaskDone(tempId, 'error', 0);
+    runBtn.disabled = false;
+    input.disabled = false;
+  }
+  input.value = '';
+}
+
+// Enter to submit (shift+enter for newline)
+document.getElementById('task-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); run(); }
+});
+
+checkBridge();
+setInterval(checkBridge, 30000);
+</script>
+</body>
+</html>

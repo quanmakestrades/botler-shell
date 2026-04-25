@@ -1,6 +1,6 @@
 import http from 'node:http';
 import { spawn, execFile as execFileCb } from 'node:child_process';
-import { readFile, mkdir, access } from 'node:fs/promises';
+import { readFile, mkdir, access, readdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,8 +18,22 @@ const HOST = process.env.BOTLER_BRIDGE_HOST || '127.0.0.1';
 const PORT = Number(process.env.BOTLER_BRIDGE_PORT || 8780);
 const DEFAULT_VOICE = process.env.BOTLER_BRIDGE_VOICE || 'Daniel';
 const RUNTIME_MODE = 'gateway-cli-agent';
+const OPENCLAW_DIR   = path.resolve(__dirname, '../../../..');
+const GATEWAY_LOG    = path.join(OPENCLAW_DIR, 'logs', 'gateway.log');
+const CRON_RUNS_DIR  = path.join(OPENCLAW_DIR, 'cron', 'runs');
+const CRON_JOBS_FILE = path.join(OPENCLAW_DIR, 'cron', 'jobs.json');
+const CLAUDE_BIN     = process.env.CLAUDE_BIN || '/Users/stewartos/.local/bin/claude';
+const DEV_ROOT       = process.env.DEV_ROOT   || '/Users/stewartos';
 const sessions = new Map();
-const clients = new Set();
+const clients  = new Set();
+const tasks    = new Map(); // taskId → { id, agent, message, cwd, status, output[], sseClients, startedAt, endedAt, exitCode }
+
+function taskBroadcast(taskId, event, data) {
+  const task = tasks.get(taskId);
+  if (!task) return;
+  const line = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+  for (const res of task.sseClients) { try { res.write(line); } catch {} }
+}
 
 await mkdir(AUDIO_DIR, { recursive: true });
 
@@ -377,6 +391,171 @@ const server = http.createServer(async (req, res) => {
       const message = error?.message || String(error);
       broadcast('error', { message });
       return sendJson(res, 400, { ok: false, error: message });
+    }
+  }
+
+  if (req.method === 'POST' && pathname === '/api/task/start') {
+    try {
+      const body = await readBody(req);
+      const message = String(body.message || '').trim();
+      const agent   = String(body.agent   || 'dev').toLowerCase();
+      const cwd     = String(body.cwd     || DEV_ROOT);
+      if (!message) return sendJson(res, 400, { ok: false, error: 'message required' });
+
+      const taskId = crypto.randomUUID();
+      const task = { id: taskId, agent, message, cwd, status: 'running', output: [], sseClients: new Set(), startedAt: Date.now(), endedAt: null, exitCode: null };
+      tasks.set(taskId, task);
+
+      const envPath = process.env.PATH || '';
+      const taskEnv = { ...process.env, PATH: `/Users/stewartos/.local/bin:${envPath}` };
+
+      let proc;
+      if (agent === 'dev') {
+        proc = spawn(CLAUDE_BIN, ['--dangerously-skip-permissions', '--print', '-p', message], { cwd: DEV_ROOT, env: taskEnv });
+      } else {
+        proc = spawn('openclaw', ['agent', '--agent', agent, '--message', message, '--json'], { cwd: WORKSPACE_ROOT, env: taskEnv });
+      }
+      task.proc = proc;
+
+      const push = (text, stream) => {
+        task.output.push({ text: String(text), stream, at: Date.now() });
+        taskBroadcast(taskId, 'output', { text: String(text), stream });
+      };
+      proc.stdout.on('data', chunk => push(chunk, 'stdout'));
+      proc.stderr.on('data', chunk => push(chunk, 'stderr'));
+      proc.on('close', code => {
+        task.status = code === 0 ? 'done' : 'error';
+        task.exitCode = code; task.endedAt = Date.now();
+        taskBroadcast(taskId, 'done', { status: task.status, exitCode: code, durationMs: task.endedAt - task.startedAt });
+        for (const c of task.sseClients) { try { c.end(); } catch {} }
+        task.sseClients.clear();
+        setTimeout(() => tasks.delete(taskId), 3_600_000);
+      });
+      proc.on('error', err => {
+        push(`[spawn error] ${err.message}`, 'stderr');
+        task.status = 'error'; task.endedAt = Date.now();
+        taskBroadcast(taskId, 'done', { status: 'error', exitCode: -1 });
+      });
+      return sendJson(res, 200, { ok: true, taskId, agent, message });
+    } catch (err) {
+      return sendJson(res, 500, { ok: false, error: err.message });
+    }
+  }
+
+  const taskEventsMatch = pathname.match(/^\/api\/task\/([^/]+)\/events$/);
+  if (req.method === 'GET' && taskEventsMatch) {
+    const taskId = taskEventsMatch[1];
+    const task = tasks.get(taskId);
+    if (!task) return sendJson(res, 404, { ok: false, error: 'task not found' });
+    res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-store', Connection: 'keep-alive', 'Access-Control-Allow-Origin': '*' });
+    res.write(': connected\n\n');
+    for (const chunk of task.output) res.write(`event: output\ndata: ${JSON.stringify({ text: chunk.text, stream: chunk.stream })}\n\n`);
+    if (task.status !== 'running') {
+      res.write(`event: done\ndata: ${JSON.stringify({ status: task.status, exitCode: task.exitCode })}\n\n`);
+      return res.end();
+    }
+    task.sseClients.add(res);
+    const ka = setInterval(() => { try { res.write(': ping\n\n'); } catch {} }, 20000);
+    req.on('close', () => { clearInterval(ka); task.sseClients.delete(res); });
+    return;
+  }
+
+  const taskStatusMatch = pathname.match(/^\/api\/task\/([^/]+)\/status$/);
+  if (req.method === 'GET' && taskStatusMatch) {
+    const taskId = taskStatusMatch[1];
+    const task = tasks.get(taskId);
+    if (!task) return sendJson(res, 404, { ok: false, error: 'task not found' });
+    return sendJson(res, 200, { ok: true, taskId, agent: task.agent, status: task.status, startedAt: task.startedAt, endedAt: task.endedAt, exitCode: task.exitCode, outputLength: task.output.length, fullOutput: task.output.map(c => c.text).join('') });
+  }
+
+  if (req.method === 'GET' && pathname === '/api/tasks') {
+    const list = [...tasks.values()].map(t => ({ id: t.id, agent: t.agent, status: t.status, startedAt: t.startedAt, endedAt: t.endedAt, message: t.message.slice(0, 100) })).sort((a, b) => b.startedAt - a.startedAt);
+    return sendJson(res, 200, { ok: true, tasks: list });
+  }
+
+  if (req.method === 'GET' && pathname === '/api/logs/stream') {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-store',
+      Connection: 'keep-alive',
+      'Access-Control-Allow-Origin': '*'
+    });
+    res.write(': connected\n\n');
+    const tail = spawn('tail', ['-n', '200', '-f', GATEWAY_LOG], { cwd: OPENCLAW_DIR });
+    let buf = '';
+    tail.stdout.on('data', chunk => {
+      buf += String(chunk);
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (line.trim()) res.write(`event: log\ndata: ${JSON.stringify({ line: line.trim(), at: Date.now() })}\n\n`);
+      }
+    });
+    const keepAlive = setInterval(() => { try { res.write(': ping\n\n'); } catch {} }, 20000);
+    req.on('close', () => { clearInterval(keepAlive); try { tail.kill(); } catch {} });
+    return;
+  }
+
+  if (req.method === 'GET' && pathname === '/api/usage/summary') {
+    try {
+      let jobNames = {};
+      try {
+        const jd = JSON.parse(await readFile(CRON_JOBS_FILE, 'utf8'));
+        for (const j of (jd.jobs || [])) jobNames[j.id] = { name: j.name, agentId: j.agentId };
+      } catch {}
+
+      const files = await readdir(CRON_RUNS_DIR).catch(() => []);
+      const byProvider = {}, byDay = {}, byJob = {}, byModel = {};
+      const recent = [];
+
+      for (const f of files) {
+        if (!f.endsWith('.jsonl')) continue;
+        const content = await readFile(path.join(CRON_RUNS_DIR, f), 'utf8').catch(() => '');
+        for (const line of content.split('\n')) {
+          if (!line.trim()) continue;
+          let r; try { r = JSON.parse(line); } catch { continue; }
+          if (r.action !== 'finished' || !r.usage) continue;
+          const p = r.provider || 'unknown';
+          const m = r.model || 'unknown';
+          const u = r.usage;
+          const ts = r.ts || 0;
+          const day = ts ? new Date(ts).toISOString().slice(0, 10) : 'unknown';
+          const jid = r.jobId || '';
+          const ji = jobNames[jid] || { name: jid.slice(0, 8), agentId: 'unknown' };
+
+          if (!byProvider[p]) byProvider[p] = { runs: 0, input: 0, output: 0, total: 0, models: {} };
+          byProvider[p].runs++; byProvider[p].input += u.input_tokens || 0;
+          byProvider[p].output += u.output_tokens || 0; byProvider[p].total += u.total_tokens || 0;
+          byProvider[p].models[m] = (byProvider[p].models[m] || 0) + 1;
+
+          if (!byDay[day]) byDay[day] = { runs: 0, total: 0 };
+          byDay[day].runs++; byDay[day].total += u.total_tokens || 0;
+
+          if (!byJob[jid]) byJob[jid] = { name: ji.name, agentId: ji.agentId, runs: 0, input: 0, output: 0, errors: 0 };
+          byJob[jid].runs++; byJob[jid].input += u.input_tokens || 0; byJob[jid].output += u.output_tokens || 0;
+          if (r.status === 'error') byJob[jid].errors++;
+
+          if (!byModel[m]) byModel[m] = { runs: 0, total: 0, provider: p };
+          byModel[m].runs++; byModel[m].total += u.total_tokens || 0;
+
+          recent.push({ jobId: jid, name: ji.name, agentId: ji.agentId, status: r.status, model: m, provider: p, ts, durationMs: r.durationMs || 0, usage: u, summary: r.summary || '' });
+        }
+      }
+
+      recent.sort((a, b) => b.ts - a.ts);
+      const totalTokens = Object.values(byProvider).reduce((s, p) => s + p.total, 0);
+      return sendJson(res, 200, {
+        ok: true,
+        totalRuns: recent.length,
+        totalTokens,
+        byProvider,
+        byDay: Object.fromEntries(Object.entries(byDay).sort()),
+        byJob: Object.fromEntries(Object.entries(byJob).sort((a, b) => b[1].runs - a[1].runs).slice(0, 12)),
+        byModel,
+        recent: recent.slice(0, 100)
+      });
+    } catch (err) {
+      return sendJson(res, 500, { ok: false, error: err.message });
     }
   }
 

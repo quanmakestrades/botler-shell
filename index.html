@@ -11,7 +11,7 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
 #hud, #controls, #edit-btn, #edit-ui { z-index: 1; }
 
 #hud { position: fixed; inset: 0; pointer-events: none; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 32px 0 28px; }
-#status { color: rgba(255,200,100,0.32); font-size: 11px; letter-spacing: 0.42em; text-transform: uppercase; pointer-events: none; }
+#status { color: rgba(255,200,100,0.32); font-size: 11px; letter-spacing: 0.42em; text-transform: uppercase; pointer-events: none; transition: opacity 0.14s; }
 #name-tag { color: rgba(255,200,100,0.16); font-size: 11px; letter-spacing: 0.62em; text-transform: uppercase; }
 #tunnel-tag { color: rgba(255,200,100,0.22); font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase; pointer-events: all; cursor: pointer; text-decoration: none; display: none; }
 #tunnel-tag:hover { color: rgba(255,220,120,0.55); }
@@ -86,12 +86,17 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
   padding: 12px 16px; border-bottom: 1px solid rgba(255,160,40,0.1); flex-shrink: 0;
 }
 #panel-title { color: rgba(255,200,100,0.5); font-size: 10px; letter-spacing: 0.4em; text-transform: uppercase; }
-#panel-close {
+#panel-close, #panel-expand {
   background: none; border: none; color: rgba(255,200,100,0.4); cursor: pointer;
   font-size: 14px; padding: 2px 6px; border-radius: 2px;
 }
-#panel-close:hover { color: rgba(255,220,120,0.9); background: rgba(255,160,40,0.1); }
+#panel-close:hover, #panel-expand:hover { color: rgba(255,220,120,0.9); background: rgba(255,160,40,0.1); }
 #panel-body { flex: 1; position: relative; overflow: hidden; }
+/* Fullscreen panel */
+#side-panel.fullscreen {
+  width: 100vw !important; right: 0 !important; top: 0 !important; height: 100vh !important;
+  transition: all 0.22s cubic-bezier(.4,0,.2,1);
+}
 #browser-frame {
   width: 100%; height: 100%; border: none;
   background: #fff; display: none;
@@ -160,6 +165,29 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
 .comp-nav { display: flex; gap: 8px; margin-top: 14px; }
 .comp-nav .btn { font-size: 9px; padding: 5px 12px; }
 
+/* ── Agent Bar ── */
+#agent-bar {
+  position: fixed; top: 18px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 6px; z-index: 10;
+  pointer-events: all;
+}
+.agent-btn {
+  position: relative;
+  background: rgba(255,160,40,0.05); border: 1px solid rgba(255,160,40,0.12);
+  color: rgba(255,200,100,0.3); font-size: 9px; letter-spacing: 0.28em;
+  text-transform: uppercase; padding: 4px 10px; border-radius: 2px; cursor: pointer;
+  font-family: 'Georgia', serif; transition: all 0.2s;
+}
+.agent-btn:hover { background: rgba(255,160,40,0.12); color: rgba(255,220,120,0.7); }
+.agent-btn.active { background: rgba(255,160,40,0.14); border-color: rgba(255,180,60,0.35); color: rgba(255,220,120,0.85); }
+.agent-badge {
+  position: absolute; top: -4px; right: -4px;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #44cc44; box-shadow: 0 0 4px #44cc44;
+  display: none;
+}
+.agent-badge.visible { display: block; }
+
 /* ── Finance Panel ── */
 #finance-panel {
   position: fixed; inset: 0; z-index: 40;
@@ -213,21 +241,43 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
 .setup-err.visible { display: block; }
 .setup-divider { width: 100%; border: none; border-top: 1px solid rgba(255,160,40,0.1); margin: 2px 0; }
 
+/* ── Botler cursor ── */
+#botler-cursor {
+  position: fixed; width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid var(--bc, #ff8800);
+  background: rgba(255,136,0,0.12);
+  box-shadow: 0 0 10px var(--bc, #ff8800), 0 0 28px rgba(255,136,0,0.25);
+  pointer-events: none; z-index: 9998;
+  opacity: 0; transform: translate(-50%,-50%) scale(1);
+  transition: left 0.48s cubic-bezier(.4,0,.2,1),
+              top  0.48s cubic-bezier(.4,0,.2,1),
+              opacity 0.25s, transform 0.12s;
+}
+#botler-cursor.bc-visible { opacity: 1; }
+#botler-cursor.bc-click { transform: translate(-50%,-50%) scale(2.0); }
+
 /* ── Chat Bubbles ── */
 #chat-bubbles {
   position: fixed; bottom: 160px; left: 50%; transform: translateX(-50%);
-  width: min(560px, 92vw); max-height: 42vh; overflow: hidden;
+  width: min(600px, 96vw); max-height: 52vh; overflow-y: auto; overflow-x: hidden;
   display: flex; flex-direction: column; gap: 8px; z-index: 8;
-  pointer-events: none;
-  mask-image: linear-gradient(to bottom, transparent 0%, black 22%, black 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 22%, black 100%);
+  pointer-events: all; scroll-behavior: smooth;
+  padding: 4px 0 4px 0;
+  /* subtle fade at top so it looks graded into the face */
+  mask-image: linear-gradient(to bottom, transparent 0%, black 14%, black 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 14%, black 100%);
   transition: opacity 0.35s;
 }
+#chat-bubbles::-webkit-scrollbar { width: 3px; }
+#chat-bubbles::-webkit-scrollbar-thumb { background: rgba(255,160,40,0.2); border-radius: 2px; }
 #chat-bubbles.hidden { opacity: 0; pointer-events: none; }
+/* Voice mode: hide bubbles (face only) */
+body.voice-mode #chat-bubbles { display: none; }
+
 .bubble {
-  max-width: 80%; padding: 8px 13px; border-radius: 16px; font-size: 12px;
-  line-height: 1.55; letter-spacing: 0.03em; backdrop-filter: blur(16px);
-  pointer-events: none; word-break: break-word;
+  max-width: 84%; padding: 8px 13px; border-radius: 16px; font-size: 13px;
+  line-height: 1.6; letter-spacing: 0.02em; backdrop-filter: blur(16px);
+  word-break: break-word; pointer-events: all;
 }
 .bubble.user {
   align-self: flex-end;
@@ -236,9 +286,62 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
 }
 .bubble.bot {
   align-self: flex-start;
-  background: rgba(20,10,0,0.55); border: 1px solid rgba(255,160,40,0.12);
-  color: rgba(255,200,100,0.75); border-bottom-left-radius: 4px;
+  background: rgba(20,10,0,0.72); border: 1px solid rgba(255,160,40,0.14);
+  color: rgba(255,200,100,0.82); border-bottom-left-radius: 4px;
 }
+/* Inline component bubble — renders HTML directly in chat */
+.bubble.component-bubble {
+  max-width: 100%; width: 100%; padding: 0; background: none; border: none;
+  display: flex; flex-direction: column; gap: 0;
+}
+.comp-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 6px 6px; cursor: pointer;
+}
+.comp-header:hover .comp-expand { opacity: 0.8; }
+.bubble.component-bubble .comp-label {
+  color: rgba(255,160,40,0.42); font-size: 9px; letter-spacing: 0.35em;
+  text-transform: uppercase;
+}
+.comp-expand {
+  font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: rgba(255,160,40,0.3); opacity: 0.5; transition: opacity 0.2s;
+}
+.bubble.component-bubble iframe {
+  width: 100%; border: 1px solid rgba(255,160,40,0.18);
+  border-radius: 12px; background: rgba(12,4,0,0.92);
+  cursor: pointer; display: block;
+}
+
+/* Full-screen component modal */
+#comp-modal {
+  display: none; position: fixed; inset: 0; z-index: 200;
+  background: rgba(6,2,0,0.97);
+  flex-direction: column; padding: 16px 16px 20px;
+  gap: 10px;
+}
+#comp-modal.open { display: flex; }
+#comp-modal-header {
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+}
+#comp-modal-title {
+  font-size: 9px; letter-spacing: 0.45em; text-transform: uppercase;
+  color: rgba(255,160,40,0.4);
+}
+#comp-modal-close {
+  background: none; border: 1px solid rgba(255,160,40,0.25);
+  color: rgba(255,200,100,0.5); font-size: 11px; padding: 4px 14px;
+  border-radius: 2px; cursor: pointer; font-family: Georgia,serif;
+  letter-spacing: 0.2em;
+}
+#comp-modal-frame {
+  flex: 1; width: 100%; border: 1px solid rgba(255,160,40,0.15);
+  border-radius: 10px; background: rgba(12,4,0,0.95);
+  min-height: 0; /* allow flex shrink */
+}
+/* Night mode */
+body.night-mode { background: #060202; }
+body.night-mode canvas { filter: brightness(0.52) saturate(0.7); }
 #subtitle-toggle { font-size: 9px; }
 
 /* ── Looks bar ── */
@@ -292,14 +395,25 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
 
 /* ── Mobile text input bar ── */
 #text-input-bar {
-  display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 25;
+  display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 25;
   background: rgba(12,5,0,0.95); border-top: 1px solid rgba(255,160,40,0.15);
   padding: 10px 12px; gap: 8px; align-items: center; backdrop-filter: blur(12px);
 }
+/* Silent mode — triggered by typing, suppresses TTS */
+#silent-badge {
+  display: none; font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase;
+  color: rgba(255,160,40,0.55); border: 1px solid rgba(255,160,40,0.2);
+  padding: 2px 7px; border-radius: 10px; flex-shrink: 0; cursor: pointer;
+}
+#silent-badge:hover { color: rgba(255,200,100,0.8); border-color: rgba(255,160,40,0.45); }
+body.silent-mode #silent-badge { display: block; }
+body.silent-mode #text-input-bar { border-top-color: rgba(255,160,40,0.35); }
 #text-query {
   flex: 1; background: rgba(255,160,40,0.06); border: 1px solid rgba(255,160,40,0.22);
   color: rgba(255,220,120,0.85); font-family: Georgia, serif; font-size: 14px;
   padding: 10px 14px; border-radius: 20px; outline: none; letter-spacing: 0.04em;
+  resize: none; overflow-y: auto; min-height: 44px; max-height: 170px;
+  line-height: 1.55; scrollbar-width: thin;
 }
 #text-query::placeholder { color: rgba(255,200,100,0.25); }
 #text-query:focus { border-color: rgba(255,160,40,0.5); }
@@ -310,6 +424,35 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
   flex-shrink: 0;
 }
 
+/* ── Adult mode — controls hidden by default, shown only when unlocked ── */
+#controls, #agent-bar, #edit-btn, #looks-bar { display: none !important; }
+body.adult-mode #controls { display: flex !important; }
+body.adult-mode #agent-bar { display: flex !important; }
+body.adult-mode #edit-btn  { display: block !important; }
+body.adult-mode #looks-bar { display: flex !important; }
+/* Kids-accessible color panel (floats near center, not attached to controls) */
+#kids-color-panel {
+  display: none; position: fixed; bottom: 160px; left: 50%; transform: translateX(-50%);
+  background: rgba(20,8,0,0.96); border: 1px solid rgba(255,160,40,0.3);
+  border-radius: 8px; padding: 14px 16px; z-index: 30;
+  box-shadow: 0 4px 32px rgba(0,0,0,0.8);
+}
+#kids-color-panel.open { display: block; }
+#kids-close-btn {
+  position: absolute; top: 6px; right: 10px;
+  background: none; border: none; color: rgba(255,200,100,0.5);
+  font-size: 14px; cursor: pointer;
+}
+
+/* Adult mode auto-hide timer bar */
+#adult-timer {
+  position: fixed; top: 0; left: 0; height: 2px;
+  background: rgba(255,160,40,0.5); width: 100%;
+  transform-origin: left; transform: scaleX(1);
+  transition: transform linear; display: none; z-index: 100;
+}
+body.adult-mode #adult-timer { display: block; }
+
 /* ── Responsive ── */
 @media (max-width: 767px) {
   #side-panel {
@@ -319,6 +462,7 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
     transition: bottom 0.32s cubic-bezier(.4,0,.2,1);
   }
   #side-panel.open { bottom: 0; right: 0; }
+  #side-panel.fullscreen { height: 100vh !important; bottom: 0 !important; }
   #voice-bar { bottom: 80px; }
   #controls { bottom: 20px; }
   .fin-grid { grid-template-columns: 1fr; }
@@ -331,6 +475,8 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
   #looks-bar { display: none; }
   #voice-bar { bottom: 72px; max-width: 94vw; }
   #chat-bubbles { bottom: 130px; }
+  /* In adult mode on mobile, agent-bar stays hidden — use hamburger menu instead */
+  body.adult-mode #agent-bar { display: none !important; }
 }
 </style>
 </head>
@@ -342,11 +488,30 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
   <a id="tunnel-tag" href="#" target="_blank" title="Remote access URL — click to open in new tab"></a>
 </div>
 
+<div id="agent-bar">
+  <button class="agent-btn active" data-agent="botler" onclick="switchAgent('botler')">Botler<span class="agent-badge"></span></button>
+  <button class="agent-btn" data-agent="cash" onclick="switchAgent('cash')">Cash<span class="agent-badge"></span></button>
+  <button class="agent-btn" data-agent="dev" onclick="switchAgent('dev')">Dev<span class="agent-badge"></span></button>
+  <button class="agent-btn" data-agent="impulse" onclick="switchAgent('impulse')">Impulse<span class="agent-badge"></span></button>
+  <button class="agent-btn" data-agent="jim" onclick="switchAgent('jim')">Jim<span class="agent-badge"></span></button>
+  <button class="agent-btn" data-agent="loki" onclick="switchAgent('loki')">Loki<span class="agent-badge"></span></button>
+</div>
+
 <button id="hamburger" onclick="openMobileMenu()">☰</button>
 
 <div id="mobile-menu">
   <button id="mobile-menu-close" onclick="closeMobileMenu()">✕</button>
-  <div style="color:rgba(255,200,100,0.3);font-size:9px;letter-spacing:0.5em;text-transform:uppercase;margin-bottom:6px;">Botler</div>
+  <div style="color:rgba(255,200,100,0.3);font-size:9px;letter-spacing:0.5em;text-transform:uppercase;margin-bottom:6px;">Agents</div>
+  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+    <button class="btn" onclick="closeMobileMenu();switchAgent('botler')">Botler</button>
+    <button class="btn" onclick="closeMobileMenu();switchAgent('cash')">Cash</button>
+    <button class="btn" onclick="closeMobileMenu();switchAgent('dev')">Dev</button>
+    <button class="btn" onclick="closeMobileMenu();switchAgent('impulse')">Impulse</button>
+    <button class="btn" onclick="closeMobileMenu();switchAgent('jim')">Jim</button>
+    <button class="btn" onclick="closeMobileMenu();switchAgent('loki')">Loki</button>
+  </div>
+  <hr style="border-color:rgba(255,160,40,0.1);margin:6px 0;">
+  <div style="color:rgba(255,200,100,0.3);font-size:9px;letter-spacing:0.5em;text-transform:uppercase;margin-bottom:6px;">System</div>
   <button class="btn" onclick="closeMobileMenu();openFinance()">Finance</button>
   <button class="btn" onclick="closeMobileMenu();openHomeschool()">School Board</button>
   <button class="btn" onclick="closeMobileMenu();openPanel(location.origin+'/agent-system-map.html','System Map')">System Map</button>
@@ -359,9 +524,11 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
 </div>
 
 <div id="text-input-bar">
-  <input id="text-query" type="text" placeholder='Ask Botler anything…'
-    onkeydown="if(event.key==='Enter')sendTextQuery()"
-    autocomplete="off" autocorrect="off" spellcheck="false">
+  <textarea id="text-query" rows="1" placeholder='Ask Botler anything…'
+    onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendTextQuery()}"
+    oninput="autoExpandTextarea(this)"
+    autocomplete="off" autocorrect="off" spellcheck="false"></textarea>
+  <span id="silent-badge" onclick="exitSilentMode()" title="Text mode — click to return to voice">SILENT</span>
   <button id="text-send" onclick="sendTextQuery()">↑</button>
 </div>
 
@@ -370,9 +537,9 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
 <div id="voice-bar">
   <button id="mute-btn" title="Mute / unmute">🎤</button>
   <div id="transcript">Say "Botler…" to wake</div>
-  <button id="tap-talk-btn" title="Tap to activate" onclick="tapToTalk()"
-    style="background:none;border:1px solid rgba(255,160,40,0.2);color:rgba(255,200,100,0.45);font-size:10px;padding:3px 8px;border-radius:10px;cursor:pointer;flex-shrink:0;letter-spacing:0.15em;">
-    TAP
+  <button id="tap-talk-btn" title="Tap to speak" onclick="tapToTalk()"
+    style="background:none;border:1px solid rgba(255,160,40,0.2);color:rgba(255,200,100,0.45);font-size:10px;padding:5px 12px;border-radius:10px;cursor:pointer;flex-shrink:0;letter-spacing:0.15em;min-width:44px;min-height:36px;-webkit-tap-highlight-color:transparent;">
+    🎤
   </button>
   <div id="wake-dot"></div>
 </div>
@@ -392,6 +559,7 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
     </div>
   </div>
   <button class="btn" onclick="openFinance()">Finance</button>
+  <button id="family-portal-btn" class="btn" onclick="openFamilyPortal()">Family</button>
   <button class="btn" onclick="openPanel(location.origin+'/agent-system-map.html','System Map')">System Map</button>
   <button id="subtitle-toggle" class="btn" onclick="toggleSubtitles()">Subtitles On</button>
 </div>
@@ -425,7 +593,10 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
 <div id="side-panel">
   <div id="panel-header">
     <span id="panel-title">Browser</span>
-    <button id="panel-close" onclick="closePanel()">✕</button>
+    <div style="display:flex;gap:4px;align-items:center">
+      <button id="panel-expand" onclick="togglePanelExpand()" title="Expand to full screen">⤢</button>
+      <button id="panel-close" onclick="closePanel()">✕</button>
+    </div>
   </div>
   <div id="browser-bar"></div>
   <div id="panel-body">
@@ -454,6 +625,51 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
     <div class="fin-note">Live bank + Coinbase integration coming in Milestone 2. Connect via /setup.</div>
   </div>
 </div>
+
+<!-- Family Portal (Quan + Julia only) -->
+<div id="family-portal" style="display:none;position:fixed;inset:0;z-index:60;background:rgba(6,2,0,0.97);overflow-y:auto;padding:24px 20px 48px;">
+  <button onclick="closeFamilyPortal()" style="position:fixed;top:18px;right:20px;background:none;border:1px solid rgba(255,160,40,0.3);color:rgba(255,200,100,0.6);font-size:11px;padding:4px 12px;border-radius:2px;cursor:pointer;font-family:Georgia,serif;letter-spacing:.2em;">✕ CLOSE</button>
+  <div style="max-width:780px;margin:0 auto;">
+    <div style="font-size:9px;letter-spacing:.5em;text-transform:uppercase;color:rgba(255,160,40,.4);margin-bottom:6px;">Stewart Household</div>
+    <h2 style="font-size:22px;color:rgba(255,220,120,.8);font-family:Georgia,serif;margin-bottom:28px;">Family Portal</h2>
+
+    <!-- Active sessions bar -->
+    <div id="fp-sessions-bar" style="margin-bottom:28px;"></div>
+
+    <!-- Kids cards -->
+    <div id="family-kids-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px;margin-bottom:32px;"></div>
+
+    <!-- Household notes -->
+    <div style="font-size:9px;letter-spacing:.4em;color:rgba(255,160,40,.35);text-transform:uppercase;margin-bottom:12px;">Household Notes</div>
+    <textarea id="family-notes" rows="4" oninput="saveFamilyNotes()" style="width:100%;background:rgba(255,160,40,0.04);border:1px solid rgba(255,160,40,.15);color:rgba(255,220,120,.75);font-family:Georgia,serif;font-size:13px;padding:12px;border-radius:4px;resize:vertical;outline:none;" placeholder="Shared household notes…"></textarea>
+
+    <!-- Command center: all Botler instances -->
+    <div style="margin-top:36px;">
+      <div style="font-size:9px;letter-spacing:.4em;color:rgba(255,160,40,.35);text-transform:uppercase;margin-bottom:12px;">Botler Instances &amp; Sessions</div>
+      <div id="fp-command-center" style="display:grid;gap:8px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Kids color panel (voice-accessible, no admin needed) -->
+<div id="kids-color-panel">
+  <button id="kids-close-btn" onclick="document.getElementById('kids-color-panel').classList.remove('open')">✕</button>
+  <div id="kids-swatches"></div>
+  <canvas id="kids-spectrum" width="200" height="20" style="width:100%;height:20px;border-radius:4px;cursor:crosshair;margin-top:8px;background:linear-gradient(to right,#ff0000,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff,#ff0000)"></canvas>
+</div>
+<div id="adult-timer"></div>
+
+<!-- Component full-screen modal -->
+<div id="comp-modal">
+  <div id="comp-modal-header">
+    <div id="comp-modal-title">Component</div>
+    <button id="comp-modal-close" onclick="closeCompModal()">✕ CLOSE</button>
+  </div>
+  <iframe id="comp-modal-frame" sandbox="allow-scripts allow-same-origin"></iframe>
+</div>
+
+<!-- Botler cursor — animated glowing circle for panel interactions -->
+<div id="botler-cursor"></div>
 
 <!-- First-run setup (hidden by default — auto-connects on load) -->
 <div id="setup-overlay" class="hidden">
@@ -529,6 +745,9 @@ const LIP_TH  = () => S() * 0.013;
 const edit = { mustacheY:0, mustacheSX:1, mustacheSY:1, eyeY:0, eyeSepOff:0, eyeSize:1, monoSize:1 };
 let editMode = false;
 let drag     = null;
+// Face drift — spring physics so the face floats above rendered content
+let faceDriftY = 0, faceDriftV = 0, faceDriftYTarget = 0;
+let _frameN    = 0;
 
 // ─── Coord helpers ────────────────────────────────────────────────────────────
 function toScreen(sx, sy) {
@@ -652,14 +871,49 @@ function setState(s){
   document.querySelectorAll('.btn[data-state]').forEach(b=>b.classList.toggle('active',b.dataset.state===s));
   if(s!=='speaking') buildMouth(SMILES[s],OPEN[s]);
 }
-function startThinkingTimer() {
+const THINK_STEPS = [
+  'Searching knowledge base',
+  'Analysing your request',
+  'Considering options',
+  'Composing response',
+  'Reviewing details',
+  'Refining answer',
+  'Almost ready',
+];
+const THINK_STEPS_GAME = [
+  'Designing game architecture',
+  'Writing game logic',
+  'Building controls',
+  'Adding polish',
+  'Almost ready to launch',
+];
+const THINK_STEPS_SEARCH = [
+  'Looking that up',
+  'Searching knowledge',
+  'Gathering results',
+  'Preparing response',
+];
+let _thinkStep = 0, _thinkDot = 0, _thinkSteps = THINK_STEPS;
+
+function startThinkingTimer(query) {
   if (thinkingTimer) clearInterval(thinkingTimer);
+  _thinkStep = 0; _thinkDot = 0;
+  const q = (query || '').toLowerCase();
+  _thinkSteps = /game|play|shoot|puzzle|quiz|trivia|chess|snake|asteroi/.test(q) ? THINK_STEPS_GAME
+              : /search|find|look up|google|news|weather/.test(q) ? THINK_STEPS_SEARCH
+              : THINK_STEPS;
   thinkingStart = Date.now();
   thinkingTimer = setInterval(() => {
     if (state !== 'thinking') { clearInterval(thinkingTimer); thinkingTimer = null; return; }
-    const s = Math.floor((Date.now() - thinkingStart) / 1000);
-    statusEl.textContent = s > 0 ? `Thinking… ${s}s` : 'Thinking…';
-  }, 500);
+    _thinkDot = (_thinkDot + 1) % 4;
+    const dots = '.'.repeat(_thinkDot || 1);
+    const label = _thinkSteps[Math.min(_thinkStep, _thinkSteps.length - 1)];
+    statusEl.style.opacity = '0';
+    setTimeout(() => {
+      if (state === 'thinking') { statusEl.textContent = label + dots; statusEl.style.opacity = '1'; }
+    }, 140);
+    if (_thinkDot === 0) _thinkStep++;
+  }, 600);
 }
 document.querySelectorAll('.btn[data-state]').forEach(btn=>
   btn.addEventListener('click',()=>setState(btn.dataset.state)));
@@ -725,6 +979,146 @@ specCanvas.addEventListener('click',pickSpectrum);
 specCanvas.addEventListener('mousemove',e=>{if(e.buttons===1)pickSpectrum(e);});
 specCanvas.addEventListener('touchmove',e=>{e.stopPropagation();pickSpectrum(e);},{passive:false});
 
+// ─── Kids color panel (mirror of adult picker, accessible without admin mode) ──
+(function(){
+  const kc=document.getElementById('kids-swatches');
+  SWATCHES.forEach(hex=>{const s=document.createElement('div');s.className='swatch';s.style.background=hex;
+    s.addEventListener('click',e=>{e.stopPropagation();applyColor(hex);});kc.appendChild(s);});
+  const ks=document.getElementById('kids-spectrum');
+  if(ks){
+    ks.addEventListener('click',e=>{e.stopPropagation();const r=ks.getBoundingClientRect();const p=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));applyColor(`hsl(${Math.round(p*360)},100%,50%)`);});
+    ks.addEventListener('mousemove',e=>{if(e.buttons===1){e.stopPropagation();const r=ks.getBoundingClientRect();const p=Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));applyColor(`hsl(${Math.round(p*360)},100%,50%)`);} });
+  }
+})();
+function showKidsColorPanel(){ document.getElementById('kids-color-panel').classList.add('open'); }
+
+// ─── Agent looks — distinct color + face params per agent ────────────────────
+const AGENT_LOOKS = {
+  botler:  { color:'#ff8800', mustacheSX:1.2,  mustacheSY:1.0,  monoSize:1.0, eyeSize:1.0,  eyeSepOff: 0.00 },
+  cash:    { color:'#40cc60', mustacheSX:0.65,  mustacheSY:0.7,  monoSize:0.0, eyeSize:0.9,  eyeSepOff: 0.04 },
+  dev:     { color:'#4488ff', mustacheSX:0.50,  mustacheSY:0.55, monoSize:0.45,eyeSize:1.1,  eyeSepOff:-0.03 },
+  impulse: { color:'#ff3820', mustacheSX:1.55,  mustacheSY:1.3,  monoSize:0.0, eyeSize:1.25, eyeSepOff: 0.05 },
+  jim:     { color:'#bb40ff', mustacheSX:1.9,   mustacheSY:0.75, monoSize:0.3, eyeSize:1.05, eyeSepOff:-0.02 },
+  loki:    { color:'#20b0a0', mustacheSX:0.45,  mustacheSY:1.35, monoSize:0.75,eyeSize:0.88, eyeSepOff: 0.06 },
+};
+
+// ─── Adult mode — voice-unlocked controls ─────────────────────────────────────
+let adultMode = false;
+let adultTimer = null;
+const ADULT_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+
+function enterAdultMode() {
+  if (kidsLocked) return;
+  adultMode = true;
+  document.body.classList.add('adult-mode');
+  resetAdultTimer();
+}
+function exitAdultMode() {
+  adultMode = false;
+  document.body.classList.remove('adult-mode');
+  if (adultTimer) { clearTimeout(adultTimer); adultTimer = null; }
+  const bar = document.getElementById('adult-timer');
+  bar.style.transition = 'none'; bar.style.transform = 'scaleX(1)';
+}
+function resetAdultTimer() {
+  if (adultTimer) clearTimeout(adultTimer);
+  const bar = document.getElementById('adult-timer');
+  bar.style.transition = 'none'; bar.style.transform = 'scaleX(1)';
+  requestAnimationFrame(() => {
+    bar.style.transition = `transform ${ADULT_TIMEOUT_MS}ms linear`;
+    bar.style.transform = 'scaleX(0)';
+  });
+  adultTimer = setTimeout(exitAdultMode, ADULT_TIMEOUT_MS);
+}
+
+// Intercept voice commands before sending to gateway/API
+const RE_ADULT_SHOW   = /\b(show|open|display|bring up|reveal)\b.{0,18}\b(controls?|buttons?|admin|panel|settings?|menu)\b/i;
+const RE_ADULT_HIDE   = /\b(hide|close|lock|exit|dismiss)\b.{0,18}\b(controls?|buttons?|admin|panel|settings?|menu)\b/i;
+const RE_COLORS_SHOW  = /\b(show|see|open|pick|let me|show me|can i see)\b.{0,22}\b(colors?|colou?rs?|picker|palette|rainbow)\b/i;
+const RE_OPEN_PROJECT  = /(?:let'?s?|open|start|load|work on|continue|resume|pick up|switch to) (?:the )?(?:project |)?(?:on |for |called |named )?"?([^"]{3,40})"?/i;
+const RE_PAUSE_PROJECT = /(?:pause|save|set aside|bookmark|park) (?:the )?project|let'?s take a break|come back to this/i;
+const RE_LIST_PROJECTS = /(?:list|show|what are(?: my)?|any) projects?/i;
+const RE_NIGHT_MODE   = /night.?mode|too bright|dim(?:mer)?|dark(?:en|er)|lower.{0,8}light|switch to dark/i;
+const RE_DAY_MODE     = /day.?mode|light(?:er)? mode|brighten|normal.{0,6}mode|too dark/i;
+const RE_SCROLL_DOWN  = /scroll (?:down|forward|more)|next (?:page|section)|(?:page|move) down/i;
+const RE_SCROLL_UP    = /scroll (?:up|back(?:ward)?)|(?:go|move|page) (?:back )?up/i;
+const RE_SCROLL_TOP   = /(?:go to|back to) (?:the )?top|scroll to top/i;
+const RE_PANEL_CLOSE  = /close (?:the )?(?:panel|browser|page|tab|side)|go back to (?:you|face)/i;
+const RE_CLICK        = /click (?:the )?(?:one )?(?:with |that |on )?(.+)|(?:tap|open|select|choose|play) (?:the )?(?:one )?(?:with |that |on )?(.+)/i;
+
+function handleLocalCommand(query) {
+  const q = query.trim();
+
+  // User identification — say "I'm Quan", "this is Julia", etc.
+  const detectedId = detectUserFromText(q);
+  if (detectedId) {
+    const wasNew = !currentUser;
+    setCurrentUser(detectedId);
+    const name = HOUSEHOLD[detectedId].name;
+    speak(wasNew ? `Welcome, ${name}. How may I assist you?` : `Switching to ${name}'s session.`);
+    return true;
+  }
+
+  // Project management
+  if (RE_LIST_PROJECTS.test(q)) { listProjects(); return true; }
+  if (RE_PAUSE_PROJECT.test(q)) { pauseProject(); return true; }
+  const projMatch = RE_OPEN_PROJECT.exec(q);
+  if (projMatch) { openProject(projMatch[1].trim()); return true; }
+
+  // Night / day mode
+  if (RE_NIGHT_MODE.test(q)) {
+    document.body.classList.add('night-mode');
+    applyColor('#9a5c28');
+    speak('Right away, sir.');
+    return true;
+  }
+  if (RE_DAY_MODE.test(q)) {
+    document.body.classList.remove('night-mode');
+    applyColor('#ff8800');
+    speak('There we are.');
+    return true;
+  }
+
+  if (RE_ADULT_SHOW.test(q)) {
+    if (kidsLocked) { speak("Those controls are for grown-ups only."); return true; }
+    enterAdultMode();
+    speak('Controls visible.');
+    return true;
+  }
+  if (RE_ADULT_HIDE.test(q)) {
+    exitAdultMode();
+    speak('Controls hidden.');
+    return true;
+  }
+  if (RE_COLORS_SHOW.test(q)) {
+    showKidsColorPanel();
+    speak('Here you go — pick any color.');
+    return true;
+  }
+
+  // Panel remote control
+  const panel = document.getElementById('side-panel');
+  const panelOpen = panel && panel.classList.contains('open');
+  if (panelOpen) {
+    if (RE_SCROLL_TOP.test(q))  { panelScroll('top', 99999); speak('Back to the top.'); return true; }
+    if (RE_SCROLL_DOWN.test(q)) { panelScroll('down'); return true; }
+    if (RE_SCROLL_UP.test(q))   { panelScroll('up'); return true; }
+    if (RE_PANEL_CLOSE.test(q)) { closePanel(); speak('Closing the panel.'); return true; }
+    const clickMatch = RE_CLICK.exec(q);
+    if (clickMatch) {
+      const target = (clickMatch[1] || clickMatch[2] || '').trim();
+      if (target.length > 1) {
+        speak(`Looking for "${target}"…`);
+        const found = panelClick(target);
+        if (!found) speak('I couldn\'t find that on the page.');
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 // ─── Update edit handles ──────────────────────────────────────────────────────
 function updateEditUI(){
   if(!editMode)return;
@@ -764,7 +1158,13 @@ function animate(){
   if(!drag){look.x+=(mouse.x-look.x)*0.055; look.y+=(mouse.y-look.y)*0.055;}
   const driftX=state==='thinking'?Math.sin(t*1.05)*0.03:look.x*0.012;
   const driftY=state==='thinking'?0:look.y*0.008;
-  const eyeWY=EYE_Y()+fy+driftY+edit.eyeY;
+  // Spring physics — float face above content when bubbles appear
+  _frameN++;
+  if(_frameN%24===0) updateFaceTarget();
+  faceDriftV += (faceDriftYTarget - faceDriftY) * 0.08;
+  faceDriftV *= 0.72;
+  faceDriftY += faceDriftV;
+  const eyeWY=EYE_Y()+fy+driftY+edit.eyeY+faceDriftY;
   ;[leftEye,rightEye].forEach(eye=>{
     eye.g.position.x=eye.xSign*(EYE_SEP()+edit.eyeSepOff)+driftX;
     eye.g.position.y=eyeWY; eye.g.position.z=0.1; eye.g.scale.set(edit.eyeSize,edit.eyeSize,1);
@@ -777,8 +1177,8 @@ function animate(){
   }
   stepChain(rightEye.g.position.x,rightEye.g.position.y,edit.eyeSize*edit.monoSize);
   const my=MOUTH_Y()+fy, mustacheH=LIP_TH()*1.3*1.25*0.5;
-  mouthGroup.position.y=my;
-  mustacheGroup.position.y=my+mustacheH*2.2+edit.mustacheY;
+  mouthGroup.position.y=my+faceDriftY;
+  mustacheGroup.position.y=my+mustacheH*2.2+edit.mustacheY+faceDriftY;
   mustacheGroup.position.x=0; mustacheGroup.scale.set(edit.mustacheSX,edit.mustacheSY,1);
   blinkTimer+=dt;
   if(!blinking&&blinkTimer>blinkInterval){blinking=true;blinkTimer=0;blinkInterval=2.5+Math.random()*4;}
@@ -802,6 +1202,27 @@ function animate(){
 }
 animate();
 
+// ─── Face position — float above chat content ─────────────────────────────────
+function updateFaceTarget() {
+  const chat = document.getElementById('chat-bubbles');
+  if (!chat || chat.classList.contains('hidden') || document.body.classList.contains('voice-mode')) {
+    faceDriftYTarget = 0; return;
+  }
+  const rects = Array.from(chat.children)
+    .map(c => c.getBoundingClientRect())
+    .filter(r => r.height > 16);
+  if (!rects.length) { faceDriftYTarget = 0; return; }
+  const topPx   = Math.min(...rects.map(r => r.top));
+  const topFrac  = topPx / window.innerHeight;
+  if (topFrac > 0.82) { faceDriftYTarget = 0; return; }
+  // Three.js orthographic Y: 1=top, -1=bottom; content top in world Y
+  const contentTopY3 = 1 - topFrac * 2;
+  // Target: eyes sit 0.14 world units above content top, capped at 0.80
+  const targetEyeWY  = Math.min(contentTopY3 + 0.14, 0.80);
+  const base = EYE_Y() + edit.eyeY;
+  faceDriftYTarget = Math.max(0, targetEyeWY - base);
+}
+
 window.addEventListener('resize',()=>{
   aspect=innerWidth/innerHeight; renderer.setSize(innerWidth,innerHeight);
   camera=makeCamera(); buildMouth(SMILES[state],OPEN[state]); buildMustache(); initChainPositions();
@@ -818,12 +1239,233 @@ const _isLoopback = _h === 'localhost' || _h === '127.0.0.1';
 const DEFAULT_GW_URL   = _isLoopback
   ? 'ws://localhost:18789'
   : 'wss://stewartos-core.tail2d5e46.ts.net';
-const DEFAULT_GW_TOKEN = 'c59a2ebef7764318eabc4736411c085c5c3c912cc62e64a639c03b05f705b815';
-const SESSION_KEY      = 'agent:botler:main';
+const DEFAULT_GW_TOKEN = 'StewartOS-Core-2026';
+let   activeAgent      = 'botler';
+
+// ─── Device + User Identity ───────────────────────────────────────────────────
+// Each browser/device gets a stable UUID so sessions never bleed across devices.
+const DEVICE_ID = (() => {
+  let id = localStorage.getItem('botler_device_id');
+  if (!id) { id = crypto.randomUUID(); localStorage.setItem('botler_device_id', id); }
+  return id;
+})();
+
+const HOUSEHOLD = {
+  quan:   { name:'Quan',   isAdult:true,  context:'Head of household and founder of Stewart Inc. Full admin access — finance, trading (Impulse), business ops (TideFlow), and all system controls.' },
+  julia:  { name:'Julia',  isAdult:true,  context:"Quan's partner. Full household and family access." },
+  kage:   { name:'Kage',   isAdult:false, context:'One of the children. Keep responses age-appropriate, warm, and fun.' },
+  avonte: { name:'Avonte', isAdult:false, context:'One of the children. Keep responses age-appropriate, warm, and fun.' },
+  ezlynn: { name:'Ezlynn', isAdult:false, context:'One of the children. Keep responses age-appropriate, warm, and fun.' },
+};
+
+let currentUser = (() => { try { return JSON.parse(localStorage.getItem('botler_current_user') || 'null'); } catch { return null; } })();
+let kidsLocked  = !!(currentUser && !HOUSEHOLD[currentUser.id]?.isAdult);
+// Apply initial visibility of adult-only controls
+document.addEventListener('DOMContentLoaded', () => {
+  const fpBtn = document.getElementById('family-portal-btn');
+  if (fpBtn) fpBtn.style.display = kidsLocked ? 'none' : '';
+});
+
+function setCurrentUser(id) {
+  const u = HOUSEHOLD[id]; if (!u) return;
+  currentUser = { id, ...u };
+  localStorage.setItem('botler_current_user', JSON.stringify(currentUser));
+  kidsLocked = !u.isAdult;
+  if (kidsLocked) { exitAdultMode(); closeFamilyPortal(); }
+  // Show family portal button only for parents
+  const fpBtn = document.getElementById('family-portal-btn');
+  if (fpBtn) fpBtn.style.display = u.isAdult ? '' : 'none';
+}
+
+// ─── Family Portal ────────────────────────────────────────────────────────────
+const KIDS = ['kage','avonte','ezlynn'];
+
+function openFamilyPortal() {
+  if (kidsLocked) { speak("That area is for parents only."); return; }
+  renderFamilyPortal();
+  document.getElementById('family-portal').style.display = 'block';
+  // Load live gateway data for the command center
+  if (gwConnected && gw) {
+    Promise.all([
+      gw.request('sessions.list').catch(() => ({ sessions: [] })),
+      gw.request('agents.list').catch(() => ({ agents: [] })),
+    ]).then(([sessRes, agRes]) => {
+      renderPortalActivity(sessRes.sessions || [], agRes.agents || []);
+    });
+  } else {
+    document.getElementById('fp-sessions-bar').innerHTML =
+      '<div style="font-size:10px;color:rgba(255,160,40,.25);letter-spacing:.2em;">Gateway offline — live data unavailable</div>';
+  }
+}
+
+function closeFamilyPortal() {
+  document.getElementById('family-portal').style.display = 'none';
+}
+
+function getFamilyData() {
+  try { return JSON.parse(localStorage.getItem('botler_family') || '{}'); } catch { return {}; }
+}
+function saveFamilyData(data) {
+  localStorage.setItem('botler_family', JSON.stringify(data));
+}
+function saveFamilyNotes() {
+  const d = getFamilyData();
+  d.notes = document.getElementById('family-notes').value;
+  saveFamilyData(d);
+}
+
+function renderFamilyPortal() {
+  const data = getFamilyData();
+  document.getElementById('family-notes').value = data.notes || '';
+  const grid = document.getElementById('family-kids-grid');
+  grid.innerHTML = '';
+  for (const kid of KIDS) {
+    const h = HOUSEHOLD[kid];
+    if (!h) continue;
+    const kd = data[kid] || {};
+    const card = document.createElement('div');
+    card.style.cssText = 'background:rgba(255,160,40,0.04);border:1px solid rgba(255,160,40,0.12);border-radius:6px;padding:16px;';
+    card.innerHTML = `
+      <div style="font-size:9px;letter-spacing:.4em;text-transform:uppercase;color:rgba(255,160,40,.35);margin-bottom:4px;">Child</div>
+      <div style="font-size:17px;color:rgba(255,220,120,.8);font-family:Georgia,serif;margin-bottom:14px;">${h.name}</div>
+      <label style="display:block;font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:rgba(255,200,100,.3);margin-bottom:4px;">Schedule</label>
+      <textarea rows="2" data-kid="${kid}" data-field="schedule" onchange="saveFamilyField(this)"
+        style="width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(255,160,40,.1);color:rgba(255,220,120,.65);font-family:Georgia,serif;font-size:12px;padding:8px;border-radius:3px;resize:none;outline:none;margin-bottom:8px;"
+        placeholder="School 8am–3pm, Soccer Tue/Thu…">${e(kd.schedule||'')}</textarea>
+      <label style="display:block;font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:rgba(255,200,100,.3);margin-bottom:4px;">Diet / Allergies</label>
+      <textarea rows="2" data-kid="${kid}" data-field="diet" onchange="saveFamilyField(this)"
+        style="width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(255,160,40,.1);color:rgba(255,220,120,.65);font-family:Georgia,serif;font-size:12px;padding:8px;border-radius:3px;resize:none;outline:none;margin-bottom:8px;"
+        placeholder="No nuts, lactose-free…">${e(kd.diet||'')}</textarea>
+      <label style="display:block;font-size:9px;letter-spacing:.3em;text-transform:uppercase;color:rgba(255,200,100,.3);margin-bottom:4px;">Progress Notes</label>
+      <textarea rows="2" data-kid="${kid}" data-field="progress" onchange="saveFamilyField(this)"
+        style="width:100%;background:rgba(0,0,0,.3);border:1px solid rgba(255,160,40,.1);color:rgba(255,220,120,.65);font-family:Georgia,serif;font-size:12px;padding:8px;border-radius:3px;resize:none;outline:none;"
+        placeholder="Reading level, recent milestones…">${e(kd.progress||'')}</textarea>
+    `;
+    grid.appendChild(card);
+  }
+}
+
+function saveFamilyField(el) {
+  const d = getFamilyData();
+  const kid = el.dataset.kid, field = el.dataset.field;
+  if (!d[kid]) d[kid] = {};
+  d[kid][field] = el.value;
+  saveFamilyData(d);
+}
+
+function fmtAgo(ms) {
+  if (!ms) return '—';
+  const d = Date.now() - ms;
+  if (d < 60000) return `${Math.round(d/1000)}s ago`;
+  if (d < 3600000) return `${Math.round(d/60000)}m ago`;
+  if (d < 86400000) return `${Math.round(d/3600000)}h ago`;
+  return `${Math.round(d/86400000)}d ago`;
+}
+
+function renderPortalActivity(sessions, agents) {
+  // Active Botler sessions bar
+  const botlerSessions = sessions.filter(s => s.key.startsWith('agent:botler:'));
+  const bar = document.getElementById('fp-sessions-bar');
+  if (botlerSessions.length === 0) {
+    bar.innerHTML = '<div style="font-size:10px;color:rgba(255,160,40,.22);letter-spacing:.2em;">No active Botler sessions</div>';
+  } else {
+    const sortedSessions = [...botlerSessions].sort((a,b)=>(b.lastActivityMs||0)-(a.lastActivityMs||0));
+    bar.innerHTML = `
+      <div style="font-size:9px;letter-spacing:.4em;text-transform:uppercase;color:rgba(255,160,40,.3);margin-bottom:10px;">Active Sessions (${sortedSessions.length})</div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        ${sortedSessions.map(s => {
+          const key = s.key.replace('agent:botler:','');
+          const isMe = s.key.includes(DEVICE_ID);
+          const dot = `<span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:${isMe?'#4caf50':'#ff9800'};box-shadow:0 0 4px ${isMe?'#4caf50':'#ff9800'};margin-right:5px;vertical-align:middle;"></span>`;
+          return `<div style="background:rgba(255,160,40,0.06);border:1px solid rgba(255,160,40,.12);border-radius:3px;padding:5px 10px;font-size:9px;letter-spacing:.15em;color:rgba(255,200,100,.5);">
+            ${dot}<span style="font-family:'Courier New',monospace">${key.slice(0,20)}</span>
+            <span style="opacity:.5;margin-left:6px;">${fmtAgo(s.lastActivityMs)}</span>${isMe?' ← you':''}
+          </div>`;
+        }).join('')}
+      </div>`;
+  }
+
+  // Command center: all agents
+  const cc = document.getElementById('fp-command-center');
+  const agentOrder = ['botler','cash','dev','impulse','jim','loki'];
+  const agentColors = { botler:'#ff8800', cash:'#4caf50', dev:'#4488ff', impulse:'#ff3820', jim:'#bb40ff', loki:'#20b0a0' };
+  const agentRoles  = { botler:'Household AI', cash:'Finance', dev:'Engineering', impulse:'Trading', jim:'Music & Social', loki:'Business Ops' };
+  cc.innerHTML = '';
+  const agentMap = Object.fromEntries((agents||[]).map(a=>[a.id,a]));
+  for (const aid of agentOrder) {
+    const ag = agentMap[aid];
+    const col = agentColors[aid] || '#ff8800';
+    const agSessions = sessions.filter(s => s.key.startsWith(`agent:${aid}:`));
+    const lastActive = agSessions.reduce((m,s)=>Math.max(m,s.lastActivityMs||0),0);
+    const active = lastActive && (Date.now()-lastActive) < 30*60*1000;
+    const row = document.createElement('div');
+    row.style.cssText = `display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(255,160,40,0.03);border:1px solid rgba(255,160,40,.1);border-radius:4px;`;
+    row.innerHTML = `
+      <span style="width:7px;height:7px;border-radius:50%;background:${active?col:'rgba(255,160,40,.2)'};${active?`box-shadow:0 0 5px ${col};`:''}flex-shrink:0;display:inline-block;"></span>
+      <span style="font-size:10px;letter-spacing:.25em;text-transform:uppercase;color:rgba(255,220,120,.7);min-width:70px;">${aid}</span>
+      <span style="font-size:9px;color:rgba(255,160,40,.3);letter-spacing:.1em;flex:1;">${agentRoles[aid]||''}</span>
+      <span style="font-size:9px;color:rgba(255,200,100,.35);letter-spacing:.1em;">${agSessions.length} session${agSessions.length!==1?'s':''}</span>
+      <span style="font-size:9px;color:rgba(255,160,40,.3);letter-spacing:.1em;min-width:60px;text-align:right;">${lastActive?fmtAgo(lastActive):'no activity'}</span>`;
+    cc.appendChild(row);
+  }
+}
+
+function e(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function detectUserFromText(text) {
+  const t = text.toLowerCase();
+  const map = { quan:["quan","i'm quan","this is quan","it's quan"],
+    julia:["julia","i'm julia","this is julia","it's julia","jules"],
+    kage:["i'm kage","this is kage","it's kage"],
+    avonte:["avonte","i'm avonte","this is avonte"],
+    ezlynn:["ezlynn","i'm ezlynn","this is ezlynn","ez","ezlin"] };
+  for (const [id, aliases] of Object.entries(map)) {
+    if (aliases.some(a => t.includes(a))) return id;
+  }
+  return null;
+}
+
+// Per-device session — isolates audio responses to the originating device
+function getSessionKey() { return `agent:${activeAgent}:device:${DEVICE_ID}`; }
+const AGENT_NAMES = { botler:'Botler', cash:'Cash', dev:'Dev', impulse:'Impulse', jim:'Jim', loki:'Loki' };
 const DIRECT_API_URL   = `${location.origin}/api/stream`; // Anthropic proxy in botler-serve
 
-// Condensed system prompt for the fast direct-API path (no tool calls)
-const BOTLER_DIRECT_SYSTEM = `You are Botler, Quan's household AI butler. Speak in short warm sentences (≤15 words). No markdown, bullets, or headers — you are heard, not read.
+// System prompt — built dynamically so it includes the current user's context and persistent state
+function buildDirectSystem() {
+  const userLine = currentUser
+    ? `You are speaking with ${currentUser.name}. ${HOUSEHOLD[currentUser.id]?.context || ''}`
+    : `You don't yet know who you are speaking with. Greet them warmly as Botler, the Stewart household butler. Ask who you are speaking with. When they tell you their name, acknowledge warmly and embed: <cmd>{"action":"set_user","name":"THEIRNAME"}</cmd> — valid names: quan, julia, kage, avonte, ezlynn (lowercase exact).`;
+  const list = getShoppingList();
+  const listCtx = list.length > 0
+    ? `Shopping list has ${list.length} item${list.length!==1?'s':''}: ${list.join(', ')}.`
+    : 'Shopping list is empty.';
+  return `You are Botler, the Stewart household AI butler — distinguished, warm, and precise. Speak in short warm sentences (≤15 words). No markdown, bullets, or headers — you are heard, not read.
+
+${userLine}
+
+## Persistent memory
+${listCtx}
+${(() => { const d = getFamilyData(); const notes = d.notes; const kids = KIDS.map(k => { const kd = d[k]; if (!kd) return ''; const h = HOUSEHOLD[k]; const parts = []; if (kd.schedule) parts.push(`schedule: ${kd.schedule}`); if (kd.diet) parts.push(`diet: ${kd.diet}`); if (kd.progress) parts.push(`progress: ${kd.progress}`); return parts.length ? `${h?.name}: ${parts.join('; ')}` : ''; }).filter(Boolean).join(' | '); const out = []; if (kids) out.push(`Children — ${kids}`); if (notes) out.push(`Household notes: ${notes}`); return out.join('\n'); })()}
+
+## CRITICAL — Components
+NEVER output raw HTML, CSS, or code in your spoken text. Components render silently in the UI.
+When using render_component: put ALL HTML+CSS inside the cmd JSON "html" value, nothing in the text.
+Your text should be one natural spoken sentence like "Here's your list." or "Done — pulling that up."
+
+## Shopping list commands
+<cmd>{"action":"shopping_list_add","items":["milk","eggs"]}</cmd>        — add items (preserves existing)
+<cmd>{"action":"shopping_list_update","items":["milk","eggs"]}</cmd>     — replace full list
+<cmd>{"action":"shopping_list_render"}</cmd>                               — show current list in chat
+
+## Night / dim mode
+<cmd>{"action":"night_mode","on":true}</cmd>   — dim + dark mode
+<cmd>{"action":"night_mode","on":false}</cmd>  — return to normal brightness
+
+## Project context
+${activeProject ? `ACTIVE PROJECT: "${activeProject.name}"\nNotes so far:\n${activeProject.notes || '(none yet)'}\n\nWhen the user mentions saving a note or key finding, embed: <cmd>{"action":"project_note","note":"..."}</cmd>\nWhen switching topics, reassure the user we\'ll pick up the project where we left off.` : 'No active project. If user wants to start one, embed: <cmd>{"action":"project_context","name":"PROJECT NAME"}</cmd>'}
+
+## Ambient / driving conversation style
+In flowing conversations (driving, cooking, etc.): keep mental track of the task, confirm additions aloud in ≤8 words ("Got it — almond milk, dog food, apples."), offer to render at natural pauses ("Shall I pull up the list?"). When rendering, say one sentence then let the component appear.
 
 ## Your visual face (Three.js canvas)
 You ARE a rendered 3D face: round amber head, two white eyes, a monocle on your right eye, and a handlebar mustache. You live on a dark canvas as the UI background. You can physically change your appearance when asked.
@@ -842,24 +1484,30 @@ Appearance params (each is a number):
 ## UI actions — embed ONE <cmd> tag after your spoken sentence:
 
 Content & navigation:
-<cmd>{"action":"youtube","query":"..."}</cmd>                              — search YouTube (shows results)
-<cmd>{"action":"youtube","query":"...","autoplay":true}</cmd>               — search + auto-play first result
-<cmd>{"action":"youtube","videoId":"..."}</cmd>                             — play a specific known video ID
-<cmd>{"action":"url","url":"https://...","title":"..."}</cmd>     — open URL in panel
+<cmd>{"action":"youtube","query":"..."}</cmd>
+<cmd>{"action":"youtube","query":"...","autoplay":true}</cmd>
+<cmd>{"action":"youtube","videoId":"..."}</cmd>
+<cmd>{"action":"url","url":"https://...","title":"..."}</cmd>
+<cmd>{"action":"url","url":"https://html.duckduckgo.com/html/?q=QUERY","title":"Search: QUERY"}</cmd>  ← for web searches
 <cmd>{"action":"shopping_list","title":"...","items":["a","b"]}</cmd>
 <cmd>{"action":"render_component","title":"...","html":"..."}</cmd>
-<cmd>{"action":"finance"}</cmd>                                   — stewartOS household finance
-<cmd>{"action":"homeschool"}</cmd>                                — school board
-<cmd>{"action":"panel","name":"system-map"}</cmd>                 — agent system map
+<cmd>{"action":"finance"}</cmd>
+<cmd>{"action":"homeschool"}</cmd>
+<cmd>{"action":"family_portal"}</cmd>   ← opens the family monitoring portal for Quan/Julia
+<cmd>{"action":"panel","name":"system-map"}</cmd>
 <cmd>{"action":"close_panel"}</cmd>
+<cmd>{"action":"panel_scroll","dir":"down"}</cmd>
+<cmd>{"action":"panel_scroll","dir":"up"}</cmd>
+<cmd>{"action":"panel_click","query":"text to find and click"}</cmd>  ← my cursor moves there and clicks
+<cmd>{"action":"panel_click","query":"second video"}</cmd>  ← ordinals work: first/second/third
 
-Appearance (delta:true = relative change, false/omit = absolute):
+Appearance (delta:true = relative change):
 <cmd>{"action":"change_color","hex":"#3b82f6"}</cmd>
-<cmd>{"action":"adjust_appearance","mustacheSX":0.3,"delta":true}</cmd>   — wider mustache
-<cmd>{"action":"adjust_appearance","mustacheSY":0.3,"delta":true}</cmd>   — thicker mustache
-<cmd>{"action":"adjust_appearance","monoSize":0.4,"delta":true}</cmd>     — bigger monocle
-<cmd>{"action":"adjust_appearance","eyeSize":0.2,"delta":true}</cmd>      — bigger eyes
-<cmd>{"action":"adjust_appearance","eyeSepOff":-0.1,"delta":true}</cmd>   — eyes closer
+<cmd>{"action":"adjust_appearance","mustacheSX":0.3,"delta":true}</cmd>
+<cmd>{"action":"adjust_appearance","mustacheSY":0.3,"delta":true}</cmd>
+<cmd>{"action":"adjust_appearance","monoSize":0.4,"delta":true}</cmd>
+<cmd>{"action":"adjust_appearance","eyeSize":0.2,"delta":true}</cmd>
+<cmd>{"action":"adjust_appearance","eyeSepOff":-0.1,"delta":true}</cmd>
 <cmd>{"action":"save_look","name":"cool look"}</cmd>
 <cmd>{"action":"load_look","name":"cool look"}</cmd>
 
@@ -868,13 +1516,36 @@ App control (macOS):
 <cmd>{"action":"close_app","app":"Spotify"}</cmd>
 <cmd>{"action":"open_url_external","url":"https://..."}</cmd>
 
+## Building games & interactive apps
+When asked for a game, quiz, drawing tool, story, or any interactive app — BUILD IT. Write complete, self-contained HTML inside render_component. Say one warm sentence, then embed the cmd.
+
+Game rules:
+- ALL code inline — no external scripts, no CDN imports, no fetch() to outside
+- Mobile-first: support BOTH touch and keyboard/mouse
+- Every game needs: start screen, instructions, live score, restart button
+- 2-player local: Player 1 uses WASD+Z, Player 2 uses arrow keys+/
+- Cross-tab multiplayer: use BroadcastChannel('botler-game-GAMEID') for device-to-device
+- Announce events to parent window so Botler can react:
+  window.parent.postMessage({type:'game_event',event:'score',player:'Kage',score:42},'*')
+  window.parent.postMessage({type:'game_event',event:'game_over',winner:'Avonte'},'*')
+  window.parent.postMessage({type:'game_request_move',board:[...],turn:'botler'},'*')
+- When a game requests Botler's move, embed: <cmd>{"action":"game_move","game":"...","move":"..."}</cmd>
+- Keep HTML under 4000 characters; use canvas for graphics when possible
+
+Example: "Here's a two-player asteroid shooter — share the screen or open on two devices!"
+<cmd>{"action":"render_component","title":"Asteroids","html":"<!DOCTYPE html>..."}</cmd>
+
 Color shortcuts: blue=#3b82f6, amber=#f59e0b, green=#22c55e, red=#ef4444, purple=#a855f7, default=#ff8800
 
 Rules:
 - One spoken sentence first, then cmd. Never read cmd JSON aloud.
-- "save this look as X" → save_look with name X. "load look X" → load_look with name X.
 - Appearance requests: interpret naturally ("go blue" → change_color, "bigger mustache" → mustacheSX+0.4 AND mustacheSY+0.3).
 - Keep voice replies warm and butler-like.`;
+}
+
+// Strip legacy hex tokens — gateway switched to password auth; hex tokens will 1008
+const _storedTok = sessionStorage.getItem('botler_gtoken');
+if (_storedTok && /^[0-9a-f]{48,}$/i.test(_storedTok)) sessionStorage.removeItem('botler_gtoken');
 
 let gatewayUrl   = sessionStorage.getItem('botler_gurl')   || DEFAULT_GW_URL;
 let gatewayToken = sessionStorage.getItem('botler_gtoken') || DEFAULT_GW_TOKEN;
@@ -882,16 +1553,95 @@ let financePass  = sessionStorage.getItem('botler_fpass')  || '';
 let financeUnlocked = false;
 let shoppingList = [];
 let muted          = false;
-// Timestamp-based wake window — more robust than a boolean flag.
-// Any final utterance that arrives while Date.now() < wakeExpiresAt gets sent.
+// Wake + ambient listening state
 let wakeExpiresAt  = 0;
-const WAKE_WINDOW_MS      = 12000; // 12 s after hearing the name
-const WAKE_FOLLOW_UP_MS   = 10000; // keep open after Botler finishes speaking
+const WAKE_WINDOW_MS      = 12000;
+const WAKE_FOLLOW_UP_MS   = 10000;
 let wakeTimer      = null;
+let activeListening = false; // true = in wake window, write speech to UI
+
+// Speech accumulation — hold finals until lull, then send as one query
+let speechBuffer = '';
+let lullTimer    = null;
+const LULL_MS    = 1800;
+
+let wakeTonePlayed = false; // play tone once per wake activation
+
+function playWakeBeep() {
+  if (wakeTonePlayed) return;
+  wakeTonePlayed = true;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator(); const g = ctx.createGain();
+    osc.connect(g); g.connect(ctx.destination);
+    osc.frequency.value = 820; osc.type = 'sine';
+    g.gain.setValueAtTime(0, ctx.currentTime);
+    g.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 0.04);
+    g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.22);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.25);
+    osc.onended = () => ctx.close();
+  } catch(e) {}
+}
+
+function enterActiveListening() {
+  if (activeListening) return;
+  activeListening = true;
+  wakeTonePlayed = false;
+  playWakeBeep();
+  setWakeIndicator(true);
+  setState('listening');
+}
+
+function exitActiveListening() {
+  activeListening = false;
+  wakeTonePlayed = false;
+  speechBuffer = '';
+  clearTimeout(lullTimer);
+  setWakeIndicator(false);
+  const ta = document.getElementById('text-query');
+  if (ta && ta === document.activeElement === false) { ta.value = ''; ta.style.height = '44px'; }
+  if (state !== 'speaking' && state !== 'thinking') {
+    setState('idle');
+    setTranscript('Say "Botler…" to wake');
+  }
+}
+
+function accumulateSpeech(text) {
+  const trimmed = text.trim();
+  if (!trimmed) return;
+  speechBuffer = speechBuffer ? speechBuffer + ' ' + trimmed : trimmed;
+  const ta = document.getElementById('text-query');
+  if (ta && document.activeElement !== ta) {
+    ta.value = speechBuffer;
+    autoExpandTextarea(ta);
+  }
+  clearTimeout(lullTimer);
+  lullTimer = setTimeout(flushSpeechBuffer, LULL_MS);
+}
+
+function flushSpeechBuffer() {
+  const q = speechBuffer.trim();
+  speechBuffer = '';
+  clearTimeout(lullTimer);
+  const ta = document.getElementById('text-query');
+  if (ta && document.activeElement !== ta) { ta.value = ''; ta.style.height = '44px'; }
+  if (q.length > 1) {
+    exitSilentMode();
+    processQuery(q);
+  }
+}
 let currentPanelUrl= '';
 let ttsQueue       = [];
 let ttsSpeaking    = false;
 let recognition    = null;
+
+// Request mic permission immediately on page load — don't gate on gateway connection.
+// Safari/Chrome will silently block SpeechRecognition if mic is never explicitly granted.
+if (navigator.mediaDevices?.getUserMedia) {
+  navigator.mediaDevices.getUserMedia({ audio: true })
+    .then(s => s.getTracks().forEach(t => t.stop()))
+    .catch(() => {});
+}
 
 // Gateway connection state
 let gw          = null;   // GatewayClient instance
@@ -915,38 +1665,292 @@ function toggleMuteMobile() {
   document.getElementById('mute-btn').classList.toggle('muted', muted);
   document.getElementById('mobile-mute-btn').textContent = muted ? '🔇 Microphone (muted)' : '🎤 Microphone';
   if (muted) { if (recognition) recognition.stop(); setTranscript('Muted'); }
-  else { if (recognition) { try { recognition.start(); } catch(e) {} } setTranscript('Say "Botler…" to wake'); }
+  else { if (!IS_IOS && recognition) { try { recognition.start(); } catch(e) {} } setTranscript(IS_IOS ? 'Tap to speak' : 'Say "Botler…" to wake'); }
   closeMobileMenu();
 }
 
 // ─── Tap to talk ─────────────────────────────────────────────────────────────
 function tapToTalk() {
+  if (IS_IOS) { startIOSTalk(); return; }
   clearTimeout(wakeTimer);
   wakeExpiresAt = Date.now() + WAKE_WINDOW_MS;
-  setState('listening');
-  setWakeIndicator(true);
+  enterActiveListening();
   setTranscript('Listening…');
   wakeTimer = setTimeout(() => {
     wakeExpiresAt = 0;
-    setWakeIndicator(false);
+    exitActiveListening();
     if (state !== 'speaking' && state !== 'thinking') { setState('idle'); setTranscript('Say "Botler…" to wake'); }
   }, WAKE_WINDOW_MS);
 }
 
+// ─── Agent switcher ───────────────────────────────────────────────────────────
+function switchAgent(agentId) {
+  if (agentId === activeAgent) return;
+  if (currentRunId) abortCurrentRun(); else stopSpeaking();
+  activeAgent = agentId;
+  document.querySelectorAll('.agent-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.agent === agentId);
+    if (b.dataset.agent === agentId) b.querySelector('.agent-badge').classList.remove('visible');
+  });
+  document.getElementById('name-tag').textContent = AGENT_NAMES[agentId] || agentId;
+  const ph = `Ask ${AGENT_NAMES[agentId] || agentId} anything…`;
+  document.getElementById('text-query').placeholder = ph;
+  conversationHistory = [];
+  document.getElementById('chat-bubbles').innerHTML = '';
+  setTranscript(`Connected to ${AGENT_NAMES[agentId] || agentId}`);
+  setState('idle');
+  // Apply agent-specific look if bgMat is ready
+  if (typeof applyLook === 'function' && AGENT_LOOKS[agentId]) applyLook(AGENT_LOOKS[agentId]);
+  // Load recent Telegram history for this agent
+  loadAgentHistory(agentId);
+}
+
+function _markAgentUnread(agentId) {
+  if (agentId === activeAgent) return;
+  const btn = document.querySelector(`.agent-btn[data-agent="${agentId}"]`);
+  if (btn) btn.querySelector('.agent-badge').classList.add('visible');
+}
+
+// ─── Load recent Telegram / session history for an agent ─────────────────────
+async function loadAgentHistory(agentId) {
+  if (!gw || !gwConnected) return;
+  // Prefer Telegram DM session with Quan; fall back to main
+  const candidates = [
+    `agent:${agentId}:telegram:direct:7346983359`,
+    `agent:${agentId}:main`,
+  ];
+  for (const key of candidates) {
+    try {
+      const res = await gw.request('chat.history', { sessionKey: key });
+      if (res && Array.isArray(res.messages) && res.messages.length > 0) {
+        _renderHistory(res.messages, agentId);
+        return;
+      }
+    } catch (e) { /* try next candidate */ }
+  }
+}
+
+function _renderHistory(messages, agentId) {
+  const bubbles = document.getElementById('chat-bubbles');
+  bubbles.innerHTML = '';
+  // Filter out tool calls and results, keep only user/assistant text
+  const texts = [];
+  for (const m of messages) {
+    if (m.role !== 'user' && m.role !== 'assistant') continue;
+    let text = '';
+    if (typeof m.content === 'string') text = m.content;
+    else if (Array.isArray(m.content)) {
+      text = m.content.filter(c => c.type === 'text').map(c => c.text || '').join('').trim();
+    }
+    if (!text) continue;
+    // Strip any <cmd> blocks
+    text = text.replace(/<cmd>[\s\S]*?<\/cmd>/g, '').trim();
+    if (!text) continue;
+    texts.push({ role: m.role, text });
+  }
+  // Show last 10
+  for (const { role, text } of texts.slice(-10)) {
+    const b = document.createElement('div');
+    b.className = `bubble ${role === 'user' ? 'user' : 'bot'}`;
+    b.textContent = text.length > 300 ? text.slice(0, 300) + '…' : text;
+    bubbles.appendChild(b);
+  }
+  bubbles.scrollTop = bubbles.scrollHeight;
+}
+
+// ─── Silent mode (text input disables TTS; voice re-enables it) ──────────────
+let silentMode = false;
+function enterSilentMode() {
+  silentMode = true;
+  document.body.classList.add('silent-mode');
+}
+function exitSilentMode() {
+  silentMode = false;
+  document.body.classList.remove('silent-mode');
+  setTranscript('Say "Botler…" to wake');
+}
+
 // ─── Text input (mobile + desktop fallback) ───────────────────────────────────
+function autoExpandTextarea(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 170) + 'px';
+}
 function sendTextQuery() {
   const el = document.getElementById('text-query');
   const q = el.value.trim();
   if (!q) return;
   el.value = '';
+  el.style.height = '44px'; // reset height after send
+  enterSilentMode();
   processQuery(q);
+}
+
+// ─── Persistent household state ───────────────────────────────────────────────
+function getPersistent() { try { return JSON.parse(localStorage.getItem('botler_persistent') || '{}'); } catch { return {}; } }
+function setPersistent(key, val) { const s = getPersistent(); s[key] = val; localStorage.setItem('botler_persistent', JSON.stringify(s)); }
+function getShoppingList()        { return getPersistent().shoppingList || []; }
+function setShoppingList(items)   { setPersistent('shoppingList', items); }
+function addToShoppingList(items) {
+  const cur = getShoppingList();
+  const next = [...cur, ...items.filter(i => !cur.map(c=>c.toLowerCase()).includes(i.toLowerCase()))];
+  setShoppingList(next);
+  return next;
+}
+
+// ─── Project collaboration context ────────────────────────────────────────────
+// Named projects persist across sessions. The active project injects its notes
+// and saved research into the system prompt so Botler picks up mid-task.
+let activeProject = null;
+
+function getProjects() {
+  try { return JSON.parse(localStorage.getItem('botler_projects') || '{}'); } catch { return {}; }
+}
+function saveProjects(p) { localStorage.setItem('botler_projects', JSON.stringify(p)); }
+
+function openProject(name) {
+  const projects = getProjects();
+  const key = name.toLowerCase().trim();
+  let proj = Object.values(projects).find(p => p.name.toLowerCase() === key);
+  if (!proj) {
+    proj = { id: crypto.randomUUID(), name, notes: '', milestones: [], history: [], createdAt: Date.now() };
+    projects[proj.id] = proj;
+    saveProjects(projects);
+  }
+  activeProject = proj;
+  // Restore project conversation history
+  if (proj.history && proj.history.length) {
+    conversationHistory = [...proj.history.slice(-16)];
+  } else {
+    conversationHistory = [];
+  }
+  speak(`Project "${name}" loaded. Where were we?`);
+  addBubble('bot', `📁 Project: ${name}`);
+}
+
+function saveActiveProject() {
+  if (!activeProject) return;
+  const projects = getProjects();
+  activeProject.history = conversationHistory.slice(-20);
+  activeProject.lastActive = Date.now();
+  projects[activeProject.id] = activeProject;
+  saveProjects(projects);
+}
+
+function pauseProject() {
+  if (!activeProject) { speak("No active project."); return; }
+  saveActiveProject();
+  speak(`Saved. We can pick up "${activeProject.name}" any time.`);
+  activeProject = null;
+}
+
+function addProjectNote(note) {
+  if (!activeProject) return;
+  activeProject.notes = (activeProject.notes ? activeProject.notes + '\n' : '') + note;
+  saveActiveProject();
+}
+
+function listProjects() {
+  const projects = getProjects();
+  const list = Object.values(projects);
+  if (!list.length) { speak("No saved projects yet."); return; }
+  const names = list.map(p => p.name).join(', ');
+  speak(`Your projects: ${names}.`);
+  renderComponentInline({
+    title: 'Projects',
+    html: `<style>body{background:#0a0400;color:rgba(255,200,100,.8);font-family:Georgia,serif;padding:16px}
+    li{padding:9px 4px;border-bottom:1px solid rgba(255,160,40,.08);font-size:14px;cursor:pointer}
+    li:hover{color:rgba(255,220,120,1)}
+    .ts{font-size:10px;color:rgba(255,160,40,.35);letter-spacing:.2em;float:right}</style>
+    <ul>${list.map(p=>`<li onclick="openProject('${p.name.replace(/'/g,"\\'")}')">${p.name}<span class="ts">${p.lastActive ? new Date(p.lastActive).toLocaleDateString() : 'new'}</span></li>`).join('')}</ul>`,
+  });
+}
+
+function buildShoppingListHTML(items) {
+  const e = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return `<style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:rgba(10,4,0,0.97);color:rgba(255,200,100,0.82);font-family:Georgia,serif;padding:16px 18px;min-height:100vh}
+    h3{font-size:10px;letter-spacing:.45em;text-transform:uppercase;color:rgba(255,160,40,.5);margin-bottom:14px}
+    ul{list-style:none;display:flex;flex-direction:column;gap:0}
+    li{display:flex;align-items:center;gap:11px;padding:10px 4px;border-bottom:1px solid rgba(255,160,40,.07);cursor:pointer;font-size:14px;transition:opacity.25s}
+    li.done{opacity:.38;text-decoration:line-through}
+    .chk{width:20px;height:20px;border-radius:50%;border:1.5px solid rgba(255,160,40,.35);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;color:transparent;transition:all.2s}
+    li.done .chk{background:rgba(255,160,40,.45);color:rgba(255,220,100,.95);border-color:transparent}
+    .foot{font-size:10px;color:rgba(255,160,40,.3);letter-spacing:.2em;margin-top:13px;text-align:right}
+  </style>
+  <h3>Shopping List</h3>
+  <ul id="L">${items.map((item,i)=>`<li id="i${i}" onclick="t(${i})"><div class="chk" id="c${i}">✓</div><span>${e(item)}</span></li>`).join('')}</ul>
+  <div class="foot" id="ft">${items.length} item${items.length!==1?'s':''}</div>
+  <script>
+    function t(i){const li=document.getElementById('i'+i);li.classList.toggle('done');const d=document.querySelectorAll('.done').length,n=document.querySelectorAll('li').length;document.getElementById('ft').textContent=d?d+' of '+n+' checked':n+' item'+(n!==1?'s':'');}
+  <\/script>`;
+}
+
+// Render a component inline in the chat bubble stream
+function openCompModal(title, srcdoc) {
+  document.getElementById('comp-modal-title').textContent = title;
+  document.getElementById('comp-modal-frame').srcdoc = srcdoc;
+  document.getElementById('comp-modal').classList.add('open');
+}
+function closeCompModal() {
+  document.getElementById('comp-modal').classList.remove('open');
+  // brief delay before clearing so iframe doesn't flash
+  setTimeout(() => { document.getElementById('comp-modal-frame').srcdoc = ''; }, 300);
+}
+
+function renderComponentInline(spec) {
+  const bubbles = document.getElementById('chat-bubbles');
+  const wrapper = document.createElement('div');
+  wrapper.className = 'bubble component-bubble';
+
+  let html = spec.html || '';
+  if (!html && spec.type === 'checklist') html = buildShoppingListHTML(spec.items || []);
+  if (!html && spec.type === 'shopping_list') html = buildShoppingListHTML(getShoppingList());
+
+  const srcdoc = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box}html,body{margin:0;padding:0;overflow:auto}</style></head><body>${html}</body></html>`;
+  const title = spec.title || 'Component';
+
+  // Header row — click anywhere on header to open modal
+  const header = document.createElement('div');
+  header.className = 'comp-header';
+  header.innerHTML = `<span class="comp-label">${title}</span><span class="comp-expand">⤢ EXPAND</span>`;
+  header.onclick = () => openCompModal(title, srcdoc);
+  // Also allow collapsing from within the modal back to inline
+  wrapper.dataset.srcdoc = btoa(unescape(encodeURIComponent(srcdoc))).slice(0, 200); // tiny key
+  wrapper.appendChild(header);
+
+  // Inline preview iframe — capped preview height, click to expand
+  // Detect game/app by keywords — give them more vertical real estate
+  const isGame = /game|play|level|score|board|puzzle|quiz|asteroi|snake|chess|shoot/i.test(title + (spec.html || '').slice(0, 200));
+  const maxH = isGame ? 420 : 300;
+
+  const frame = document.createElement('iframe');
+  frame.sandbox = 'allow-scripts allow-same-origin';
+  frame.srcdoc = srcdoc;
+  frame.style.height = (isGame ? 320 : 200) + 'px';
+  frame.title = title;
+  frame.onload = () => {
+    try {
+      const natural = frame.contentDocument.body.scrollHeight + 16;
+      frame.style.height = Math.min(natural, maxH) + 'px';
+    } catch { frame.style.height = (isGame ? 340 : 220) + 'px'; }
+    setTimeout(() => wrapper.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 120);
+  };
+  // Single tap/click on iframe body → expand to modal; prevent accidental expand on game interaction
+  frame.ondblclick = () => openCompModal(title, srcdoc);
+  wrapper.appendChild(frame);
+
+  bubbles.appendChild(wrapper);
+  bubbles.scrollTop = bubbles.scrollHeight;
+  // Trigger face float — after iframe autosizes (slight delay)
+  setTimeout(updateFaceTarget, 200);
 }
 
 // ─── Session reset ────────────────────────────────────────────────────────────
 async function resetSession() {
   if (!gw || !gwConnected) return;
   try {
-    await gw.request('sessions.reset', { key: SESSION_KEY, reason: 'reset' });
+    await gw.request('sessions.reset', { key: getSessionKey(), reason: 'reset' });
     conversationHistory = [];
     document.getElementById('chat-bubbles').innerHTML = '';
     speak('Session reset. How can I help you?');
@@ -961,8 +1965,8 @@ function addBubble(role, text) {
   b.className = `bubble ${role === 'user' ? 'user' : 'bot'}`;
   b.textContent = text.trim();
   bubblesEl.appendChild(b);
-  // Keep max 6 bubbles visible
-  while (bubblesEl.children.length > 6) bubblesEl.removeChild(bubblesEl.firstChild);
+  // Keep max 30 bubbles (scrollable history)
+  while (bubblesEl.children.length > 30) bubblesEl.removeChild(bubblesEl.firstChild);
   bubblesEl.scrollTop = bubblesEl.scrollHeight;
 }
 function toggleSubtitles() {
@@ -997,20 +2001,8 @@ class GatewayClient {
       console.log('[Botler] WS closed:', ev.code, ev.reason);
       const wasConnected = gwConnected;
       gwConnected = false;
-      // Surface close reason so the user sees why (origin check, bad token, etc.).
       const reason = (ev.reason && ev.reason.trim()) || `code ${ev.code}`;
-      setTranscript(`Gateway disconnected: ${reason} — reconnecting…`);
-      // If we never reached the hello-ok handshake, show the setup overlay so the
-      // user can correct URL/token instead of staring at a silent UI.
-      if (!wasConnected) {
-        const overlay = document.getElementById('setup-overlay');
-        const errEl = document.getElementById('setup-err');
-        if (overlay) overlay.classList.remove('hidden');
-        if (errEl) {
-          errEl.textContent = `Gateway connect failed: ${reason}`;
-          errEl.classList.add('visible');
-        }
-      }
+      setTranscript(`Connecting to gateway…`);
       if (!this.closed) setTimeout(() => this._connect(), 2500);
     };
     this.ws.onerror = () => {};
@@ -1045,10 +2037,10 @@ class GatewayClient {
     const params = {
       minProtocol: 3, maxProtocol: 3,
       client: { id: 'openclaw-control-ui', version: 'dev',
-                displayName: 'Quan', platform: navigator.platform || 'web', mode: 'webchat' },
+                displayName: currentUser?.name || 'Botler Shell', platform: navigator.platform || 'web', mode: 'webchat' },
       role: 'operator',
       scopes: ['operator.admin'],
-      auth: this.token ? { token: this.token } : undefined,
+      auth: this.token ? { password: this.token } : undefined,
       caps: [],
     };
     const p = new Promise((res, rej) => this.pending.set(id, { resolve: res, reject: rej }));
@@ -1059,6 +2051,11 @@ class GatewayClient {
       document.getElementById('setup-overlay').classList.add('hidden');
       initVoice();
       setTranscript('Say "Botler…" to wake');
+      if (typeof loadAgentHistory === 'function') loadAgentHistory(activeAgent);
+      // Greet on first use — ask who's speaking if identity unknown
+      if (!currentUser) {
+        setTimeout(() => speak("Good day. I'm Botler, the Stewart household assistant. Who am I speaking with?"), 1200);
+      }
     }).catch(err => {
       console.error('[Botler] Connect error:', err.message);
       document.getElementById('setup-err').classList.add('visible');
@@ -1068,7 +2065,14 @@ class GatewayClient {
   _onEvent(frame) {
     if (frame.event !== 'chat') return;
     const p = frame.payload;
-    if (!p || p.sessionKey !== SESSION_KEY) return;
+    // Notify for messages from non-active agents
+    if (p && p.sessionKey && p.sessionKey !== getSessionKey() && p.state === 'final') {
+      const m = p.sessionKey.match(/^agent:(\w+):main$/);
+      if (m) _markAgentUnread(m[1]);
+    }
+    if (!p || p.sessionKey !== getSessionKey()) return;
+    // Secondary device guard: if gateway echoes deviceId, verify it's ours
+    if (p.deviceId && p.deviceId !== DEVICE_ID) return;
     // Drop events from stale runs (e.g. old response arriving after barge-in)
     if (expectedRunId && p.runId && p.runId !== expectedRunId) {
       console.log('[Botler] dropping stale run event, runId:', p.runId);
@@ -1193,82 +2197,147 @@ function setTranscript(text, isFinal = false) {
 }
 
 // ─── STT — Web Speech API ─────────────────────────────────────────────────────
+// iOS Safari: continuous SpeechRecognition is not supported — requires tap-to-talk mode
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+const IS_MOBILE = IS_IOS || /Android/i.test(navigator.userAgent);
+let iosListening = false; // iOS PTT state
+
+function handleRecognitionResult(evt) {
+  if (muted) return;
+  let interim = '', final = '';
+  for (let i = evt.resultIndex; i < evt.results.length; i++) {
+    const t = evt.results[i][0].transcript;
+    evt.results[i].isFinal ? (final += t) : (interim += t);
+  }
+
+  if (interim && state !== 'thinking') setTranscript(interim);
+  if (!final) return;
+
+  const lower = final.toLowerCase().trim();
+  const wakeIdx = findWakeWord(lower);
+
+  if (wakeIdx >= 0) {
+    if (state === 'speaking' || state === 'thinking') {
+      console.log('[Botler] barge-in — interrupting');
+      abortCurrentRun();
+    }
+    if (!activeListening) enterActiveListening();
+    clearTimeout(wakeTimer);
+    wakeExpiresAt = Date.now() + WAKE_WINDOW_MS;
+    wakeTimer = setTimeout(exitActiveListening, WAKE_WINDOW_MS);
+    const afterWake = final.slice(wakeIdx).trim();
+    if (afterWake.length > 2) accumulateSpeech(afterWake);
+  } else if (activeListening || IS_IOS) {
+    clearTimeout(wakeTimer);
+    wakeExpiresAt = Date.now() + WAKE_WINDOW_MS;
+    wakeTimer = setTimeout(exitActiveListening, WAKE_WINDOW_MS);
+    accumulateSpeech(final.trim());
+  }
+}
+
 function initVoice() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { setTranscript('Voice not supported in this browser'); return; }
+  if (!SR) {
+    setTranscript(IS_IOS ? 'Tap the mic button to speak' : 'Voice not supported in this browser');
+    // Show prominent PTT button on unsupported browsers
+    const btn = document.getElementById('tap-talk-btn');
+    if (btn) { btn.style.display = 'block'; btn.style.fontSize = '14px'; }
+    return;
+  }
 
+  // On iOS: request permission once via getUserMedia before starting recognition
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(stream => { stream.getTracks().forEach(t => t.stop()); startRecognition(); })
+      .catch(() => setTranscript('Microphone permission denied'));
+    return;
+  }
+
+  startRecognition();
+}
+
+function startRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return;
   recognition = new SR();
-  recognition.continuous = true;
-  recognition.interimResults = true;
+  // iOS does not support continuous:true — use single-shot with auto-restart
+  recognition.continuous = !IS_IOS;
+  recognition.interimResults = !IS_IOS; // interim results also unreliable on iOS
   recognition.lang = 'en-US';
+  recognition.maxAlternatives = 1;
 
-  recognition.onresult = (evt) => {
-    if (muted) return;
-    let interim = '', final = '';
-    for (let i = evt.resultIndex; i < evt.results.length; i++) {
-      const t = evt.results[i][0].transcript;
-      evt.results[i].isFinal ? (final += t) : (interim += t);
-    }
-    // Show interim transcript; if bot is speaking, show interim as dim barge-in hint
-    if (interim && state !== 'thinking') setTranscript(interim);
+  recognition.onresult = handleRecognitionResult;
 
-    if (!final) return;
-    setTranscript(final, true);
-    const lower = final.toLowerCase().trim();
-    const wakeIdx = findWakeWord(lower);
-
-    if (wakeIdx >= 0) {
-      clearTimeout(wakeTimer);
-      wakeExpiresAt = Date.now() + WAKE_WINDOW_MS;
-      // Barge-in: if Botler is speaking or thinking, interrupt and start fresh
-      const isActive = state === 'speaking' || state === 'thinking';
-      if (isActive) {
-        console.log('[Botler] barge-in detected — interrupting');
-        abortCurrentRun(); // fire-and-forget; processQuery will re-check state
-      } else {
-        setState('listening');
-        setWakeIndicator(true);
-      }
-      setWakeIndicator(true);
-      clearTimeout(wakeTimer);
-      wakeTimer = setTimeout(() => {
-        wakeExpiresAt = 0;
-        setWakeIndicator(false);
-        if (state !== 'speaking' && state !== 'thinking') {
-          setState('idle');
-          setTranscript('Say "Botler…" to wake');
-        }
-      }, WAKE_WINDOW_MS);
-      const query = final.slice(wakeIdx).trim();
-      if (query.length > 2) processQuery(query);
-    } else if (Date.now() < wakeExpiresAt && final.trim().length > 1) {
-      // Inside the wake window — send follow-up without wake word.
-      // Also extend the window so multi-turn conversations feel natural.
-      clearTimeout(wakeTimer);
-      wakeExpiresAt = Date.now() + WAKE_WINDOW_MS;
-      wakeTimer = setTimeout(() => {
-        wakeExpiresAt = 0;
-        setWakeIndicator(false);
-        if (state !== 'speaking' && state !== 'thinking') {
-          setState('idle');
-          setTranscript('Say "Botler…" to wake');
-        }
-      }, WAKE_WINDOW_MS);
-      processQuery(final.trim());
-    }
+  recognition.onstart = () => {
+    if (IS_IOS && iosListening) setTranscript('Listening…');
   };
 
   recognition.onend = () => {
-    // Restart unless muted or suppressed while Botler is speaking (echo prevention)
-    if (!muted && !echoSuppressed) { try { recognition.start(); } catch(e) {} }
+    if (IS_IOS) {
+      // iOS PTT: after result arrives, finish and wait for next tap
+      iosListening = false;
+      const tapBtn = document.getElementById('tap-talk-btn');
+      if (tapBtn) { tapBtn.textContent = '🎤'; tapBtn.style.opacity = '1'; }
+      if (speechBuffer.trim()) {
+        flushSpeechBuffer();
+      } else if (state !== 'speaking' && state !== 'thinking') {
+        setTranscript('Tap to speak');
+      }
+      return;
+    }
+    // Desktop: restart continuously unless muted or echo-suppressed
+    if (!muted && !echoSuppressed) {
+      setTimeout(() => { try { recognition.start(); } catch(e) {} }, 150);
+    }
   };
 
   recognition.onerror = (e) => {
-    if (e.error === 'not-allowed') setTranscript('Microphone access denied');
-    if (e.error !== 'aborted') { try { recognition.start(); } catch(err) {} }
+    console.warn('[Botler] STT error:', e.error);
+    if (e.error === 'not-allowed') {
+      setTranscript('Microphone access denied');
+      return;
+    }
+    if (IS_IOS) {
+      iosListening = false;
+      const tapBtn = document.getElementById('tap-talk-btn');
+      if (tapBtn) { tapBtn.textContent = '🎤'; tapBtn.style.opacity = '1'; }
+      setTranscript('Tap to speak');
+      return;
+    }
+    if (e.error !== 'aborted' && e.error !== 'no-speech') {
+      setTimeout(() => { try { recognition.start(); } catch(err) {} }, 300);
+    }
   };
 
-  try { recognition.start(); } catch(e) {}
+  if (!IS_IOS) {
+    try { recognition.start(); } catch(e) {}
+  } else {
+    // iOS: show tap-to-speak UI instead of ambient always-on mic
+    setTranscript('Tap to speak');
+    const tapBtn = document.getElementById('tap-talk-btn');
+    if (tapBtn) {
+      tapBtn.style.display = 'inline-block';
+      tapBtn.style.fontSize = '18px';
+      tapBtn.style.padding = '4px 14px';
+      tapBtn.textContent = '🎤';
+    }
+  }
+}
+
+// Called by tap-talk-btn on mobile AND tapToTalk() on desktop
+function startIOSTalk() {
+  if (!recognition) return;
+  if (iosListening) return; // already going
+  iosListening = true;
+  enterActiveListening();
+  const tapBtn = document.getElementById('tap-talk-btn');
+  if (tapBtn) { tapBtn.textContent = '⏹'; tapBtn.style.opacity = '0.7'; }
+  setTranscript('Listening…');
+  try { recognition.start(); } catch(e) {
+    // If already started, stop and restart
+    recognition.stop();
+    setTimeout(() => { try { recognition.start(); } catch(err) {} }, 200);
+  }
 }
 
 // Chrome STT mishears "Botler" consistently. Add any new variants you see in
@@ -1316,8 +2385,8 @@ document.getElementById('mute-btn').addEventListener('click', () => {
     if (recognition) recognition.stop();
     setTranscript('Muted');
   } else {
-    if (recognition) { try { recognition.start(); } catch(e) {} }
-    setTranscript('Say "Botler…" to wake');
+    if (!IS_IOS && recognition) { try { recognition.start(); } catch(e) {} }
+    setTranscript(IS_IOS ? 'Tap to speak' : 'Say "Botler…" to wake');
   }
 });
 
@@ -1367,27 +2436,46 @@ function execCmd(cmd) {
       if (cmd.query) openPanel(`https://duckduckgo.com/?q=${encodeURIComponent(cmd.query)}&kae=d`, `Search: ${cmd.query}`);
       break;
     case 'shopping_list':
-      renderComponent({ type: 'checklist', title: cmd.title || 'Shopping List', items: cmd.items || [] });
+      // Merge cmd items into persistent list, then render inline
+      if (cmd.items?.length) addToShoppingList(cmd.items);
+      renderComponentInline({ title: cmd.title || 'Shopping List', type: 'shopping_list' });
       break;
     case 'render_component': {
-      const panel = document.getElementById('side-panel');
-      const comp  = document.getElementById('component-panel');
-      const frame = document.getElementById('browser-frame');
-      const bar   = document.getElementById('browser-bar');
-      const err   = document.getElementById('browser-err');
-      document.getElementById('panel-title').textContent = cmd.title || 'Component';
-      frame.className = ''; bar.className = ''; err.className = '';
-      comp.className = 'visible';
-      comp.innerHTML = cmd.html || '';
-      panel.classList.add('open');
+      if (silentMode || cmd.inline) {
+        // Silent/typing mode: render inline in chat
+        renderComponentInline(cmd);
+      } else {
+        // Voice mode: open in side panel
+        const panel = document.getElementById('side-panel');
+        const comp  = document.getElementById('component-panel');
+        const frame = document.getElementById('browser-frame');
+        const bar   = document.getElementById('browser-bar');
+        const err   = document.getElementById('browser-err');
+        document.getElementById('panel-title').textContent = cmd.title || 'Component';
+        frame.className = ''; bar.className = ''; err.className = '';
+        comp.className = 'visible';
+        comp.innerHTML = cmd.html || '';
+        panel.classList.add('open');
+      }
       break;
     }
     case 'panel':
       // Generic named panel
       if (cmd.name === 'finance') { openFinance(); break; }
       if (cmd.name === 'homeschool') { openHomeschool(); break; }
+      if (cmd.name === 'family-portal' || cmd.name === 'family') { openFamilyPortal(); break; }
       if (cmd.name === 'system-map' || cmd.name === 'agent-map') {
         openPanel(`${location.origin}/agent-system-map.html`, 'System Map'); break;
+      }
+      break;
+    case 'family_portal':
+      openFamilyPortal();
+      break;
+    case 'game_move':
+      // Botler announcing a game move — relay to frontmost game iframe
+      { const frames = document.querySelectorAll('#chat-bubbles iframe');
+        const gf = frames[frames.length - 1];
+        if (gf?.contentWindow) gf.contentWindow.postMessage({ type: 'botler_move', move: cmd.move, game: cmd.game }, '*');
       }
       break;
     case 'homeschool':
@@ -1421,12 +2509,58 @@ function execCmd(cmd) {
     case 'open_url_external':
       cmd.url ? window.open(cmd.url, '_blank') : null;
       break;
+    case 'set_user': {
+      const uid = (cmd.name || '').toLowerCase().trim();
+      if (HOUSEHOLD[uid]) setCurrentUser(uid);
+      break;
+    }
+    case 'night_mode':
+      document.body.classList.toggle('night-mode', cmd.on !== false);
+      if (cmd.on !== false) applyColor('#9a5c28'); else applyColor('#ff8800');
+      break;
+    case 'shopping_list_add': {
+      const updated = addToShoppingList(cmd.items || []);
+      // Silently update; model confirms verbally
+      break;
+    }
+    case 'shopping_list_update':
+      setShoppingList(cmd.items || []);
+      break;
+    case 'shopping_list_render':
+      renderComponentInline({ title: 'Shopping List', type: 'shopping_list' });
+      break;
+    case 'panel_scroll':
+      panelScroll(cmd.dir || 'down', cmd.px);
+      break;
+    case 'panel_click':
+      if (!panelClick(cmd.query || cmd.text || '')) speak('I could not find that on screen.');
+      break;
+    case 'project_context':
+      if (cmd.name) openProject(cmd.name);
+      break;
+    case 'project_note':
+      if (cmd.note) addProjectNote(cmd.note);
+      break;
     default:
       console.log('[Botler] unknown cmd action:', cmd.action);
   }
 }
 
 // ─── TTS ─────────────────────────────────────────────────────────────────────
+// Butler voice — prefer British male (Daniel/Arthur) for a distinguished sound
+let butlerVoice = null;
+function pickButlerVoice() {
+  const voices = speechSynthesis.getVoices();
+  for (const name of ['Daniel', 'Arthur', 'Google UK English Male', 'Microsoft George - English (United States)', 'Aaron']) {
+    const v = voices.find(v => v.name === name);
+    if (v) { butlerVoice = v; return; }
+  }
+  butlerVoice = voices.find(v => v.lang === 'en-GB' && !/female|woman/i.test(v.name)) ||
+                voices.find(v => v.lang === 'en-GB') || null;
+}
+speechSynthesis.addEventListener('voiceschanged', pickButlerVoice);
+pickButlerVoice();
+
 function speak(text) {
   if (!text || !text.trim()) return;
   ttsQueue.push(text.trim());
@@ -1435,11 +2569,13 @@ function speak(text) {
 
 function pumpTTS() {
   if (ttsSpeaking || ttsQueue.length === 0) return;
+  if (silentMode) { ttsQueue.length = 0; setState('idle'); return; }
   ttsSpeaking = true;
   setState('speaking');
   const text = ttsQueue.shift();
   const utt = new SpeechSynthesisUtterance(text);
-  utt.rate = 0.92; utt.pitch = 0.95;
+  if (butlerVoice) utt.voice = butlerVoice;
+  utt.rate = 0.88; utt.pitch = 0.80; // Measured, deep — distinguished butler
 
   // Stop STT while Botler speaks so the mic doesn't pick up echo / TTS output
   if (!echoSuppressed) {
@@ -1463,15 +2599,16 @@ function pumpTTS() {
       wakeExpiresAt = 0;
       setWakeIndicator(false);
       setState('idle');
-      setTranscript('Say "Botler…" to wake');
+      setTranscript(IS_IOS ? 'Tap to speak' : 'Say "Botler…" to wake');
     }, WAKE_FOLLOW_UP_MS);
-    if (!muted && recognition) { try { recognition.start(); } catch(e) {} }
+    if (!IS_IOS && !muted && recognition) { try { recognition.start(); } catch(e) {} }
+    if (IS_IOS) setTranscript('Tap to speak');
   };
   utt.onerror = () => {
     ttsSpeaking = false;
     if (ttsQueue.length > 0) { pumpTTS(); return; }
     echoSuppressed = false;
-    if (!muted && recognition) { try { recognition.start(); } catch(e) {} }
+    if (!IS_IOS && !muted && recognition) { try { recognition.start(); } catch(e) {} }
   };
   speechSynthesis.speak(utt);
 }
@@ -1496,15 +2633,37 @@ async function abortCurrentRun() {
   streamText = ''; spokenUpTo = 0;
   if (runId && gw && gwConnected) {
     try {
-      await gw.request('chat.abort', { sessionKey: SESSION_KEY, runId });
+      await gw.request('chat.abort', { sessionKey: getSessionKey(), runId });
       console.log('[Botler] aborted run:', runId);
     } catch(e) { /* ignore — run may have already finished */ }
   }
 }
 
 // ─── Smart router ─────────────────────────────────────────────────────────────
+const THINK_PHRASES = [
+  q => `Hm, ${q.split(' ').slice(0,3).join(' ')}, let me think.`,
+  () => 'One moment, sir.',
+  () => 'Let me look into that.',
+  () => 'Right — give me just a moment.',
+  () => 'Let me work that out.',
+];
+const NEEDS_THINK_RE = /\b(how|what|why|where|when|who|find|look|search|calc|tell me|explain|show|list|compare|check|weather|news|recipe|schedule|remind|price|cost|convert|translate|define|write|draft|summar)\b/i;
+function maybeThinkFiller(query) {
+  const words = query.trim().split(/\s+/);
+  if (words.length >= 5 && NEEDS_THINK_RE.test(query)) {
+    const fn = THINK_PHRASES[Math.floor(Math.random() * THINK_PHRASES.length)];
+    speak(fn(query));
+  }
+}
+
 async function processQuery(query) {
+  // Local UI commands — handled without sending to any model
+  if (handleLocalCommand(query)) return;
+  // Extend adult mode timeout on any interaction
+  if (adultMode) resetAdultTimer();
   addBubble('user', query);
+  // Speak a filler phrase while we fetch, for complex queries
+  maybeThinkFiller(query);
   // Route to gateway when tools are needed; otherwise use fast direct API
   if (needsGateway(query) && gw && gwConnected) {
     console.log('[Botler] routing to gateway:', query);
@@ -1555,7 +2714,7 @@ async function processQueryDirect(query) {
   }
 
   setState('thinking');
-  startThinkingTimer();
+  startThinkingTimer(query);
   setTranscript(query, true);
   streamText = ''; spokenUpTo = 0;
   let fullText = '';
@@ -1565,9 +2724,11 @@ async function processQueryDirect(query) {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        system: BOTLER_DIRECT_SYSTEM,
+        model: 'claude-sonnet-4-6',
+        system: buildDirectSystem(),
         messages: apiMessages,
-        maxTokens: 512,
+        max_tokens: 2048,
+        stream: true,
       }),
     });
     if (!resp.ok) throw new Error(`API ${resp.status}`);
@@ -1592,9 +2753,10 @@ async function processQueryDirect(query) {
         if (raw === '[DONE]') break;
         try {
           const ev = JSON.parse(raw);
-          if (ev.delta) {
-            fullText += ev.delta;
-            const clean = fullText.replace(/<cmd>[\s\S]*?<\/cmd>/g, '').replace(/\s{2,}/g, ' ').trim();
+          // Anthropic SSE: content_block_delta with text_delta type
+          if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') {
+            fullText += ev.delta.text;
+            const clean = fullText.replace(/<cmd>[\s\S]*?<\/cmd>/g, '').replace(/<cmd>[\s\S]*/g, '').replace(/\s{2,}/g, ' ').trim();
             if (clean.length > spokenUpTo) {
               let chunk = clean.slice(spokenUpTo);
               while (chunk.length > 0) {
@@ -1613,7 +2775,11 @@ async function processQueryDirect(query) {
 
     if (currentRunId !== myRunId) return; // barged-in, don't finalize
 
-    const cleanFull = fullText.replace(/<cmd>[\s\S]*?<\/cmd>/g, '').replace(/\s{2,}/g, ' ').trim();
+    // Strip complete cmd blocks, then any unclosed <cmd> tail (model hit token limit mid-tag)
+    const cleanFull = fullText
+      .replace(/<cmd>[\s\S]*?<\/cmd>/g, '')
+      .replace(/<cmd>[\s\S]*/g, '')
+      .replace(/\s{2,}/g, ' ').trim();
     const leftover = cleanFull.slice(spokenUpTo).trim();
     if (leftover) speak(leftover);
 
@@ -1629,6 +2795,7 @@ async function processQueryDirect(query) {
 
     currentRunId = null; streamText = ''; spokenUpTo = 0;
     if (ttsQueue.length === 0 && !ttsSpeaking) setState('idle');
+    saveActiveProject(); // persist conversation progress into active project if open
 
   } catch (err) {
     console.error('[Botler] direct API error:', err);
@@ -1646,22 +2813,21 @@ async function processQueryDirect(query) {
 async function processQueryGateway(query) {
   if (!gw || !gwConnected) {
     console.warn('[Botler] gateway not connected');
-    setTranscript('Gateway not connected — check setup');
-    document.getElementById('setup-overlay').classList.remove('hidden');
+    setTranscript('Connecting to gateway — try again in a moment');
     return;
   }
   if (currentRunId) await abortCurrentRun();
   else stopSpeaking();
 
   setState('thinking');
-  startThinkingTimer();
+  startThinkingTimer(query);
   setTranscript(query, true);
   streamText = ''; spokenUpTo = 0;
 
   try {
     const idKey = crypto.randomUUID();
     const ack = await gw.request('chat.send', {
-      sessionKey: SESSION_KEY,
+      sessionKey: getSessionKey(),
       message: query,
       idempotencyKey: idKey,
     });
@@ -1680,21 +2846,26 @@ async function executeTool(name, input) {
   console.log('[Botler] Tool:', name, input);
   switch (name) {
     case 'render_component':
-      renderComponent(input); return `Component rendered: ${input.title}`;
-    case 'shopping_list_add':
-      input.items.forEach(i => { if (!shoppingList.includes(i)) shoppingList.push(i); });
+      renderComponentInline(input); return `Component rendered: ${input.title}`;
+    case 'shopping_list_add': {
+      const updated = addToShoppingList(input.items || []);
       return `Added to shopping list: ${input.items.join(', ')}`;
-    case 'shopping_list_show':
-      renderComponent({ type: 'checklist', title: 'Shopping List', items: shoppingList.length ? shoppingList : ['(empty)'] });
-      return `Showing shopping list with ${shoppingList.length} items`;
+    }
+    case 'shopping_list_update':
+      setShoppingList(input.items || []);
+      return `Shopping list updated`;
+    case 'shopping_list_show': {
+      const list = getShoppingList();
+      renderComponentInline({ type: 'shopping_list', title: 'Shopping List', items: list.length ? list : ['(empty)'] });
+      return `Showing shopping list with ${list.length} items`;
+    }
     case 'browser_navigate':
       openPanel(input.url, input.title || input.url); return `Navigating to ${input.url}`;
     case 'web_search':
       openPanel(`https://duckduckgo.com/?q=${encodeURIComponent(input.query)}&kae=d`, `Search: ${input.query}`);
       return `Searching for: ${input.query}`;
     case 'finance_query':
-      if (!financeUnlocked) { openFinance(); return 'Finance dashboard opened — authentication required'; }
-      openFinance(true); return 'Finance dashboard opened';
+      openFinance(); return 'Finance dashboard opened';
     default:
       return `Unknown tool: ${name}`;
   }
@@ -1763,8 +2934,136 @@ function showPanelLauncher(url, title) {
 }
 
 function closePanel() {
-  document.getElementById('side-panel').classList.remove('open');
+  const panel = document.getElementById('side-panel');
+  panel.classList.remove('open', 'fullscreen');
+  const btn = document.getElementById('panel-expand');
+  if (btn) btn.textContent = '⤢';
   document.getElementById('browser-frame').src = 'about:blank';
+}
+
+// ─── Botler cursor ────────────────────────────────────────────────────────────
+const _bc = document.getElementById('botler-cursor');
+let _bcHideTimer = null;
+
+function _bcUpdateColor() {
+  // Sync cursor color to current Botler head color
+  try {
+    const col = bgMat?.uniforms?.tint?.value;
+    if (col) {
+      const hex = '#' + [col.r, col.g, col.b].map(v => Math.round(v*255).toString(16).padStart(2,'0')).join('');
+      _bc.style.setProperty('--bc', hex);
+    }
+  } catch(e) {}
+}
+
+function bcShow(x, y) {
+  _bcUpdateColor();
+  _bc.style.left = x + 'px';
+  _bc.style.top  = y + 'px';
+  _bc.classList.add('bc-visible');
+  if (_bcHideTimer) clearTimeout(_bcHideTimer);
+}
+
+function bcMoveTo(x, y, onArrival) {
+  _bcUpdateColor();
+  _bc.style.left = x + 'px';
+  _bc.style.top  = y + 'px';
+  _bc.classList.add('bc-visible');
+  // After transition lands (~520ms), pulse and execute
+  setTimeout(() => {
+    _bc.classList.add('bc-click');
+    setTimeout(() => {
+      _bc.classList.remove('bc-click');
+      if (onArrival) onArrival();
+      _bcHideTimer = setTimeout(() => _bc.classList.remove('bc-visible'), 900);
+    }, 200);
+  }, 520);
+}
+
+// ─── Panel remote control ─────────────────────────────────────────────────────
+function panelScroll(dir, px) {
+  const frame = document.getElementById('browser-frame');
+  if (!frame) return;
+  const amount = (dir === 'up' || dir === 'top') ? -(px || 320) : (px || 320);
+  // Show cursor briefly at panel edge as visual feedback
+  const r = frame.getBoundingClientRect();
+  bcShow(r.left + r.width / 2, amount > 0 ? r.bottom - 40 : r.top + 40);
+  _bcHideTimer = setTimeout(() => _bc.classList.remove('bc-visible'), 700);
+  try { frame.contentWindow.scrollBy({ top: amount, behavior: 'smooth' }); }
+  catch(e) { try { frame.contentWindow.postMessage({ type: 'botler_scroll', top: amount }, '*'); } catch(e2) {} }
+}
+
+// Attempt to click something in the panel — with animated cursor
+const ORDINAL_MAP = { first:0,'1st':0,second:1,'2nd':1,third:2,'3rd':2,fourth:3,'4th':3,fifth:4,'5th':4 };
+function panelClick(query) {
+  const frame = document.getElementById('browser-frame');
+  if (!frame) return false;
+
+  const frameRect = frame.getBoundingClientRect();
+  const q = query.toLowerCase();
+  const ordMatch = q.match(/\b(first|1st|second|2nd|third|3rd|fourth|4th|fifth|5th)\b/);
+  const ordIdx = ordMatch ? ORDINAL_MAP[ordMatch[1]] ?? null : null;
+
+  let doc = null;
+  try { doc = frame.contentDocument; } catch(e) { doc = null; }
+
+  if (doc && doc.body) {
+    const SELECTORS = 'a[href], button, [role="button"], [role="link"], h1, h2, h3, li, article, ytd-video-renderer, ytd-compact-video-renderer, [class*="video"], [class*="result"], [class*="item"]';
+    const all = [...doc.querySelectorAll(SELECTORS)].filter(el => {
+      const r = el.getBoundingClientRect();
+      return r.width > 10 && r.height > 10;
+    });
+
+    let target = null;
+    if (ordIdx != null) {
+      // "click the second video" — pick by position order
+      const visible = all.filter(el => el.getBoundingClientRect().top >= -20);
+      target = visible[ordIdx] ?? null;
+    } else {
+      const words = q.split(/\s+/).filter(w => w.length > 2);
+      let bestScore = 0;
+      for (const el of all) {
+        const score = words.filter(w => (el.textContent||'').toLowerCase().includes(w)).length;
+        if (score > bestScore) { bestScore = score; target = el; }
+      }
+    }
+
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const r = target.getBoundingClientRect();
+      const sx = frameRect.left + r.left + r.width / 2;
+      const sy = frameRect.top  + r.top  + r.height / 2;
+      bcMoveTo(sx, sy, () => { try { target.click(); } catch(e) {} });
+      return true;
+    }
+  }
+
+  // Cross-origin fallback: animate cursor to panel center then postMessage
+  const cx = frameRect.left + frameRect.width / 2;
+  const cy = frameRect.top  + frameRect.height / 2;
+  bcMoveTo(cx, cy, () => {
+    try { frame.contentWindow.postMessage({ type: 'botler_click', query, ordIdx }, '*'); } catch(e) {}
+  });
+  return true;
+}
+
+// Capture a screenshot of the panel content for visual grounding
+function capturePanelScreenshot() {
+  const frame = document.getElementById('browser-frame');
+  if (!frame) return null;
+  try {
+    const doc = frame.contentDocument;
+    if (!doc) return null;
+    // For same-origin: use html2canvas if available, else null
+    return null; // Phase 2: inject html2canvas
+  } catch(e) { return null; }
+}
+
+function togglePanelExpand() {
+  const panel = document.getElementById('side-panel');
+  const btn = document.getElementById('panel-expand');
+  const expanded = panel.classList.toggle('fullscreen');
+  if (btn) btn.textContent = expanded ? '⤡' : '⤢';
 }
 
 // ─── Component renderer ───────────────────────────────────────────────────────
@@ -1838,14 +3137,7 @@ function openHomeschool() {
 }
 
 function openFinance(skipAuth = false) {
-  // Open stewartOS household finance dashboard (local)
-  if (financePass && !financeUnlocked && !skipAuth) {
-    document.getElementById('finance-panel').classList.add('open');
-    return;
-  }
-  financeUnlocked = true;
-  closeFinance();
-  openPanel(`${location.origin}/botler-finance.html`, 'Finance — stewartOS');
+  openPanel(`${location.origin}/finance`, 'Finance');
 }
 function closeFinance() { document.getElementById('finance-panel').classList.remove('open'); }
 
@@ -1959,29 +3251,44 @@ const _execCmdExtensions = {
 window._botlerExecCmdPatched = true;
 const _execCmdOrig = window.execCmd || (typeof execCmd !== 'undefined' ? execCmd : null);
 
+// ─── Game message bridge ──────────────────────────────────────────────────────
+// Games rendered in iframes can postMessage up to announce events, scores, etc.
+// Botler listens and reacts with voice / chat announcements.
+window.addEventListener('message', ev => {
+  const d = ev.data;
+  if (!d || typeof d !== 'object' || d.type !== 'game_event') return;
+
+  const { event, player, score, winner, game, move, board } = d;
+
+  if (event === 'score' && player != null && score != null) {
+    const msg = `${player} just scored ${score}!`;
+    addBubble('bot', msg); speak(msg);
+  } else if (event === 'game_over') {
+    const msg = winner ? `${winner} wins! Well played.` : 'Game over — nice match!';
+    addBubble('bot', msg); speak(msg);
+  } else if (event === 'milestone') {
+    const msg = d.message || 'Nice milestone!';
+    addBubble('bot', msg); speak(msg);
+  } else if (event === 'request_move' || d.type === 'game_request_move') {
+    // Botler thinks about and announces its move (AI-backed in future; simple echo for now)
+    const thinkMsg = `Let me think... ${game ? '(' + game + ')' : ''}`;
+    speak(thinkMsg);
+    // Send back a move via postMessage to the game iframe
+    const frames = document.querySelectorAll('iframe');
+    const gameFrame = frames[frames.length - 1];
+    if (gameFrame && gameFrame.contentWindow) {
+      setTimeout(() => {
+        gameFrame.contentWindow.postMessage({ type: 'botler_move', move: move || 'pass' }, '*');
+      }, 1200);
+    }
+  }
+});
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
 // Init looks dropdown if element exists (injected by edit panel)
 setTimeout(refreshLooksDropdown, 100);
 
-// Poll for Cloudflare tunnel URL and show it as a subtle bottom label
-(async function pollTunnel() {
-  const el = document.getElementById('tunnel-tag');
-  if (!el) return;
-  for (let i = 0; i < 30; i++) {
-    await new Promise(r => setTimeout(r, 3000));
-    try {
-      const r = await fetch('/api/tunnel');
-      const { url } = await r.json();
-      if (url) {
-        el.textContent = url.replace('https://', '');
-        el.href = url;
-        el.style.display = 'block';
-        return;
-      }
-    } catch {}
-  }
-})();
 
 checkSetup();
 </script>
