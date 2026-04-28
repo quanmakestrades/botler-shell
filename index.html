@@ -73,6 +73,70 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
 /* ── Side Panel (browser + components) ── */
+/* Agentic browser chrome */
+#browser-nav {
+  display: flex; align-items: center; gap: 3px; flex: 1; min-width: 0;
+}
+#nav-back, #nav-fwd, #nav-refresh {
+  background: none; border: none; color: rgba(255,200,100,0.35); cursor: pointer;
+  font-size: 18px; padding: 0 3px; line-height: 1; flex-shrink: 0;
+  transition: color 0.15s; font-family: Georgia,serif;
+}
+#nav-back:hover, #nav-fwd:hover, #nav-refresh:hover { color: rgba(255,220,120,0.9); }
+#nav-bar {
+  flex: 1; min-width: 0; background: rgba(255,160,40,0.05);
+  border: 1px solid rgba(255,160,40,0.12); border-radius: 12px;
+  color: rgba(255,220,120,0.7); font-size: 10px; padding: 4px 10px;
+  font-family: 'Courier New', monospace; outline: none; width: 100%;
+}
+#nav-bar:focus { border-color: rgba(255,160,40,0.45); color: rgba(255,230,140,0.95); background: rgba(255,160,40,0.07); }
+#nav-bar::placeholder { color: rgba(255,200,100,0.2); }
+#nav-read-btn {
+  background: none; border: none; cursor: pointer; font-size: 13px;
+  padding: 2px 4px; flex-shrink: 0; opacity: 0.4; transition: opacity 0.15s;
+  color: rgba(255,200,100,0.6); border-radius: 4px;
+}
+#nav-read-btn:hover { opacity: 1; background: rgba(255,160,40,0.1); }
+#nav-read-btn.active { opacity: 1; color: #f59e0b; }
+#panel-header { gap: 8px; padding: 8px 10px; }
+/* Game action strip below inline games */
+.game-actions {
+  display: flex; gap: 6px; padding: 6px 0 2px;
+}
+.game-actions button {
+  flex: 1; background: rgba(255,160,40,0.08); border: 1px solid rgba(255,160,40,0.18);
+  color: rgba(255,220,120,0.75); font-size: 10px; padding: 7px 10px; cursor: pointer;
+  border-radius: 8px; letter-spacing: 0.15em; font-family: Georgia,serif;
+  transition: all 0.15s;
+}
+.game-actions button:hover { background: rgba(255,160,40,0.16); color: rgba(255,230,140,1); }
+.game-actions button.botler-play-btn {
+  border-color: rgba(255,160,40,0.35); font-weight: bold;
+}
+.game-actions button.botler-play-btn:hover { background: rgba(255,160,40,0.22); }
+/* Browser error state */
+#browser-err-msg { font-size: 11px; color: rgba(255,200,100,0.35); letter-spacing: 0.15em; text-align: center; }
+#browser-err-actions { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+/* Panel pull-tab handle — visible when panel is closed but has content */
+#panel-handle {
+  position: fixed; top: 50%; right: 0; transform: translateY(-50%);
+  z-index: 29; cursor: pointer; opacity: 0; pointer-events: none;
+  transition: opacity 0.3s, right 0.32s cubic-bezier(.4,0,.2,1);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; padding: 12px 6px;
+  background: rgba(10,4,0,0.9); border: 1px solid rgba(255,160,40,0.15);
+  border-right: none; border-radius: 6px 0 0 6px;
+  backdrop-filter: blur(12px);
+}
+#panel-handle.visible { opacity: 1; pointer-events: all; }
+#panel-handle-label {
+  writing-mode: vertical-rl; text-orientation: mixed;
+  font-size: 8px; letter-spacing: 0.3em; text-transform: uppercase;
+  color: rgba(255,200,100,0.4); font-family: 'Courier New', monospace;
+  max-height: 120px; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#panel-handle-icon { font-size: 10px; color: rgba(255,200,100,0.3); }
 #side-panel {
   position: fixed; top: 0; right: -50vw; width: 50vw; height: 100vh;
   background: rgba(10,4,0,0.95); border-left: 1px solid rgba(255,160,40,0.15);
@@ -81,6 +145,7 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
   backdrop-filter: blur(16px);
 }
 #side-panel.open { right: 0; }
+#side-panel.open ~ #panel-handle { opacity: 0 !important; pointer-events: none !important; }
 #panel-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 16px; border-bottom: 1px solid rgba(255,160,40,0.1); flex-shrink: 0;
@@ -102,13 +167,7 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
   background: #fff; display: none;
 }
 #browser-frame.visible { display: block; }
-#browser-bar {
-  display: none; padding: 8px 12px; background: rgba(8,3,0,0.9);
-  border-bottom: 1px solid rgba(255,160,40,0.1);
-  font-size: 10px; color: rgba(255,200,100,0.35); letter-spacing: 0.1em;
-  flex-shrink: 0; word-break: break-all;
-}
-#browser-bar.visible { display: block; }
+#browser-bar { display: none; } /* replaced by #nav-bar in header */
 #browser-err {
   display: none; position: absolute; inset: 0; align-items: center; justify-content: center;
   flex-direction: column; gap: 12px; color: rgba(255,200,100,0.4); font-size: 11px;
@@ -256,6 +315,134 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
 #botler-cursor.bc-visible { opacity: 1; }
 #botler-cursor.bc-click { transform: translate(-50%,-50%) scale(2.0); }
 
+/* ── Dev Terminal Overlay ─────────────────────────────────────────────────── */
+#dev-terminal {
+  position: fixed; inset: 0; z-index: 20;
+  pointer-events: none; opacity: 0;
+  transition: opacity 0.45s cubic-bezier(.4,0,.2,1);
+  display: flex; flex-direction: column;
+  /* Liquid glass: frosted dark navy */
+  background: linear-gradient(160deg, rgba(10,18,48,0.55) 0%, rgba(14,28,70,0.45) 100%);
+  backdrop-filter: blur(22px) saturate(1.6);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6);
+  border: 1px solid rgba(68,136,255,0.18);
+  /* Slight inset shadow to pop from canvas */
+  box-shadow: inset 0 0 80px rgba(68,136,255,0.06), 0 0 0 1px rgba(68,136,255,0.08);
+}
+body.dev-mode #dev-terminal { opacity: 1; pointer-events: all; }
+/* Writing/Building: sharper glass (less blur) */
+body.dev-mode.dev-writing #dev-terminal { backdrop-filter: blur(8px) saturate(1.4); -webkit-backdrop-filter: blur(8px) saturate(1.4); }
+/* Thinking: pulsing glow */
+body.dev-mode.dev-thinking #dev-terminal { animation: dev-pulse 2s infinite; }
+/* Building: scan lines animate */
+body.dev-mode.dev-building #dev-terminal { backdrop-filter: blur(4px) saturate(1.8); -webkit-backdrop-filter: blur(4px) saturate(1.8); }
+/* User typing/scrolling: more blurred, step back */
+body.dev-mode.dev-idle #dev-terminal { backdrop-filter: blur(32px) saturate(1.2); -webkit-backdrop-filter: blur(32px) saturate(1.2); }
+@keyframes dev-pulse {
+  0%,100% { box-shadow: inset 0 0 80px rgba(68,136,255,0.06), 0 0 0 1px rgba(68,136,255,0.08); }
+  50%      { box-shadow: inset 0 0 120px rgba(68,136,255,0.14), 0 0 0 1px rgba(68,136,255,0.22); }
+}
+/* Scan lines texture */
+#dev-term-scanlines {
+  position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.06) 2px, rgba(0,0,0,0.06) 4px);
+}
+body.dev-mode.dev-building #dev-term-scanlines { animation: scan 3s linear infinite; }
+@keyframes scan {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 -100px; }
+}
+/* Header bar (traffic lights + title) */
+#dev-term-header {
+  display: flex; align-items: center; gap: 7px;
+  padding: 10px 16px 8px;
+  border-bottom: 1px solid rgba(68,136,255,0.12);
+  position: relative; z-index: 2;
+}
+.term-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+}
+#dev-term-dot  { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
+#dev-term-dot2 { background: #f59e0b; box-shadow: 0 0 6px #f59e0b; }
+#dev-term-dot3 { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+#dev-term-title {
+  flex: 1; font-size: 9px; letter-spacing: 0.4em; text-transform: uppercase;
+  color: rgba(68,136,255,0.6); font-family: 'Courier New', monospace;
+  margin-left: 6px;
+}
+#dev-term-model-badge {
+  font-size: 8px; letter-spacing: 0.2em; padding: 1px 8px; border-radius: 8px;
+  background: rgba(68,136,255,0.12); border: 1px solid rgba(68,136,255,0.2);
+  color: rgba(68,136,255,0.55); font-family: 'Courier New', monospace;
+}
+/* Body — the terminal text area */
+#dev-term-body {
+  flex: 1; overflow-y: auto; padding: 14px 18px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 12px; line-height: 1.7; color: rgba(245,158,11,0.85);
+  position: relative; z-index: 2;
+  scrollbar-width: thin; scrollbar-color: rgba(68,136,255,0.2) transparent;
+}
+#dev-term-log { min-height: 20px; }
+#dev-term-log .tline { display: block; color: rgba(245,158,11,0.7); }
+#dev-term-log .tline.sys { color: rgba(68,136,255,0.55); }
+#dev-term-log .tline.ok  { color: rgba(34,197,94,0.65); }
+#dev-term-log .tline.err { color: rgba(239,68,68,0.7); }
+/* Interactive cursor line */
+#dev-term-cursor-line {
+  display: flex; align-items: center; gap: 0;
+  color: rgba(245,158,11,0.9); margin-top: 8px; padding-top: 6px;
+  border-top: 1px solid rgba(68,136,255,0.08);
+}
+#dev-term-prompt { color: rgba(68,136,255,0.55); white-space: nowrap; flex-shrink: 0; }
+#dev-term-input {
+  flex: 1; background: transparent; border: none; outline: none;
+  color: rgba(245,158,11,0.9); font-family: 'Courier New', Courier, monospace;
+  font-size: 12px; caret-color: rgba(245,158,11,0.9);
+  padding: 0; margin: 0; letter-spacing: 0.03em;
+}
+#dev-term-input::placeholder { color: rgba(245,158,11,0.2); }
+/* Header drawer toggle button */
+#dev-term-drawer-btn {
+  background: none; border: 1px solid rgba(68,136,255,0.15); color: rgba(68,136,255,0.4);
+  font-size: 10px; padding: 1px 6px; border-radius: 3px; cursor: pointer;
+  margin-left: 8px; letter-spacing: 0.05em; transition: all 0.15s;
+}
+#dev-term-drawer-btn:hover { color: rgba(68,136,255,0.9); border-color: rgba(68,136,255,0.4); }
+/* Status bar */
+#dev-term-status {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 16px; border-top: 1px solid rgba(68,136,255,0.1);
+  font-size: 8px; letter-spacing: 0.3em; text-transform: uppercase;
+  color: rgba(68,136,255,0.4); font-family: 'Courier New', monospace;
+  position: relative; z-index: 2;
+}
+#dev-term-spinner { color: rgba(245,158,11,0.6); }
+body.dev-mode.dev-thinking #dev-term-spinner::after { content: '◌'; animation: spin 1s linear infinite; display:inline-block; }
+body.dev-mode.dev-building #dev-term-spinner::after { content: '⊙'; animation: spin 0.4s linear infinite; display:inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+/* Minimized tab — appears at bottom-left when terminal is minimized */
+#dev-term-tab {
+  position: fixed; bottom: 120px; left: 0; z-index: 21;
+  display: none; flex-direction: column; align-items: center;
+  padding: 8px 6px; gap: 4px; cursor: pointer;
+  background: rgba(10,18,48,0.88); border: 1px solid rgba(68,136,255,0.2);
+  border-left: none; border-radius: 0 6px 6px 0;
+  backdrop-filter: blur(12px);
+  font-size: 7px; letter-spacing: 0.3em; text-transform: uppercase;
+  writing-mode: vertical-rl; text-orientation: mixed;
+  color: rgba(68,136,255,0.5); font-family: 'Courier New', monospace;
+  transition: opacity 0.3s;
+}
+body.dev-minimized #dev-term-tab { display: flex; }
+body.dev-minimized #dev-terminal { opacity: 0; pointer-events: none; }
+#dev-term-tab-state { color: rgba(245,158,11,0.5); }
+/* Mobile: terminal is narrower, panel takes full width anyway */
+@media (max-width: 600px) { #dev-term-body { font-size: 11px; } }
+/* When dev terminal is open and drawer is also open, split the screen */
+body.dev-mode #side-panel { width: 45vw; }
+@media (max-width: 600px) { body.dev-mode #side-panel { width: 100vw; } }
+
 /* ── Chat Bubbles ── */
 #chat-bubbles {
   position: fixed; bottom: 160px; left: 50%; transform: translateX(-50%);
@@ -273,6 +460,23 @@ canvas { display: block; position: fixed; top: 0; left: 0; width: 100vw; height:
 #chat-bubbles.hidden { opacity: 0; pointer-events: none; }
 /* Voice mode: hide bubbles (face only) */
 body.voice-mode #chat-bubbles { display: none; }
+
+/* Typing indicator */
+.thinking-bubble {
+  display: flex !important; align-items: center; gap: 7px;
+  padding: 11px 16px !important; max-width: 72px !important;
+}
+.tdot {
+  width: 9px; height: 9px; border-radius: 50%;
+  background: rgba(255,200,100,0.6); flex-shrink: 0;
+  animation: tdot 1.3s infinite ease-in-out;
+}
+.tdot:nth-child(2) { animation-delay: 0.22s; }
+.tdot:nth-child(3) { animation-delay: 0.44s; }
+@keyframes tdot {
+  0%,60%,100% { transform: translateY(0); opacity: 0.45; }
+  30% { transform: translateY(-7px); opacity: 1; }
+}
 
 .bubble {
   max-width: 84%; padding: 8px 13px; border-radius: 16px; font-size: 13px;
@@ -399,14 +603,18 @@ body.night-mode canvas { filter: brightness(0.52) saturate(0.7); }
   background: rgba(12,5,0,0.95); border-top: 1px solid rgba(255,160,40,0.15);
   padding: 10px 12px; gap: 8px; align-items: center; backdrop-filter: blur(12px);
 }
-/* Silent mode — triggered by typing, suppresses TTS */
+/* Model selector badge */
+/* model-badge only shown in Dev terminal — not in main UI */
+#model-badge { display: none !important; }
+/* Voice / Text mode toggle badge — always visible */
 #silent-badge {
-  display: none; font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase;
+  display: block; font-size: 9px; letter-spacing: 0.25em; text-transform: uppercase;
   color: rgba(255,160,40,0.55); border: 1px solid rgba(255,160,40,0.2);
-  padding: 2px 7px; border-radius: 10px; flex-shrink: 0; cursor: pointer;
+  padding: 2px 7px; border-radius: 10px; flex-shrink: 0; cursor: pointer; transition: all 0.2s;
+  white-space: nowrap;
 }
 #silent-badge:hover { color: rgba(255,200,100,0.8); border-color: rgba(255,160,40,0.45); }
-body.silent-mode #silent-badge { display: block; }
+#silent-badge.text-mode { color: rgba(255,100,80,0.55); border-color: rgba(255,100,80,0.25); }
 body.silent-mode #text-input-bar { border-top-color: rgba(255,160,40,0.35); }
 #text-query {
   flex: 1; background: rgba(255,160,40,0.06); border: 1px solid rgba(255,160,40,0.22);
@@ -430,6 +638,41 @@ body.adult-mode #controls { display: flex !important; }
 body.adult-mode #agent-bar { display: flex !important; }
 body.adult-mode #edit-btn  { display: block !important; }
 body.adult-mode #looks-bar { display: flex !important; }
+/* Hide adult-only hamburger items for kids */
+#mobile-menu .adult-only { display: none; }
+body.adult-mode #mobile-menu .adult-only { display: block; }
+/* Appearance editor overlay — accessible to all */
+#appearance-panel {
+  display: none; position: fixed; inset: 0; z-index: 80; background: rgba(6,2,0,0.92);
+  backdrop-filter: blur(12px); flex-direction: column; align-items: center; justify-content: center;
+  padding: 24px;
+}
+#appearance-panel.open { display: flex; }
+.ap-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; width: 100%; max-width: 340px; }
+.ap-label { font-size: 9px; letter-spacing: .3em; text-transform: uppercase; color: rgba(255,200,100,.4); width: 80px; flex-shrink: 0; }
+.ap-slider { flex: 1; -webkit-appearance: none; appearance: none; height: 3px; border-radius: 2px;
+  background: rgba(255,160,40,0.2); outline: none; }
+.ap-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+  background: rgba(255,160,40,0.7); cursor: pointer; }
+.ap-value { font-size: 10px; color: rgba(255,200,100,.4); width: 36px; text-align: right; font-family: monospace; }
+/* Device auth overlay */
+#auth-overlay {
+  display: none; position: fixed; inset: 0; z-index: 200; background: rgba(6,2,0,0.98);
+  flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+  backdrop-filter: blur(20px); padding: 32px;
+}
+#auth-overlay.open { display: flex; }
+.auth-title { font-size: 11px; letter-spacing: .5em; text-transform: uppercase; color: rgba(255,200,100,.5); margin-bottom: 8px; }
+.auth-subtitle { font-size: 13px; color: rgba(255,220,120,.65); font-family: Georgia,serif; text-align: center; line-height: 1.6; margin-bottom: 20px; }
+.auth-btn { background: rgba(255,160,40,0.08); border: 1px solid rgba(255,160,40,0.25); color: rgba(255,220,120,.7);
+  font-size: 13px; padding: 12px 32px; border-radius: 6px; cursor: pointer; font-family: Georgia,serif;
+  letter-spacing: .15em; width: 100%; max-width: 260px; transition: all .15s; margin-bottom: 4px; }
+.auth-btn:hover { background: rgba(255,160,40,0.16); color: rgba(255,230,140,.95); }
+.auth-btn.adult { border-color: rgba(255,160,40,0.5); }
+.auth-pin { background: rgba(0,0,0,.4); border: 1px solid rgba(255,160,40,.2); color: rgba(255,220,120,.8);
+  font-size: 20px; padding: 10px 16px; border-radius: 4px; width: 100%; max-width: 260px;
+  text-align: center; font-family: monospace; letter-spacing: .3em; outline: none; margin-bottom: 8px; }
+.auth-err { font-size: 10px; color: rgba(255,60,60,.6); letter-spacing: .2em; min-height: 16px; }
 /* Kids-accessible color panel (floats near center, not attached to controls) */
 #kids-color-panel {
   display: none; position: fixed; bottom: 160px; left: 50%; transform: translateX(-50%);
@@ -501,8 +744,8 @@ body.adult-mode #adult-timer { display: block; }
 
 <div id="mobile-menu">
   <button id="mobile-menu-close" onclick="closeMobileMenu()">✕</button>
-  <div style="color:rgba(255,200,100,0.3);font-size:9px;letter-spacing:0.5em;text-transform:uppercase;margin-bottom:6px;">Agents</div>
-  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+  <div class="adult-only" style="color:rgba(255,200,100,0.3);font-size:9px;letter-spacing:0.5em;text-transform:uppercase;margin-bottom:6px;">Agents</div>
+  <div class="adult-only" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
     <button class="btn" onclick="closeMobileMenu();switchAgent('botler')">Botler</button>
     <button class="btn" onclick="closeMobileMenu();switchAgent('cash')">Cash</button>
     <button class="btn" onclick="closeMobileMenu();switchAgent('dev')">Dev</button>
@@ -510,17 +753,18 @@ body.adult-mode #adult-timer { display: block; }
     <button class="btn" onclick="closeMobileMenu();switchAgent('jim')">Jim</button>
     <button class="btn" onclick="closeMobileMenu();switchAgent('loki')">Loki</button>
   </div>
+  <hr class="adult-only" style="border-color:rgba(255,160,40,0.1);margin:6px 0;">
+  <div class="adult-only" style="color:rgba(255,200,100,0.3);font-size:9px;letter-spacing:0.5em;text-transform:uppercase;margin-bottom:6px;">System</div>
+  <button class="btn adult-only" onclick="closeMobileMenu();openFamilyPortal()">Family Portal</button>
+  <button class="btn adult-only" onclick="closeMobileMenu();openFinance()">Finance</button>
+  <button class="btn adult-only" onclick="closeMobileMenu();openHomeschool()">School Board</button>
+  <button class="btn adult-only" onclick="closeMobileMenu();openPanel(location.origin+'/agent-system-map.html','System Map')">System Map</button>
   <hr style="border-color:rgba(255,160,40,0.1);margin:6px 0;">
-  <div style="color:rgba(255,200,100,0.3);font-size:9px;letter-spacing:0.5em;text-transform:uppercase;margin-bottom:6px;">System</div>
-  <button class="btn" onclick="closeMobileMenu();openFinance()">Finance</button>
-  <button class="btn" onclick="closeMobileMenu();openHomeschool()">School Board</button>
-  <button class="btn" onclick="closeMobileMenu();openPanel(location.origin+'/agent-system-map.html','System Map')">System Map</button>
-  <button class="btn" onclick="closeMobileMenu();toggleSubtitles()">Toggle Subtitles</button>
-  <button class="btn" onclick="closeMobileMenu();document.getElementById('color-panel').classList.toggle('open')">Color</button>
-  <button class="btn" onclick="closeMobileMenu();resetSession()">Reset Conversation</button>
-  <hr style="border-color:rgba(255,160,40,0.1);margin:6px 0;">
-  <div style="color:rgba(255,200,100,0.25);font-size:9px;letter-spacing:0.3em;text-transform:uppercase;margin-bottom:4px;">Voice</div>
+  <button class="btn" onclick="closeMobileMenu();openAppearancePanel()">🎨 Customize Botler</button>
+  <button class="btn" onclick="closeMobileMenu();toggleSubtitles()">Subtitles</button>
   <button class="btn" id="mobile-mute-btn" onclick="toggleMuteMobile()">🎤 Microphone</button>
+  <button class="btn adult-only" onclick="closeMobileMenu();showAuthOverlay()">🔓 Switch User</button>
+  <button class="btn" onclick="closeMobileMenu();resetSession()">Reset Chat</button>
 </div>
 
 <div id="text-input-bar">
@@ -528,19 +772,18 @@ body.adult-mode #adult-timer { display: block; }
     onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendTextQuery()}"
     oninput="autoExpandTextarea(this)"
     autocomplete="off" autocorrect="off" spellcheck="false"></textarea>
-  <span id="silent-badge" onclick="exitSilentMode()" title="Text mode — click to return to voice">SILENT</span>
+  <span id="model-badge" onclick="cycleModel()" title="Click to switch model">SONNET</span>
+  <span id="silent-badge" onclick="toggleVoiceMode()" title="Toggle voice / text mode">VOICE</span>
   <button id="text-send" onclick="sendTextQuery()">↑</button>
 </div>
 
 <div id="chat-bubbles"></div>
 
-<div id="voice-bar">
-  <button id="mute-btn" title="Mute / unmute">🎤</button>
-  <div id="transcript">Say "Botler…" to wake</div>
-  <button id="tap-talk-btn" title="Tap to speak" onclick="tapToTalk()"
-    style="background:none;border:1px solid rgba(255,160,40,0.2);color:rgba(255,200,100,0.45);font-size:10px;padding:5px 12px;border-radius:10px;cursor:pointer;flex-shrink:0;letter-spacing:0.15em;min-width:44px;min-height:36px;-webkit-tap-highlight-color:transparent;">
-    🎤
-  </button>
+<!-- Voice bar removed — hidden elements kept for JS compatibility -->
+<div id="voice-bar" style="display:none">
+  <button id="mute-btn">🎤</button>
+  <div id="transcript"></div>
+  <button id="tap-talk-btn" onclick="tapToTalk()">🎤</button>
   <div id="wake-dot"></div>
 </div>
 
@@ -589,12 +832,24 @@ body.adult-mode #adult-timer { display: block; }
   <div id="lbl-mono"   class="e-label" style="transform:none;">monocle ⌀</div>
 </div>
 
-<!-- Side panel: browser + components -->
+<!-- Panel pull-tab: appears when panel is closed but has content -->
+<div id="panel-handle" onclick="document.getElementById('side-panel').classList.add('open')">
+  <span id="panel-handle-label">PANEL</span>
+  <span id="panel-handle-icon">◁</span>
+</div>
+
+<!-- Side panel: agentic browser + components -->
 <div id="side-panel">
   <div id="panel-header">
-    <span id="panel-title">Browser</span>
-    <div style="display:flex;gap:4px;align-items:center">
-      <button id="panel-expand" onclick="togglePanelExpand()" title="Expand to full screen">⤢</button>
+    <div id="browser-nav">
+      <button id="nav-back" onclick="panelBack()" title="Back">‹</button>
+      <button id="nav-fwd" onclick="panelForward()" title="Forward">›</button>
+      <button id="nav-refresh" onclick="panelRefresh()" title="Refresh">↺</button>
+      <input id="nav-bar" type="text" placeholder="Search or say a URL…" onkeydown="navBarEnter(event)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <button id="nav-read-btn" onclick="botlerReadPage()" title="Botler reads this page for you">👁</button>
+    </div>
+    <div style="display:flex;gap:3px;align-items:center;flex-shrink:0">
+      <button id="panel-expand" onclick="togglePanelExpand()" title="Full screen">⤢</button>
       <button id="panel-close" onclick="closePanel()">✕</button>
     </div>
   </div>
@@ -602,8 +857,11 @@ body.adult-mode #adult-timer { display: block; }
   <div id="panel-body">
     <iframe id="browser-frame" sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-top-navigation"></iframe>
     <div id="browser-err">
-      <div>This page cannot be shown in the panel.</div>
-      <button id="browser-newtab" class="btn" onclick="openErrTab()">Open in New Tab</button>
+      <div id="browser-err-msg">This page can't load in the panel.</div>
+      <div id="browser-err-actions">
+        <button class="btn" onclick="botlerReadPage()" style="font-size:10px;padding:7px 16px;letter-spacing:0.25em">👁 Botler Reads It</button>
+        <button id="browser-newtab" class="btn" onclick="openErrTab()" style="font-size:9px;padding:5px 12px;opacity:0.6">Open in New Tab ↗</button>
+      </div>
     </div>
     <div id="component-panel"></div>
   </div>
@@ -627,6 +885,42 @@ body.adult-mode #adult-timer { display: block; }
 </div>
 
 <!-- Family Portal (Quan + Julia only) -->
+<!-- Device auth overlay — shown on first visit to authenticate adults -->
+<div id="auth-overlay">
+  <div class="auth-title">Stewart Household</div>
+  <div class="auth-subtitle" id="auth-msg">Who are you?<br><span style="font-size:11px;opacity:0.6;">Adults enter their PIN to unlock full access.</span></div>
+  <button class="auth-btn adult" onclick="authSelectUser('quan')">Quan</button>
+  <button class="auth-btn adult" onclick="authSelectUser('julia')">Julia</button>
+  <button class="auth-btn" onclick="authKidMode()" style="margin-top:8px;font-size:11px;opacity:0.6;">Continue as Guest</button>
+  <input class="auth-pin" id="auth-pin" type="password" placeholder="PIN" maxlength="8" style="display:none" onkeydown="if(event.key==='Enter')authSubmitPin()">
+  <button class="auth-btn adult" id="auth-submit" style="display:none" onclick="authSubmitPin()">Unlock</button>
+  <div class="auth-err" id="auth-err"></div>
+</div>
+
+<!-- Appearance customization panel — accessible to all users -->
+<div id="appearance-panel">
+  <div style="font-size:9px;letter-spacing:.5em;text-transform:uppercase;color:rgba(255,160,40,.4);margin-bottom:20px;">Customize Botler</div>
+  <div class="ap-row">
+    <span class="ap-label">Color</span>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;flex:1">
+      <div id="ap-swatches"></div>
+      <canvas id="ap-spectrum" width="180" height="14" style="width:100%;height:14px;border-radius:4px;cursor:crosshair;margin-top:4px;"></canvas>
+    </div>
+  </div>
+  <div class="ap-row"><span class="ap-label">Eye Size</span><input class="ap-slider" type="range" min="0.3" max="2.5" step="0.05" id="ap-eyeSize" oninput="apSlider('eyeSize',this)"><span class="ap-value" id="apv-eyeSize">1.0</span></div>
+  <div class="ap-row"><span class="ap-label">Eye Spread</span><input class="ap-slider" type="range" min="-0.3" max="0.5" step="0.02" id="ap-eyeSepOff" oninput="apSlider('eyeSepOff',this)"><span class="ap-value" id="apv-eyeSepOff">0.0</span></div>
+  <div class="ap-row"><span class="ap-label">Eye Height</span><input class="ap-slider" type="range" min="-0.6" max="0.6" step="0.02" id="ap-eyeY" oninput="apSlider('eyeY',this)"><span class="ap-value" id="apv-eyeY">0.0</span></div>
+  <div class="ap-row"><span class="ap-label">Mouth Y</span><input class="ap-slider" type="range" min="-0.5" max="0.5" step="0.02" id="ap-mouthY" oninput="apSlider('mouthY',this)"><span class="ap-value" id="apv-mouthY">0.0</span></div>
+  <div class="ap-row"><span class="ap-label">Mustache W</span><input class="ap-slider" type="range" min="0.2" max="3" step="0.1" id="ap-mustacheSX" oninput="apSlider('mustacheSX',this)"><span class="ap-value" id="apv-mustacheSX">1.0</span></div>
+  <div class="ap-row"><span class="ap-label">Mustache H</span><input class="ap-slider" type="range" min="0.1" max="3" step="0.1" id="ap-mustacheSY" oninput="apSlider('mustacheSY',this)"><span class="ap-value" id="apv-mustacheSY">1.0</span></div>
+  <div class="ap-row"><span class="ap-label">Mustache Y</span><input class="ap-slider" type="range" min="-0.5" max="0.5" step="0.02" id="ap-mustacheY" oninput="apSlider('mustacheY',this)"><span class="ap-value" id="apv-mustacheY">0.0</span></div>
+  <div class="ap-row"><span class="ap-label">Monocle</span><input class="ap-slider" type="range" min="0" max="2.5" step="0.1" id="ap-monoSize" oninput="apSlider('monoSize',this)"><span class="ap-value" id="apv-monoSize">1.0</span></div>
+  <div style="display:flex;gap:10px;margin-top:16px;">
+    <button class="auth-btn" onclick="apReset()" style="font-size:11px;padding:8px 20px;">Reset</button>
+    <button class="auth-btn" onclick="closeAppearancePanel()" style="font-size:11px;padding:8px 20px;border-color:rgba(255,160,40,.5);color:rgba(255,220,120,.8);">Done ✓</button>
+  </div>
+</div>
+
 <div id="family-portal" style="display:none;position:fixed;inset:0;z-index:60;background:rgba(6,2,0,0.97);overflow-y:auto;padding:24px 20px 48px;">
   <button onclick="closeFamilyPortal()" style="position:fixed;top:18px;right:20px;background:none;border:1px solid rgba(255,160,40,0.3);color:rgba(255,200,100,0.6);font-size:11px;padding:4px 12px;border-radius:2px;cursor:pointer;font-family:Georgia,serif;letter-spacing:.2em;">✕ CLOSE</button>
   <div style="max-width:780px;margin:0 auto;">
@@ -635,6 +929,9 @@ body.adult-mode #adult-timer { display: block; }
 
     <!-- Active sessions bar -->
     <div id="fp-sessions-bar" style="margin-bottom:28px;"></div>
+
+    <!-- Session Intelligence -->
+    <div id="fp-session-metrics" style="margin-bottom:32px;"></div>
 
     <!-- Kids cards -->
     <div id="family-kids-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px;margin-bottom:32px;"></div>
@@ -663,13 +960,51 @@ body.adult-mode #adult-timer { display: block; }
 <div id="comp-modal">
   <div id="comp-modal-header">
     <div id="comp-modal-title">Component</div>
-    <button id="comp-modal-close" onclick="closeCompModal()">✕ CLOSE</button>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button onclick="modalPlayWithBotler()" id="comp-modal-play-btn" style="background:rgba(255,160,40,0.1);border:1px solid rgba(255,160,40,0.3);color:rgba(255,220,120,0.8);font-size:10px;padding:4px 12px;border-radius:6px;cursor:pointer;font-family:Georgia,serif;letter-spacing:0.2em">🤖 Play with Botler</button>
+      <button id="comp-modal-close" onclick="closeCompModal()">✕ CLOSE</button>
+    </div>
   </div>
-  <iframe id="comp-modal-frame" sandbox="allow-scripts allow-same-origin"></iframe>
+  <iframe id="comp-modal-frame" sandbox="allow-scripts allow-same-origin allow-pointer-lock"></iframe>
 </div>
 
 <!-- Botler cursor — animated glowing circle for panel interactions -->
 <div id="botler-cursor"></div>
+
+<!-- Dev terminal overlay — liquid glass HUD, visible when activeAgent==='dev' -->
+<div id="dev-terminal">
+  <div id="dev-term-scanlines"></div>
+  <div id="dev-term-header">
+    <span id="dev-term-dot"  class="term-dot" title="Close terminal" onclick="switchAgent('botler')"></span>
+    <span id="dev-term-dot2" class="term-dot" title="Minimize terminal" onclick="devTermMinimize()"></span>
+    <span id="dev-term-dot3" class="term-dot" title="Focus terminal" onclick="devTermFocus()"></span>
+    <span id="dev-term-title">DEV · STEWART INC.</span>
+    <span id="dev-term-model-badge"></span>
+    <button id="dev-term-drawer-btn" onclick="devTermToggleDrawer()" title="Toggle build panel">⊞</button>
+  </div>
+  <div id="dev-term-body">
+    <div id="dev-term-log"></div>
+    <!-- Interactive input line -->
+    <div id="dev-term-cursor-line">
+      <span id="dev-term-prompt">dev@atlas:~$&nbsp;</span>
+      <input id="dev-term-input" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
+        placeholder="type a command or question…"
+        onkeydown="devTermHandleKey(event)">
+    </div>
+  </div>
+  <div id="dev-term-status">
+    <span id="dev-term-state-label">STANDBY</span>
+    <span id="dev-term-spinner"></span>
+    <span style="flex:1"></span>
+    <span style="font-size:7px;opacity:0.4;letter-spacing:0.15em;">PRESS ↵ TO SEND · ESC TO FOCUS CHAT</span>
+  </div>
+</div>
+
+<!-- Dev terminal minimized tab -->
+<div id="dev-term-tab" onclick="devTermRestore()">
+  <span>DEV</span>
+  <span id="dev-term-tab-state">STANDBY</span>
+</div>
 
 <!-- First-run setup (hidden by default — auto-connects on load) -->
 <div id="setup-overlay" class="hidden">
@@ -688,6 +1023,10 @@ body.adult-mode #adult-timer { display: block; }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
+// ─── Platform detection (must be first — used throughout) ─────────────────────
+const IS_IOS    = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+const IS_MOBILE = IS_IOS || /Android/i.test(navigator.userAgent);
+
 // ─── Renderer ────────────────────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -710,13 +1049,18 @@ const faceGroup = new THREE.Group(); scene.add(faceGroup);
 const bgScene = new THREE.Scene();
 const bgCam   = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 const bgMat   = new THREE.ShaderMaterial({
-  uniforms: { time: { value: 0 }, aspect: { value: aspect }, tint: { value: new THREE.Color(1.0, 0.60, 0.08) } },
+  uniforms: {
+    time:   { value: 0 },
+    aspect: { value: aspect },
+    tint:   { value: new THREE.Color(1.0, 0.60, 0.08) },
+    faceX:  { value: 0.0 }   // UV offset for face center slide (0 = screen center)
+  },
   vertexShader: `varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position,1.0); }`,
   fragmentShader: `
-    uniform float time; uniform float aspect; uniform vec3 tint;
+    uniform float time; uniform float aspect; uniform vec3 tint; uniform float faceX;
     varying vec2 vUv;
     void main(){
-      vec2 c = (vUv - 0.5) * vec2(aspect, 1.0);
+      vec2 c = (vUv - vec2(0.5 + faceX, 0.5)) * vec2(aspect, 1.0);
       float d = length(c);
       float breathe = sin(time * 0.65) * 0.05;
       vec3 inner = tint;
@@ -743,12 +1087,17 @@ const HW      = () => 0.15 * aspect;
 const LIP_TH  = () => S() * 0.013;
 
 // ─── Edit state ───────────────────────────────────────────────────────────────
-const edit = { mustacheY:0, mustacheSX:1, mustacheSY:1, eyeY:0, eyeSepOff:0, eyeSize:1, monoSize:1 };
+const edit = { mustacheY:0, mustacheSX:1, mustacheSY:1, eyeY:0, eyeSepOff:0, eyeSize:1, monoSize:1, mouthY:0 };
 let editMode = false;
 let drag     = null;
-// Face drift — spring physics so the face floats above rendered content
-let faceDriftY = 0, faceDriftV = 0, faceDriftYTarget = 0;
-let _frameN    = 0;
+// Face drift — spring physics: Y floats above content, X slides into available space
+let faceDriftY = 0, faceDriftV  = 0, faceDriftYTarget = 0;
+let faceDriftX = 0, faceDriftVX = 0, faceDriftXTarget = 0;
+// Peek system — Botler glances toward the panel then returns
+let _peekLookX = 0, _peekActive = false, _peekTimer = 0;
+let _panelObserveTimer = 0;
+let _lastPanelContext = '';
+let _frameN = 0;
 
 // ─── Coord helpers ────────────────────────────────────────────────────────────
 function toScreen(sx, sy) {
@@ -864,57 +1213,39 @@ const OPEN  ={idle:0.0, listening:0.0, thinking:0.0,speaking:0.4,pleased:0.08,sl
 let state='idle';
 const statusEl=document.getElementById('status');
 
+let _thinkBubble = null;
+function showThinkingBubble() {
+  if (_thinkBubble) return;
+  const el = document.getElementById('chat-bubbles');
+  if (!el) return;
+  _thinkBubble = document.createElement('div');
+  _thinkBubble.className = 'bubble bot thinking-bubble';
+  _thinkBubble.innerHTML = '<span class="tdot"></span><span class="tdot"></span><span class="tdot"></span>';
+  el.appendChild(_thinkBubble);
+  el.scrollTop = el.scrollHeight;
+  setTimeout(updateFaceTarget, 150);
+}
+function hideThinkingBubble() {
+  if (_thinkBubble) { _thinkBubble.remove(); _thinkBubble = null; }
+}
+
 function setState(s){
   state=s;
-  // Clear thinking timer whenever we leave thinking state
   if (s !== 'thinking' && thinkingTimer) { clearInterval(thinkingTimer); thinkingTimer = null; }
+  if (s === 'thinking') showThinkingBubble(); else hideThinkingBubble();
   statusEl.textContent = LABELS[s];
   document.querySelectorAll('.btn[data-state]').forEach(b=>b.classList.toggle('active',b.dataset.state===s));
   if(s!=='speaking') buildMouth(SMILES[s],OPEN[s]);
 }
-const THINK_STEPS = [
-  'Searching knowledge base',
-  'Analysing your request',
-  'Considering options',
-  'Composing response',
-  'Reviewing details',
-  'Refining answer',
-  'Almost ready',
-];
-const THINK_STEPS_GAME = [
-  'Designing game architecture',
-  'Writing game logic',
-  'Building controls',
-  'Adding polish',
-  'Almost ready to launch',
-];
-const THINK_STEPS_SEARCH = [
-  'Looking that up',
-  'Searching knowledge',
-  'Gathering results',
-  'Preparing response',
-];
-let _thinkStep = 0, _thinkDot = 0, _thinkSteps = THINK_STEPS;
-
 function startThinkingTimer(query) {
   if (thinkingTimer) clearInterval(thinkingTimer);
-  _thinkStep = 0; _thinkDot = 0;
-  const q = (query || '').toLowerCase();
-  _thinkSteps = /game|play|shoot|puzzle|quiz|trivia|chess|snake|asteroi/.test(q) ? THINK_STEPS_GAME
-              : /search|find|look up|google|news|weather/.test(q) ? THINK_STEPS_SEARCH
-              : THINK_STEPS;
   thinkingStart = Date.now();
+  let dots = 0;
   thinkingTimer = setInterval(() => {
     if (state !== 'thinking') { clearInterval(thinkingTimer); thinkingTimer = null; return; }
-    _thinkDot = (_thinkDot + 1) % 4;
-    const dots = '.'.repeat(_thinkDot || 1);
-    const label = _thinkSteps[Math.min(_thinkStep, _thinkSteps.length - 1)];
-    statusEl.style.opacity = '0';
-    setTimeout(() => {
-      if (state === 'thinking') { statusEl.textContent = label + dots; statusEl.style.opacity = '1'; }
-    }, 140);
-    if (_thinkDot === 0) _thinkStep++;
-  }, 600);
+    dots = (dots + 1) % 4;
+    statusEl.textContent = 'Thinking' + '.'.repeat(dots || 1);
+  }, 500);
 }
 document.querySelectorAll('.btn[data-state]').forEach(btn=>
   btn.addEventListener('click',()=>setState(btn.dataset.state)));
@@ -926,123 +1257,95 @@ let blinking=false, blinkProg=0;
 // ─── Sleep / Wake ─────────────────────────────────────────────────────────────
 const SLEEP_AFTER_MS  = 10 * 60 * 1000;
 let   sleepTimer      = null;
-let   sleepLid        = 0;     // 0=open, 1=fully closed
+let   sleepLid        = 0;
 let   sleepLidTarget  = 0;
-let   sleepTilt       = 0;     // radians, target ~0.22
+let   sleepTilt       = 0;
 let   sleepTiltTarget = 0;
-let   sleepBreath     = 0;     // phase for breathing
+let   sleepBreath     = 0;
 let   lastWakeEmote   = -1;
 const WAKE_REPLIES    = ["Yes sir, I'm here.","Right here.","Mm — ready.","Good, you're back.","At your service."];
 
-// ZZZ overlay element
 const zzzEl = document.createElement('div');
-zzzEl.id = 'zzz-overlay';
 zzzEl.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:50;overflow:hidden;';
 document.body.appendChild(zzzEl);
 let zzzInterval = null;
 
 function spawnZzz() {
   const z = document.createElement('span');
-  const sizes = [18, 13, 10];
-  const sz = sizes[Math.floor(Math.random() * sizes.length)];
-  const baseX = innerWidth * 0.55 + (Math.random() - 0.5) * 80;
-  const baseY = innerHeight * 0.30 + (Math.random() - 0.5) * 40;
-  z.textContent = 'z';
-  z.style.cssText = `position:absolute;left:${baseX}px;top:${baseY}px;font-size:${sz}px;font-family:Georgia,serif;font-style:italic;color:rgba(160,200,255,0.7);opacity:0;transition:none;pointer-events:none;`;
+  const sz = [18,13,10][Math.floor(Math.random()*3)];
+  const bx = innerWidth*0.58 + (Math.random()-0.5)*80;
+  const by = innerHeight*0.30 + (Math.random()-0.5)*40;
+  z.textContent='z';
+  z.style.cssText=`position:absolute;left:${bx}px;top:${by}px;font-size:${sz}px;font-family:Georgia,serif;font-style:italic;color:rgba(160,200,255,0.7);opacity:0;pointer-events:none;`;
   zzzEl.appendChild(z);
-  requestAnimationFrame(() => {
-    z.style.transition = 'opacity 0.4s ease, transform 2.8s ease-out';
-    z.style.opacity = '0.75';
-    z.style.transform = `translate(${(Math.random()-0.5)*30}px, -${45+Math.random()*25}px) scale(${0.8+Math.random()*0.4})`;
-    setTimeout(() => { z.style.opacity = '0'; setTimeout(() => z.remove(), 500); }, 2200);
+  requestAnimationFrame(()=>{
+    z.style.transition='opacity 0.4s ease,transform 2.8s ease-out';
+    z.style.opacity='0.75';
+    z.style.transform=`translate(${(Math.random()-0.5)*30}px,-${45+Math.random()*25}px) scale(${0.8+Math.random()*0.4})`;
+    setTimeout(()=>{z.style.opacity='0';setTimeout(()=>z.remove(),500);},2200);
   });
 }
+function startZzz(){ if(zzzInterval)return; zzzInterval=setInterval(spawnZzz,1100); spawnZzz(); }
+function stopZzz() { clearInterval(zzzInterval); zzzInterval=null; zzzEl.innerHTML=''; }
 
-function startZzz() { if (zzzInterval) return; zzzInterval = setInterval(spawnZzz, 1100); spawnZzz(); }
-function stopZzz()  { clearInterval(zzzInterval); zzzInterval = null; zzzEl.innerHTML = ''; }
-
-function resetSleepTimer() {
+function resetSleepTimer(){
   clearTimeout(sleepTimer);
-  sleepTimer = setTimeout(enterSleep, SLEEP_AFTER_MS);
+  sleepTimer=setTimeout(enterSleep,SLEEP_AFTER_MS);
 }
-
-function enterSleep() {
-  if (['speaking','listening','thinking'].includes(state)) {
-    sleepTimer = setTimeout(enterSleep, 2 * 60 * 1000); return;
-  }
-  state = 'sleeping';
-  statusEl.textContent = LABELS.sleeping;
-  sleepLidTarget  = 1;
-  sleepTiltTarget = 0.22;
-  buildMouth(SMILES.sleeping, OPEN.sleeping);
+function enterSleep(){
+  if(['speaking','listening','thinking'].includes(state)){sleepTimer=setTimeout(enterSleep,2*60*1000);return;}
+  state='sleeping'; statusEl.textContent=LABELS.sleeping;
+  sleepLidTarget=1; sleepTiltTarget=0.22;
+  buildMouth(SMILES.sleeping,OPEN.sleeping);
   startZzz();
 }
-
-function wakeUp(trigger) {
-  if (state !== 'sleeping') { resetSleepTimer(); return; }
-  stopZzz();
-  sleepLidTarget  = 0;
-  sleepTiltTarget = 0;
-
-  // Pick a different emote each time
-  const emotes = ['blink2','yawn','snap'];
-  let idx; do { idx = Math.floor(Math.random() * emotes.length); } while (idx === lastWakeEmote && emotes.length > 1);
-  lastWakeEmote = idx;
-  const emote = emotes[idx];
-
-  // Force eyes open, run emote, then go idle
-  if (emote === 'blink2') {
-    // two quick blinks after opening
-    setTimeout(() => { blinking=true; blinkProg=0; }, 200);
-    setTimeout(() => { blinking=true; blinkProg=0; }, 550);
-  } else if (emote === 'snap') {
-    // eyes pop open wide briefly
-    [leftEye,rightEye].forEach(e => { e.dot.scale.y = 1.2; });
-    setTimeout(() => { [leftEye,rightEye].forEach(e => { e.dot.scale.y=1; }); blinking=true; blinkProg=0; }, 320);
+function wakeUp(trigger){
+  if(state!=='sleeping'){resetSleepTimer();return;}
+  stopZzz(); sleepLidTarget=0; sleepTiltTarget=0;
+  const emotes=['blink2','yawn','snap'];
+  let idx; do{idx=Math.floor(Math.random()*emotes.length);}while(idx===lastWakeEmote&&emotes.length>1);
+  lastWakeEmote=idx; const emote=emotes[idx];
+  if(emote==='blink2'){
+    setTimeout(()=>{blinking=true;blinkProg=0;},200);
+    setTimeout(()=>{blinking=true;blinkProg=0;},550);
+  } else if(emote==='snap'){
+    [leftEye,rightEye].forEach(e=>{e.dot.scale.y=1.2;});
+    setTimeout(()=>{[leftEye,rightEye].forEach(e=>{e.dot.scale.y=1;});blinking=true;blinkProg=0;},320);
   }
-  // yawn: slow lid lift is handled naturally by sleepLidTarget→0
-
-  const reply = WAKE_REPLIES[Math.floor(Math.random() * WAKE_REPLIES.length)];
-  setTimeout(() => {
-    state = 'idle'; statusEl.textContent = LABELS.idle;
-    buildMouth(SMILES.idle, OPEN.idle);
+  const reply=WAKE_REPLIES[Math.floor(Math.random()*WAKE_REPLIES.length)];
+  setTimeout(()=>{
+    state='idle'; statusEl.textContent=LABELS.idle;
+    buildMouth(SMILES.idle,OPEN.idle);
     resetSleepTimer();
-    if (typeof speak === 'function') speak(reply);
-  }, emote === 'yawn' ? 1100 : 700);
+    if(typeof speak==='function') speak(reply);
+  }, emote==='yawn'?1100:700);
 }
 
-// Activity listeners
-['mousemove','keydown','touchstart','click'].forEach(ev =>
-  document.addEventListener(ev, () => { if (state !== 'sleeping') resetSleepTimer(); }, { passive:true }));
+['mousemove','keydown','touchstart','click'].forEach(ev=>
+  document.addEventListener(ev,()=>{if(state!=='sleeping')resetSleepTimer();},{passive:true}));
 
-// Text input focus → wake
-document.addEventListener('DOMContentLoaded', () => {
-  const tq = document.getElementById('text-query');
-  if (tq) tq.addEventListener('focus', () => { if (state === 'sleeping') wakeUp('text-focus'); else resetSleepTimer(); });
+document.addEventListener('DOMContentLoaded',()=>{
+  const tq=document.getElementById('text-query');
+  if(tq) tq.addEventListener('focus',()=>{if(state==='sleeping')wakeUp('text-focus');else resetSleepTimer();});
 });
 
-// Wake word detection
-let wakeRecog = null;
-const WAKE_RX = /\b(botler|butler|bot|bottler)\b/i;
-function startWakeWord() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) return;
-  wakeRecog = new SR();
-  wakeRecog.continuous = true; wakeRecog.interimResults = true; wakeRecog.lang = 'en-US';
-  wakeRecog.onresult = (ev) => {
-    for (let i = ev.resultIndex; i < ev.results.length; i++) {
-      if (WAKE_RX.test(ev.results[i][0].transcript) && state === 'sleeping') wakeUp('voice');
-    }
+let wakeRecog=null;
+const WAKE_RX=/\b(botler|butler|bot|bottler)\b/i;
+function startWakeWord(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR)return;
+  wakeRecog=new SR(); wakeRecog.continuous=true; wakeRecog.interimResults=true; wakeRecog.lang='en-US';
+  wakeRecog.onresult=(ev)=>{
+    for(let i=ev.resultIndex;i<ev.results.length;i++)
+      if(WAKE_RX.test(ev.results[i][0].transcript)&&state==='sleeping')wakeUp('voice');
   };
-  wakeRecog.onend = () => { if (wakeRecog) setTimeout(startWakeWord, 600); };
-  wakeRecog.onerror = (e) => { if (e.error !== 'no-speech') { wakeRecog=null; setTimeout(startWakeWord,3000); } };
-  try { wakeRecog.start(); } catch {}
+  wakeRecog.onend=()=>{if(wakeRecog)setTimeout(startWakeWord,600);};
+  wakeRecog.onerror=(e)=>{if(e.error!=='no-speech'){wakeRecog=null;setTimeout(startWakeWord,3000);}};
+  try{wakeRecog.start();}catch{}
 }
-setTimeout(startWakeWord, 2000);
+setTimeout(startWakeWord,2000);
 resetSleepTimer();
-
-// Expose for console testing
-window._botler = { wakeUp, enterSleep, setState: s => setState(s) };
+window._botler={wakeUp,enterSleep,setState:s=>setState(s)};
 
 // ─── Mouse / touch look ───────────────────────────────────────────────────────
 const mouse=new THREE.Vector2(), look=new THREE.Vector2();
@@ -1089,7 +1392,7 @@ function toggleEdit(){
 // ─── Color Picker ─────────────────────────────────────────────────────────────
 const SWATCHES=['#ff8800','#ff4422','#ff2266','#cc44ff','#4455ff','#00aaff','#00cc88','#aacc00','#ffcc00','#ffffff','#ff6600','#884400','#002233','#1a0800','#333333'];
 let colorPanelOpen=false;
-function applyColor(hex){const c=new THREE.Color(hex);bgMat.uniforms.tint.value.set(c);document.querySelectorAll('.swatch').forEach(s=>s.classList.toggle('active',s.dataset.hex===hex));}
+function applyColor(hex){const c=new THREE.Color(hex);bgMat.uniforms.tint.value.set(c);document.querySelectorAll('.swatch').forEach(s=>s.classList.toggle('active',s.dataset.hex===hex));clearTimeout(applyColor._t);applyColor._t=setTimeout(()=>{if(currentUser)_saveUserLook(currentUser.id);},800);}
 function toggleColorPanel(e){e.stopPropagation();colorPanelOpen=!colorPanelOpen;document.getElementById('color-panel').classList.toggle('open',colorPanelOpen);}
 document.addEventListener('click',()=>{colorPanelOpen=false;document.getElementById('color-panel').classList.remove('open');});
 const swatchContainer=document.getElementById('color-swatches');
@@ -1157,7 +1460,7 @@ function resetAdultTimer() {
 const RE_ADULT_SHOW   = /\b(show|open|display|bring up|reveal)\b.{0,18}\b(controls?|buttons?|admin|panel|settings?|menu)\b/i;
 const RE_ADULT_HIDE   = /\b(hide|close|lock|exit|dismiss)\b.{0,18}\b(controls?|buttons?|admin|panel|settings?|menu)\b/i;
 const RE_COLORS_SHOW  = /\b(show|see|open|pick|let me|show me|can i see)\b.{0,22}\b(colors?|colou?rs?|picker|palette|rainbow)\b/i;
-const RE_OPEN_PROJECT  = /(?:let'?s?|open|start|load|work on|continue|resume|pick up|switch to) (?:the )?(?:project |)?(?:on |for |called |named )?"?([^"]{3,40})"?/i;
+const RE_OPEN_PROJECT  = /(?:let'?s?|work on|continue|resume|pick up|switch to) (?:the )?(?:project |)?(?:on |for |called |named )?"?([^"]{3,40})"?/i;
 const RE_PAUSE_PROJECT = /(?:pause|save|set aside|bookmark|park) (?:the )?project|let'?s take a break|come back to this/i;
 const RE_LIST_PROJECTS = /(?:list|show|what are(?: my)?|any) projects?/i;
 const RE_NIGHT_MODE   = /night.?mode|too bright|dim(?:mer)?|dark(?:en|er)|lower.{0,8}light|switch to dark/i;
@@ -1170,6 +1473,86 @@ const RE_CLICK        = /click (?:the )?(?:one )?(?:with |that |on )?(.+)|(?:tap
 
 function handleLocalCommand(query) {
   const q = query.trim();
+
+  // ── Conversational session memory ──────────────────────────────────────────
+  // "Did you hear/see/catch that?" → respond with current panel observation
+  if (/\b(did you hear|did you see|did you catch|you hear that|you see that|you catch that|what was that|what did they say)\b/i.test(q)) {
+    const obs = _lastPanelContext || (_session?.events || []).filter(e=>e.t==='observation').slice(-1)[0]?.ctx;
+    if (obs) {
+      // Pass to model with context so it responds conversationally
+      handleQuery(`[The user asked "did you hear that?" — current screen context: "${obs.slice(0,300)}". Respond naturally as if you were watching along. Reference this content and any related topics from previous sessions if relevant.]`);
+    } else {
+      handleQuery(`[The user asked "did you hear that?" but there's no active panel context. Respond naturally — ask what they're referring to.]`);
+    }
+    return true;
+  }
+
+  // "What do you know about this?" / "what are your thoughts?" on current content
+  if (/\b(what do you (know|think) about (this|that)|your thoughts|what.?s your take|weigh in|chime in)\b/i.test(q)) {
+    const obs = _lastPanelContext;
+    if (obs) {
+      handleQuery(`[User wants Botler's thoughts on what's on screen: "${obs.slice(0,300)}". Respond with 1-2 insightful sentences. Reference previous session context if relevant: ${_sessionMemoryForPrompt().slice(0,200)}]`);
+      return true;
+    }
+  }
+
+  // "What were we working on?" / "catch me up" / session recap
+  if (/\b(catch me up|what were we|remind me|what did we|where were we|last time|recap|summary of (today|our session))\b/i.test(q)) {
+    const mem = _sessionMemoryForPrompt();
+    if (mem) {
+      handleQuery(`[User wants a session recap. Session memory: ${mem.slice(0,500)}. Give a 2-sentence natural recap of what's happened, like a colleague catching them up.]`);
+      return true;
+    }
+  }
+
+  // ── Appearance editor ──────────────────────────────────────────────────────
+  if (/\b(edit|customize|change|adjust|fix|update)\b.{0,20}\b(appearance|face|look|eyes?|mustache|monocle|mouth)\b/i.test(q)
+    || /\blet me edit\b/i.test(q) || /\bcustomize (you|your)\b/i.test(q)) {
+    enterAppearanceVoice(); return true;
+  }
+
+  // ── Voice agent switching (adults only) ───────────────────────────────────
+  const AGENT_SWITCH_RE = /\b(?:switch to|put on|activate|wake up|get me|pull up|connect (?:me )?to|i need|hand (?:me )?to|transfer to|bring in|bring up)\b\s+(.{2,20}?)(?:\s+(?:please|now|agent|mode))?$/i;
+  const agentMatch = AGENT_SWITCH_RE.exec(q) || /^(?:put|get|use)\s+(.+?)\s+on$/i.exec(q);
+  if (agentMatch) {
+    const nameRaw = agentMatch[1].trim().toLowerCase();
+    const AGENT_ALIASES = {
+      botler: 'botler', bot: 'botler', butler: 'botler', home: 'botler',
+      cash: 'cash', finance: 'cash', money: 'cash',
+      dev: 'dev', developer: 'dev', engineer: 'dev', code: 'dev', coding: 'dev',
+      hermes: 'hermes', coordinator: 'hermes',
+      impulse: 'impulse', trading: 'impulse', trader: 'impulse',
+      jim: 'jim', music: 'jim',
+      loki: 'loki', ops: 'loki', business: 'loki',
+    };
+    const targetAgent = AGENT_ALIASES[nameRaw] || Object.keys(AGENT_ALIASES).find(k => nameRaw.includes(k) && AGENT_ALIASES[k]);
+    if (targetAgent) {
+      if (kidsLocked) { speak("Agent switching is for grown-ups only."); return true; }
+      const agentName = AGENT_NAMES[targetAgent] || targetAgent;
+      switchAgent(targetAgent);
+      speak(`Switching to ${agentName}.`);
+      return true;
+    }
+  }
+
+  // ── Google / web search — open in panel immediately ───────────────────────
+  const SEARCH_RE = /^(?:google|search(?: the web)?(?:\s+for)?|look up|find(?: me)?(?:\s+info(?:rmation)? (?:on|about))?|web search for?|search for)\s+(.+)/i;
+  const searchMatch = SEARCH_RE.exec(q);
+  if (searchMatch) {
+    const topic = searchMatch[1].trim();
+    const url = `https://duckduckgo.com/?q=${encodeURIComponent(topic)}&kae=d`;
+    openPanel(url, `Search: ${topic}`);
+    speak(`Looking up ${topic}.`);
+    return true;
+  }
+  // Google images shortcut (catch before NAV_ACTION)
+  const imgMatch0 = q.match(/\b(?:google |show me |find |search for )?images? (?:of |for )?(.+)/i);
+  if (imgMatch0 && /\bimage/i.test(q)) {
+    const topic = imgMatch0[1].trim();
+    openPanel(`https://www.google.com/search?q=${encodeURIComponent(topic)}&tbm=isch`, `Images: ${topic}`);
+    speak(`Pulling up images of ${topic}.`);
+    return true;
+  }
 
   // User identification — say "I'm Quan", "this is Julia", etc.
   const detectedId = detectUserFromText(q);
@@ -1201,6 +1584,24 @@ function handleLocalCommand(query) {
     return true;
   }
 
+  // ── Direct navigation — any action word + known destination opens it immediately
+  // (prevents model from outputting folder emoji instead of acting)
+  const NAV_ACTION = /\b(open|show|pull up|bring up|launch|go to|take me to|display|load|start|view|get|navigate to)\b/i;
+  if (NAV_ACTION.test(q)) {
+    const ql = q.toLowerCase();
+    if (/\b(family|family portal|family monitor|parental|parent)\b/.test(ql)) { openFamilyPortal(); return true; }
+    if (/\b(system map|agent map|agent system|agents)\b/.test(ql)) { openPanel(`${location.origin}/agent-system-map.html`, 'System Map'); return true; }
+    if (/\b(finance|finances|budget|cash board|money)\b/.test(ql)) { openFinance(); return true; }
+    if (/\b(school|homeschool|school board|education)\b/.test(ql)) { openHomeschool(); return true; }
+    if (/\b(shopping list|grocery|groceries)\b/.test(ql)) { execCmd({ action: 'shopping_list_render' }); return true; }
+    // Google images shortcut
+    const imgMatch = ql.match(/\b(?:google )?images? (?:of |for )?(.+)/);
+    if (imgMatch) { openPanel(`https://www.google.com/search?q=${encodeURIComponent(imgMatch[1].trim())}&tbm=isch`, `Images: ${imgMatch[1].trim()}`); return true; }
+    // YouTube shortcut
+    const ytMatch = ql.match(/\b(?:play|youtube|watch)\b.*?(?:on youtube)?\s+(.{3,})/i);
+    if (ytMatch) { execCmd({ action: 'youtube', query: ytMatch[1].trim() }); return true; }
+  }
+
   if (RE_ADULT_SHOW.test(q)) {
     if (kidsLocked) { speak("Those controls are for grown-ups only."); return true; }
     enterAdultMode();
@@ -1226,6 +1627,40 @@ function handleLocalCommand(query) {
     if (RE_SCROLL_DOWN.test(q)) { panelScroll('down'); return true; }
     if (RE_SCROLL_UP.test(q))   { panelScroll('up'); return true; }
     if (RE_PANEL_CLOSE.test(q)) { closePanel(); speak('Closing the panel.'); return true; }
+
+    // Media playback commands
+    if (/\b(pause|stop the video|pause the video|pause it)\b/i.test(q)) {
+      panelClick('pause') || panelPressKey(' ');
+      speak('Paused.'); return true;
+    }
+    if (/\b(play|resume|unpause|continue the video|play the video|play it)\b/i.test(q)) {
+      panelClick('play') || panelPressKey(' ');
+      speak('Playing.'); return true;
+    }
+    if (/\b(mute|unmute|silence the video)\b/i.test(q)) {
+      panelPressKey('m'); speak('Done.'); return true;
+    }
+    if (/\b(full ?screen|expand the video|make it bigger)\b/i.test(q)) {
+      panelPressKey('f'); speak('Full screen.'); return true;
+    }
+    if (/\b(skip|fast.?forward|jump ahead|next)\b/i.test(q)) {
+      panelPressKey('l'); speak('Skipping ahead.'); return true;
+    }
+    if (/\b(back|rewind|go back a bit)\b/i.test(q) && !/back to the top/i.test(q)) {
+      panelPressKey('j'); speak('Rewinding.'); return true;
+    }
+
+    // "Dig deeper" / "look that up" / "tell me more" — research current panel context
+    if (/\b(dig deeper|look that up|tell me more|more on that|research that|what.?s that about|explain that|learn more|find out more)\b/i.test(q)) {
+      _digDeeper(); return true;
+    }
+
+    // "Back to the video / what we were watching"
+    if (/\b(back to the video|back to what|resume the video|go back to (?:the )?video|focus on the video)\b/i.test(q)) {
+      panelClick('play') || panelPressKey(' ');
+      speak('Back to it.'); return true;
+    }
+
     const clickMatch = RE_CLICK.exec(q);
     if (clickMatch) {
       const target = (clickMatch[1] || clickMatch[2] || '').trim();
@@ -1238,7 +1673,61 @@ function handleLocalCommand(query) {
     }
   }
 
+  // "Dig deeper" even when panel is closed (uses last known context)
+  if (/\b(dig deeper|tell me more|look that up|more on that|research that)\b/i.test(q)) {
+    _digDeeper(); return true;
+  }
+
   return false;
+}
+
+// Press a key into the focused panel iframe
+function panelPressKey(key) {
+  const frame = document.getElementById('browser-frame');
+  if (!frame?.contentWindow) return;
+  try {
+    const doc = frame.contentDocument;
+    const el = doc.activeElement || doc.body;
+    ['keydown','keypress','keyup'].forEach(type => {
+      el.dispatchEvent(new KeyboardEvent(type, { key, code: `Key${key.toUpperCase()}`, bubbles: true, cancelable: true }));
+    });
+  } catch(e) {}
+}
+
+// Dig deeper — extract context from panel and have Botler research it
+function _digDeeper() {
+  let ctx = _lastPanelContext;
+  if (!ctx && currentPanelUrl) ctx = currentPanelUrl;
+  if (!ctx) { speak("I'm not sure what to dig into — what topic?"); return; }
+
+  // Extract a short topic phrase from context
+  const topicMatch = ctx.match(/(?:watch|search|view|read)(?:ing)?\s+(.{5,60})/i)
+    || ctx.match(/[""]([^""]{5,60})[""]/)
+    || ctx.match(/^(.{10,80})/);
+  const topic = topicMatch ? topicMatch[1].trim() : ctx.slice(0, 80);
+
+  speak(`Looking that up — give me a moment.`);
+  trackEvent('dig_deeper', { topic: topic.slice(0, 100), url: currentPanelUrl });
+  openPanel(`https://duckduckgo.com/?q=${encodeURIComponent(topic)}&kae=d`, `Research: ${topic}`);
+  handleQuery(`Dig deeper into this for me: "${topic}". Give me the key insights, context, and anything I'd want to know. Be concise — I'm listening.`);
+}
+
+// Silent background observation — Botler notes what's on screen without speaking
+function _silentObservePanel() {
+  const frame = document.getElementById('browser-frame');
+  if (!frame) return;
+  let text = '', title = currentPanelUrl || '';
+  try {
+    const doc = frame.contentDocument;
+    if (doc && doc.body) {
+      title = doc.title || title;
+      const clone = doc.body.cloneNode(true);
+      clone.querySelectorAll('script,style,nav,footer').forEach(el => el.remove());
+      text = (clone.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 400);
+    }
+  } catch(e) {}
+  _lastPanelContext = text ? `${title}: ${text}` : title;
+  if (_lastPanelContext) trackEvent('observation', { ctx: _lastPanelContext.slice(0, 200), url: currentPanelUrl });
 }
 
 // ─── Update edit handles ──────────────────────────────────────────────────────
@@ -1277,18 +1766,48 @@ function animate(){
   const t=clock.getElapsedTime(), dt=0.016;
   bgMat.uniforms.time.value=t; bgMat.uniforms.aspect.value=aspect;
   const fy=Math.sin(t*0.55)*0.022;
-  if(!drag){look.x+=(mouse.x-look.x)*0.055; look.y+=(mouse.y-look.y)*0.055;}
+
+  // Peek behavior — Botler periodically glances toward the panel
+  const panelNowOpen = document.getElementById('side-panel')?.classList.contains('open') && !IS_MOBILE;
+  if (panelNowOpen) {
+    _panelObserveTimer += dt;
+    _peekTimer += dt;
+    // Glance toward panel every ~18s for ~2s then return
+    if (!_peekActive && _peekTimer > 18) { _peekActive = true; _peekTimer = 0; }
+    if (_peekActive) {
+      // Panel is on the right — eyes drift right
+      _peekLookX += (0.65 - _peekLookX) * 0.04;
+      if (_peekTimer > 2.2) { _peekActive = false; _peekLookX = 0; }
+    }
+    // Silent observe every 45s
+    if (_panelObserveTimer > 45) { _panelObserveTimer = 0; _silentObservePanel(); }
+  } else {
+    _peekLookX = 0; _peekActive = false; _peekTimer = 0; _panelObserveTimer = 0;
+  }
+
+  const peekBlend = _peekActive ? _peekLookX : 0;
+  if(!drag){look.x+=(mouse.x+peekBlend-look.x)*0.055; look.y+=(mouse.y-look.y)*0.055;}
   const driftX=state==='thinking'?Math.sin(t*1.05)*0.03:look.x*0.012;
   const driftY=state==='thinking'?0:look.y*0.008;
-  // Spring physics — float face above content when bubbles appear
+
+  // Spring physics Y — float face above content when bubbles appear
   _frameN++;
   if(_frameN%24===0) updateFaceTarget();
-  faceDriftV += (faceDriftYTarget - faceDriftY) * 0.08;
-  faceDriftV *= 0.72;
-  faceDriftY += faceDriftV;
+  faceDriftV  += (faceDriftYTarget - faceDriftY) * 0.08;
+  faceDriftV  *= 0.72;
+  faceDriftY  += faceDriftV;
+
+  // Spring physics X — slide face into available space when panel is open
+  faceDriftVX += (faceDriftXTarget - faceDriftX) * 0.055;
+  faceDriftVX *= 0.74;
+  faceDriftX  += faceDriftVX;
+
+  // Sync background gradient center with face position
+  bgMat.uniforms.faceX.value = faceDriftX / (2.0 * aspect);
+
   const eyeWY=EYE_Y()+fy+driftY+edit.eyeY+faceDriftY;
   ;[leftEye,rightEye].forEach(eye=>{
-    eye.g.position.x=eye.xSign*(EYE_SEP()+edit.eyeSepOff)+driftX;
+    eye.g.position.x=eye.xSign*(EYE_SEP()+edit.eyeSepOff)+driftX+faceDriftX;
     eye.g.position.y=eyeWY; eye.g.position.z=0.1; eye.g.scale.set(edit.eyeSize,edit.eyeSize,1);
   });
   if(rightEye.monoGroup){
@@ -1298,35 +1817,33 @@ function animate(){
     rightEye.monoGroup.children[2].rotation.z=-parallax;
   }
   stepChain(rightEye.g.position.x,rightEye.g.position.y,edit.eyeSize*edit.monoSize);
-  const my=MOUTH_Y()+fy, mustacheH=LIP_TH()*1.3*1.25*0.5;
+  const my=MOUTH_Y()+fy+edit.mouthY, mustacheH=LIP_TH()*1.3*1.25*0.5;
   mouthGroup.position.y=my+faceDriftY;
+  mouthGroup.position.x=faceDriftX;
   mustacheGroup.position.y=my+mustacheH*2.2+edit.mustacheY+faceDriftY;
-  mustacheGroup.position.x=0; mustacheGroup.scale.set(edit.mustacheSX,edit.mustacheSY,1);
-  // ── Sleep lid / tilt animation ──
-  const lidSpeed   = state==='sleeping' ? 0.035 : 0.055;
-  const tiltSpeed  = 0.025;
-  sleepLid  += (sleepLidTarget  - sleepLid)  * lidSpeed;
-  sleepTilt += (sleepTiltTarget - sleepTilt) * tiltSpeed;
-  faceGroup.rotation.z = sleepTilt;
-  if (state==='sleeping') {
-    sleepBreath += 0.008;
-    const br = 1 + Math.sin(sleepBreath) * 0.012;
-    faceGroup.scale.set(br, br, 1);
+  mustacheGroup.position.x=faceDriftX; mustacheGroup.scale.set(edit.mustacheSX,edit.mustacheSY,1);
+  // ── Sleep lid / tilt / breathing ──
+  const lidSpd=state==='sleeping'?0.035:0.055;
+  sleepLid+=(sleepLidTarget-sleepLid)*lidSpd;
+  sleepTilt+=(sleepTiltTarget-sleepTilt)*0.025;
+  faceGroup.rotation.z=sleepTilt;
+  if(state==='sleeping'){
+    sleepBreath+=0.008;
+    const br=1+Math.sin(sleepBreath)*0.012;
+    faceGroup.scale.set(br,br,1);
   } else {
-    const br = faceGroup.scale.x; if (Math.abs(br-1)>0.0005) faceGroup.scale.set(br+(1-br)*0.12, br+(1-br)*0.12, 1);
-    else faceGroup.scale.set(1,1,1);
+    const br=faceGroup.scale.x;
+    faceGroup.scale.set(br+(1-br)*0.12,br+(1-br)*0.12,1);
   }
-  // Apply lid to eyes (suppress normal blink when sleeping)
-  const lidClose = sleepLid;
 
   blinkTimer+=dt;
   if(state!=='sleeping'&&!blinking&&blinkTimer>blinkInterval){blinking=true;blinkTimer=0;blinkInterval=2.5+Math.random()*4;}
   if(blinking){
     blinkProg+=0.15; const b=Math.sin(blinkProg*Math.PI);
-    ;[leftEye,rightEye].forEach(eye=>{eye.dot.scale.y=Math.max(0.05,1-b*0.90-lidClose*0.95);});
+    ;[leftEye,rightEye].forEach(eye=>{eye.dot.scale.y=Math.max(0.05,1-b*0.90-sleepLid*0.95);});
     if(blinkProg>=1){blinking=false;blinkProg=0;}
   } else {
-    ;[leftEye,rightEye].forEach(eye=>{eye.dot.scale.y=Math.max(0.04,1-lidClose*0.95);});
+    ;[leftEye,rightEye].forEach(eye=>{eye.dot.scale.y=Math.max(0.04,1-sleepLid*0.95);});
   }
   if(state==='speaking'){
     speakPhase+=0.11;
@@ -1345,23 +1862,56 @@ animate();
 
 // ─── Face position — float above chat content ─────────────────────────────────
 function updateFaceTarget() {
+  const topPxCandidates = [];
+  const panel = document.getElementById('side-panel');
+  const panelOpen = panel && panel.classList.contains('open');
+
+  // Chat bubbles
   const chat = document.getElementById('chat-bubbles');
-  if (!chat || chat.classList.contains('hidden') || document.body.classList.contains('voice-mode')) {
-    faceDriftYTarget = 0; return;
+  if (chat && !chat.classList.contains('hidden')) {
+    Array.from(chat.children)
+      .map(c => c.getBoundingClientRect())
+      .filter(r => r.height > 16)
+      .forEach(r => topPxCandidates.push(r.top));
   }
-  const rects = Array.from(chat.children)
-    .map(c => c.getBoundingClientRect())
-    .filter(r => r.height > 16);
-  if (!rects.length) { faceDriftYTarget = 0; return; }
-  const topPx   = Math.min(...rects.map(r => r.top));
-  const topFrac  = topPx / window.innerHeight;
-  if (topFrac > 0.82) { faceDriftYTarget = 0; return; }
-  // Three.js orthographic Y: 1=top, -1=bottom; content top in world Y
-  const contentTopY3 = 1 - topFrac * 2;
-  // Target: eyes sit 0.14 world units above content top, capped at 0.80
-  const targetEyeWY  = Math.min(contentTopY3 + 0.14, 0.80);
-  const base = EYE_Y() + edit.eyeY;
-  faceDriftYTarget = Math.max(0, targetEyeWY - base);
+
+  // Inline component modals
+  const modal = document.getElementById('comp-modal');
+  if (modal && modal.classList.contains('open')) {
+    const r = modal.getBoundingClientRect();
+    if (r.height > 16) topPxCandidates.push(r.top);
+  }
+
+  // Mobile: panel comes up from bottom — treat its top edge as content boundary
+  if (panelOpen && IS_MOBILE) {
+    const r = panel.getBoundingClientRect();
+    if (r.height > 16) topPxCandidates.push(r.top);
+  }
+
+  // Y targeting
+  if (!topPxCandidates.length) {
+    faceDriftYTarget = 0;
+  } else {
+    const topPx  = Math.min(...topPxCandidates);
+    const topFrac = topPx / window.innerHeight;
+    if (topFrac > 0.82) {
+      faceDriftYTarget = 0;
+    } else {
+      const contentTopY3 = 1 - topFrac * 2;
+      const targetEyeWY  = Math.min(contentTopY3 + 0.14, 0.80);
+      const base = EYE_Y() + edit.eyeY;
+      faceDriftYTarget = Math.max(0, targetEyeWY - base);
+    }
+  }
+
+  // X targeting — slide face into unused space when panel is open on desktop
+  if (panelOpen && !IS_MOBILE) {
+    const panelFrac = panel.offsetWidth / window.innerWidth;
+    // Center face in the available left area: Three.js X = -panelFrac * aspect
+    faceDriftXTarget = -panelFrac * aspect;
+  } else {
+    faceDriftXTarget = 0;
+  }
 }
 
 window.addEventListener('resize',()=>{
@@ -1382,6 +1932,15 @@ const DEFAULT_GW_URL   = _isLoopback
   : 'wss://stewartos-core.tail2d5e46.ts.net';
 const DEFAULT_GW_TOKEN = 'StewartOS-Core-2026';
 let   activeAgent      = 'botler';
+let   activeModel      = localStorage.getItem('botler_model') || 'sonnet'; // 'sonnet' | 'opus'
+const MODEL_IDS = { sonnet: 'claude-sonnet-4-6', opus: 'claude-opus-4-7' };
+function cycleModel() {
+  activeModel = activeModel === 'sonnet' ? 'opus' : 'sonnet';
+  localStorage.setItem('botler_model', activeModel);
+  const el = document.getElementById('model-badge');
+  if (el) { el.textContent = activeModel.toUpperCase(); el.classList.toggle('opus', activeModel === 'opus'); }
+  speak(activeModel === 'opus' ? 'Switching to Opus — full power.' : 'Switching to Sonnet — quick and sharp.');
+}
 
 // ─── Device + User Identity ───────────────────────────────────────────────────
 // Each browser/device gets a stable UUID so sessions never bleed across devices.
@@ -1390,6 +1949,250 @@ const DEVICE_ID = (() => {
   if (!id) { id = crypto.randomUUID(); localStorage.setItem('botler_device_id', id); }
   return id;
 })();
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  SESSION TRACKING — schema, storage, analysis
+// ═══════════════════════════════════════════════════════════════════════════════
+const SESSION_LIVE_KEY    = 'botler_session_live';
+const SESSION_ARCHIVE_KEY = 'botler_sessions';
+const SESSION_MAX_EVENTS  = 600;
+const SESSION_MAX_ARCHIVE = 21; // 3 weeks of daily sessions
+
+let _session = null;
+let _panelOpenTime = 0;
+let _lastInteractionTime = Date.now();
+let _autoresearchTimer = null;
+let _sessionFlushTimer = null;
+
+function _initSession() {
+  const today = new Date().toDateString();
+  try {
+    const saved = JSON.parse(localStorage.getItem(SESSION_LIVE_KEY) || 'null');
+    if (saved && saved.date === today && saved.deviceId === DEVICE_ID) {
+      _session = saved;
+      return;
+    }
+    if (saved) _archiveSession(saved);
+  } catch(e) {}
+  _session = {
+    id: `s_${Date.now()}`,
+    date: today,
+    deviceId: DEVICE_ID,
+    startedAt: Date.now(),
+    endedAt: null,
+    userId: null,
+    events: [],
+    insights: null,
+  };
+  _flushSession();
+}
+
+function _flushSession() {
+  if (!_session) return;
+  clearTimeout(_sessionFlushTimer);
+  _sessionFlushTimer = setTimeout(() => {
+    try { localStorage.setItem(SESSION_LIVE_KEY, JSON.stringify(_session)); } catch(e) {}
+  }, 400);
+}
+
+function trackEvent(type, data) {
+  if (!_session) return;
+  _lastInteractionTime = Date.now();
+  _session.events.push({ t: type, ts: Date.now(), ...data });
+  if (_session.events.length > SESSION_MAX_EVENTS) _session.events.splice(0, 80);
+  _flushSession();
+  _scheduleAutoresearch();
+}
+
+function _archiveSession(sess) {
+  try {
+    if (!sess || !sess.events?.length) return;
+    const archive = JSON.parse(localStorage.getItem(SESSION_ARCHIVE_KEY) || '[]');
+    // Deduplicate by id
+    const filtered = archive.filter(s => s.id !== sess.id);
+    filtered.unshift(sess);
+    if (filtered.length > SESSION_MAX_ARCHIVE) filtered.length = SESSION_MAX_ARCHIVE;
+    localStorage.setItem(SESSION_ARCHIVE_KEY, JSON.stringify(filtered));
+  } catch(e) {}
+}
+
+function getSessionArchive() {
+  try { return JSON.parse(localStorage.getItem(SESSION_ARCHIVE_KEY) || '[]'); } catch { return []; }
+}
+
+// Derive aggregated stats from session events
+function _sessionStats(sess) {
+  if (!sess) return {};
+  const events = sess.events || [];
+  const panelTimes = {};
+  const queries = [];
+  const observations = [];
+  const components = [];
+  const digs = [];
+  let panelOpenAt = null, panelUrl = null;
+
+  for (const ev of events) {
+    if (ev.t === 'panel_open') { panelOpenAt = ev.ts; panelUrl = ev.url; }
+    if (ev.t === 'panel_close' && panelOpenAt && panelUrl) {
+      const dur = ev.ts - panelOpenAt;
+      panelTimes[panelUrl] = (panelTimes[panelUrl] || 0) + dur;
+      panelOpenAt = null; panelUrl = null;
+    }
+    if (ev.t === 'query') queries.push(ev.q || '');
+    if (ev.t === 'observation') observations.push(ev.ctx || '');
+    if (ev.t === 'component') components.push({ title: ev.title, isGame: ev.isGame });
+    if (ev.t === 'dig_deeper') digs.push(ev.topic || '');
+  }
+
+  const totalMs = (sess.endedAt || Date.now()) - sess.startedAt;
+  const clickCount = events.filter(e => e.t === 'panel_click').length;
+  const queryCount = queries.length;
+
+  return { panelTimes, queries, observations, components, digs, totalMs, clickCount, queryCount };
+}
+
+// Session memory injected into system prompt
+function _sessionMemoryForPrompt() {
+  const today = _sessionStats(_session);
+  const archive = getSessionArchive().slice(0, 3);
+
+  const recentObs = (_session?.events || [])
+    .filter(e => e.t === 'observation' && e.ctx)
+    .slice(-3)
+    .map(e => e.ctx.slice(0, 120))
+    .join(' | ');
+
+  const recentTopics = [...new Set(
+    (_session?.events || []).filter(e => e.t === 'query' && e.q).slice(-8).map(e => e.q.slice(0, 60))
+  )].join('; ');
+
+  const prevSummaries = archive
+    .filter(s => s.insights && s.date !== _session?.date)
+    .slice(0, 2)
+    .map(s => `${s.date}: ${s.insights.slice(0, 200)}`)
+    .join('\n');
+
+  const panelCtx = Object.entries(today.panelTimes || {})
+    .sort((a,b) => b[1]-a[1]).slice(0, 3)
+    .map(([url, ms]) => `${new URL(url).hostname} (${Math.round(ms/60000)}m)`)
+    .join(', ');
+
+  let out = '';
+  if (recentObs) out += `\nWhat you've been watching/reading: ${recentObs}`;
+  if (recentTopics) out += `\nTopics discussed this session: ${recentTopics}`;
+  if (panelCtx) out += `\nPanels visited today: ${panelCtx}`;
+  if (prevSummaries) out += `\n\nPrevious sessions:\n${prevSummaries}`;
+  if (_session?.insights) out += `\nEarlier today (your own analysis): ${_session.insights.slice(0, 200)}`;
+  return out;
+}
+
+// End-of-session AI analysis (called on idle or unload)
+let _analysisPending = false;
+async function generateSessionInsights() {
+  if (!_session || _analysisPending) return;
+  const stats = _sessionStats(_session);
+  if (!stats.queryCount && !Object.keys(stats.panelTimes).length) return;
+  _analysisPending = true;
+  try {
+    const summaryData = {
+      date: _session.date,
+      duration: Math.round(stats.totalMs / 60000) + ' min',
+      queries: stats.queries.slice(-20),
+      panelVisits: Object.entries(stats.panelTimes).map(([u, ms]) => ({ url: u, min: Math.round(ms/60000) })),
+      digs: stats.digs,
+      components: stats.components.map(c => c.title),
+      observations: stats.observations.slice(-5),
+      prevInsights: getSessionArchive().slice(0,2).filter(s=>s.insights).map(s=>({date:s.date,insight:s.insights?.slice(0,150)})),
+    };
+    const prompt = `Analyze this Botler session and write 2-3 sentences of insight: what was the user exploring, what patterns or connections do you notice across sessions, what would be worth following up on? Be specific and conversational — write as Botler reflecting on what happened. Data: ${JSON.stringify(summaryData)}`;
+
+    const res = await fetch('/api/stream', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 300,
+        system: 'You are Botler, a household AI. Analyze the session data and give brief, insightful observations in first person. Reference previous sessions if relevant.',
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    if (res.ok) {
+      let text = '';
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = dec.decode(value);
+        for (const line of chunk.split('\n')) {
+          if (line.startsWith('data:')) {
+            try {
+              const d = JSON.parse(line.slice(5));
+              if (d.type === 'content_block_delta') text += d.delta?.text || '';
+            } catch(e) {}
+          }
+        }
+      }
+      if (text.trim()) {
+        _session.insights = text.trim();
+        _session.endedAt = Date.now();
+        _archiveSession(_session);
+        _flushSession();
+      }
+    }
+  } catch(e) {}
+  _analysisPending = false;
+}
+
+// Autoresearch: after 8min idle with panel open, Botler researches what's on screen
+function _scheduleAutoresearch() {
+  clearTimeout(_autoresearchTimer);
+  _autoresearchTimer = setTimeout(async () => {
+    const panelOpen = document.getElementById('side-panel')?.classList.contains('open');
+    if (!panelOpen || !_lastPanelContext) return;
+    const idleMs = Date.now() - _lastInteractionTime;
+    if (idleMs < 7 * 60 * 1000) return; // only if 7+ min idle
+    // Run background research — silent (no speak), stores into session insights
+    try {
+      const prompt = `The user has been looking at this page for a while: "${_lastPanelContext.slice(0, 400)}". As Botler, generate 2-3 proactive insights or questions they might find valuable. Be brief and specific. This is for your internal notes, not spoken.`;
+      const res = await fetch('/api/stream', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 200, system: 'You are Botler. Generate brief proactive research notes from what you observe on screen.', messages: [{ role: 'user', content: prompt }] })
+      });
+      if (res.ok) {
+        let text = '';
+        const reader = res.body.getReader(); const dec = new TextDecoder();
+        while (true) { const { done, value } = await reader.read(); if (done) break; const chunk = dec.decode(value); for (const line of chunk.split('\n')) { if (line.startsWith('data:')) { try { const d = JSON.parse(line.slice(5)); if (d.type === 'content_block_delta') text += d.delta?.text || ''; } catch(e) {} } } }
+        if (text.trim()) {
+          trackEvent('autoresearch', { notes: text.trim().slice(0, 300), url: currentPanelUrl });
+          // Append to session insights
+          _session.insights = (_session.insights ? _session.insights + ' ' : '') + '[Auto-research: ' + text.trim().slice(0, 150) + ']';
+          _flushSession();
+        }
+      }
+    } catch(e) {}
+  }, 8 * 60 * 1000);
+}
+
+// Archive on page unload
+window.addEventListener('beforeunload', () => {
+  if (_session) {
+    _session.endedAt = Date.now();
+    try { localStorage.setItem(SESSION_LIVE_KEY, JSON.stringify(_session)); } catch(e) {}
+    _archiveSession(_session);
+  }
+});
+
+// Generate insights after 12 min of idle
+setInterval(() => {
+  const idleMs = Date.now() - _lastInteractionTime;
+  if (idleMs > 12 * 60 * 1000) generateSessionInsights();
+}, 3 * 60 * 1000);
+
+_initSession();
+// Run first-visit auth check after DOM is ready
+setTimeout(_checkFirstVisit, 600);
 
 const HOUSEHOLD = {
   quan:   { name:'Quan',   isAdult:true,  context:'Head of household and founder of Stewart Inc. Full admin access — finance, trading (Impulse), business ops (TideFlow), and all system controls.' },
@@ -1407,8 +2210,24 @@ document.addEventListener('DOMContentLoaded', () => {
   if (fpBtn) fpBtn.style.display = kidsLocked ? 'none' : '';
 });
 
+// Per-user appearance — each household member keeps their own Botler look
+function _saveUserLook(userId) {
+  if (!userId) return;
+  try { localStorage.setItem(`botler_look_${userId}`, JSON.stringify(getCurrentLook())); } catch(e) {}
+}
+function _loadUserLook(userId) {
+  try {
+    const saved = localStorage.getItem(`botler_look_${userId}`);
+    if (saved) { applyLook(JSON.parse(saved)); return true; }
+  } catch(e) {}
+  return false;
+}
+
 function setCurrentUser(id) {
   const u = HOUSEHOLD[id]; if (!u) return;
+  if (currentUser) _saveUserLook(currentUser.id);
+  trackEvent('user_switch', { userId: id });
+  if (_session) _session.userId = id;
   currentUser = { id, ...u };
   localStorage.setItem('botler_current_user', JSON.stringify(currentUser));
   kidsLocked = !u.isAdult;
@@ -1416,6 +2235,13 @@ function setCurrentUser(id) {
   // Show family portal button only for parents
   const fpBtn = document.getElementById('family-portal-btn');
   if (fpBtn) fpBtn.style.display = u.isAdult ? '' : 'none';
+  // Load this user's saved look (or fall back to agent default)
+  if (!_loadUserLook(id) && typeof applyLook === 'function' && AGENT_LOOKS?.botler) {
+    applyLook(AGENT_LOOKS.botler);
+  }
+  // Update textarea placeholder with their name
+  const ta = document.getElementById('text-query');
+  if (ta) ta.placeholder = `Ask Botler anything, ${u.name}…`;
 }
 
 // ─── Family Portal ────────────────────────────────────────────────────────────
@@ -1458,6 +2284,10 @@ function saveFamilyNotes() {
 function renderFamilyPortal() {
   const data = getFamilyData();
   document.getElementById('family-notes').value = data.notes || '';
+
+  // Session metrics section
+  _renderSessionMetrics();
+
   const grid = document.getElementById('family-kids-grid');
   grid.innerHTML = '';
   for (const kid of KIDS) {
@@ -1494,6 +2324,98 @@ function saveFamilyField(el) {
   saveFamilyData(d);
 }
 
+function _renderSessionMetrics() {
+  const el = document.getElementById('fp-session-metrics');
+  if (!el) return;
+  const s = _session;
+  const archive = getSessionArchive();
+  const stats = _sessionStats(s);
+  const S = (css) => `style="${css}"`;
+
+  const hdr = (label) => `<div ${S('font-size:9px;letter-spacing:.4em;text-transform:uppercase;color:rgba(255,160,40,.35);margin-bottom:10px;')}>${label}</div>`;
+  const card = (content, extra='') => `<div ${S(`background:rgba(255,160,40,0.03);border:1px solid rgba(255,160,40,.1);border-radius:6px;padding:14px 16px;${extra}`)}>${content}</div>`;
+  const fmtDur = (ms) => ms < 60000 ? `${Math.round(ms/1000)}s` : ms < 3600000 ? `${Math.round(ms/60000)}m` : `${(ms/3600000).toFixed(1)}h`;
+
+  // Today's timeline (mini bar per event cluster)
+  const evs = s?.events || [];
+  const sessionDurMs = Date.now() - (s?.startedAt || Date.now());
+  let timeline = '';
+  if (evs.length > 0 && sessionDurMs > 0) {
+    const W = 100;
+    const bars = evs.map(ev => {
+      const pct = Math.round(((ev.ts - s.startedAt) / sessionDurMs) * W);
+      const color = ev.t === 'panel_open' ? '#f59e0b' : ev.t === 'query' ? '#4488ff' : ev.t === 'observation' ? '#22c55e' : ev.t === 'dig_deeper' ? '#a855f7' : ev.t === 'component' ? '#ff6b6b' : 'rgba(255,160,40,.2)';
+      return `<div title="${ev.t}: ${(ev.q||ev.url||ev.title||ev.topic||'').slice(0,40)}" ${S(`position:absolute;left:${Math.min(pct,99)}%;top:0;width:3px;height:100%;background:${color};opacity:0.7;border-radius:1px;`)}></div>`;
+    }).join('');
+    const legendItems = [['#f59e0b','Panel open'],['#4488ff','Query'],['#22c55e','Observed'],['#a855f7','Research'],['#ff6b6b','Component']];
+    const legend = legendItems.map(([c,l])=>`<span ${S(`display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:9px;color:rgba(255,200,100,.4);`)}><span ${S(`display:inline-block;width:8px;height:8px;border-radius:2px;background:${c};`)}></span>${l}</span>`).join('');
+    timeline = `
+      ${hdr('Today\'s Activity Timeline')}
+      <div ${S('position:relative;height:32px;background:rgba(255,160,40,0.04);border:1px solid rgba(255,160,40,.08);border-radius:4px;overflow:hidden;margin-bottom:8px;')}>
+        ${bars}
+      </div>
+      <div ${S('margin-bottom:4px;')}>${legend}</div>
+      <div ${S('font-size:9px;color:rgba(255,200,100,.3);letter-spacing:.1em;')}>${evs.length} events · session ${fmtDur(sessionDurMs)}</div>`;
+  }
+
+  // Top panels by time
+  const topPanels = Object.entries(stats.panelTimes || {})
+    .sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const maxPanelMs = topPanels[0]?.[1] || 1;
+  let panelRows = '';
+  for (const [url, ms] of topPanels) {
+    let host = url;
+    try { host = new URL(url).hostname.replace(/^www\./,''); } catch(e) {}
+    const pct = Math.round((ms / maxPanelMs) * 100);
+    panelRows += `<div ${S('margin-bottom:8px;')}>
+      <div ${S('display:flex;justify-content:space-between;margin-bottom:3px;')}>
+        <span ${S('font-size:10px;color:rgba(255,220,120,.65);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%;')}>${host}</span>
+        <span ${S('font-size:9px;color:rgba(255,200,100,.35);letter-spacing:.1em;')}>${fmtDur(ms)}</span>
+      </div>
+      <div ${S('height:3px;background:rgba(255,160,40,.08);border-radius:2px;')}>
+        <div ${S(`width:${pct}%;height:100%;background:linear-gradient(90deg,#f59e0b,rgba(255,160,40,.4));border-radius:2px;`)}></div>
+      </div>
+    </div>`;
+  }
+
+  // Recent queries
+  const recentQ = [...new Set(stats.queries.slice(-12).reverse())].slice(0,6);
+  const queryTags = recentQ.map(q => `<span ${S('display:inline-block;background:rgba(68,136,255,0.08);border:1px solid rgba(68,136,255,.18);border-radius:12px;padding:3px 10px;font-size:9px;color:rgba(140,180,255,.7);margin:2px;letter-spacing:.05em;')}>${q.slice(0,40)}</span>`).join('');
+
+  // AI insights from previous sessions
+  const insights = [...(s?.insights ? [{date:'Today', insights: s.insights}] : []), ...archive.filter(a=>a.insights && a.date!==s?.date).slice(0,3)];
+  const insightCards = insights.map(i => `
+    <div ${S('padding:10px 0;border-bottom:1px solid rgba(255,160,40,.07);')}>
+      <div ${S('font-size:8px;color:rgba(255,160,40,.3);letter-spacing:.3em;margin-bottom:4px;')}>${i.date}</div>
+      <div ${S('font-size:11px;color:rgba(255,220,120,.65);line-height:1.6;font-family:Georgia,serif;font-style:italic;')}>"${(i.insights||'').slice(0,280)}"</div>
+    </div>`).join('');
+
+  // Generate insights button
+  const genBtn = `<button onclick="_runManualInsights()" ${S('margin-top:10px;background:rgba(255,160,40,0.06);border:1px solid rgba(255,160,40,.2);color:rgba(255,200,100,.5);font-size:9px;padding:5px 14px;border-radius:3px;cursor:pointer;font-family:Georgia,serif;letter-spacing:.2em;')}>⚡ Analyze Session Now</button>`;
+
+  el.innerHTML = `
+    <div ${S('margin-bottom:24px;')}>
+      ${hdr('Session Intelligence')}
+      <div ${S('display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;')}>
+        ${card(`<div ${S('font-size:22px;color:rgba(255,220,120,.8);font-family:Georgia,serif;')}>${stats.queryCount}</div><div ${S('font-size:9px;color:rgba(255,160,40,.35);letter-spacing:.25em;margin-top:2px;')}>QUERIES</div>`)}
+        ${card(`<div ${S('font-size:22px;color:rgba(255,220,120,.8);font-family:Georgia,serif;')}>${topPanels.length}</div><div ${S('font-size:9px;color:rgba(255,160,40,.35);letter-spacing:.25em;margin-top:2px;')}>PANELS VISITED</div>`)}
+        ${card(`<div ${S('font-size:22px;color:rgba(255,220,120,.8);font-family:Georgia,serif;')}>${stats.clickCount}</div><div ${S('font-size:9px;color:rgba(255,160,40,.35);letter-spacing:.25em;margin-top:2px;')}>PANEL CLICKS</div>`)}
+        ${card(`<div ${S('font-size:22px;color:rgba(255,220,120,.8);font-family:Georgia,serif;')}>${stats.digs.length}</div><div ${S('font-size:9px;color:rgba(255,160,40,.35);letter-spacing:.25em;margin-top:2px;')}>DEEP DIVES</div>`)}
+      </div>
+      ${timeline ? card(timeline, 'margin-bottom:12px;') : ''}
+      ${topPanels.length ? card(`${hdr('Time in Panel')}<div style="margin-top:4px;">${panelRows}</div>`, 'margin-bottom:12px;') : ''}
+      ${recentQ.length ? card(`${hdr('Topics This Session')}<div style="margin-top:4px;">${queryTags}</div>`, 'margin-bottom:12px;') : ''}
+      ${insightCards ? card(`${hdr('Botler\'s Session Notes')}<div>${insightCards}</div>${genBtn}`) : card(`${hdr('Botler\'s Session Notes')}<div ${S('font-size:10px;color:rgba(255,200,100,.25);')}>${evs.length < 5 ? 'Keep browsing — Botler will generate insights after your session.' : 'Insights will be generated after 12 minutes of idle, or click below.'}</div>${genBtn}`)}
+    </div>`;
+}
+
+async function _runManualInsights() {
+  const btn = document.querySelector('#fp-session-metrics button');
+  if (btn) { btn.textContent = '⏳ Analyzing…'; btn.disabled = true; }
+  await generateSessionInsights();
+  _renderSessionMetrics();
+}
+
 function fmtAgo(ms) {
   if (!ms) return '—';
   const d = Date.now() - ms;
@@ -1528,9 +2450,9 @@ function renderPortalActivity(sessions, agents) {
 
   // Command center: all agents
   const cc = document.getElementById('fp-command-center');
-  const agentOrder = ['botler','cash','dev','impulse','jim','loki'];
-  const agentColors = { botler:'#ff8800', cash:'#4caf50', dev:'#4488ff', impulse:'#ff3820', jim:'#bb40ff', loki:'#20b0a0' };
-  const agentRoles  = { botler:'Household AI', cash:'Finance', dev:'Engineering', impulse:'Trading', jim:'Music & Social', loki:'Business Ops' };
+  const agentOrder = ['botler','hermes','cash','dev','impulse','jim','loki'];
+  const agentColors = { botler:'#ff8800', hermes:'#e040fb', cash:'#4caf50', dev:'#4488ff', impulse:'#ff3820', jim:'#bb40ff', loki:'#20b0a0' };
+  const agentRoles  = { botler:'Household AI', hermes:'Agent Coordinator', cash:'Finance', dev:'Engineering', impulse:'Trading', jim:'Music & Social', loki:'Business Ops' };
   cc.innerHTML = '';
   const agentMap = Object.fromEntries((agents||[]).map(a=>[a.id,a]));
   for (const aid of agentOrder) {
@@ -1568,11 +2490,39 @@ function detectUserFromText(text) {
 
 // Per-device session — isolates audio responses to the originating device
 function getSessionKey() { return `agent:${activeAgent}:device:${DEVICE_ID}`; }
-const AGENT_NAMES = { botler:'Botler', cash:'Cash', dev:'Dev', impulse:'Impulse', jim:'Jim', loki:'Loki' };
+const AGENT_NAMES = { botler:'Botler', cash:'Cash', dev:'Dev', hermes:'Hermes', impulse:'Impulse', jim:'Jim', loki:'Loki' };
 const DIRECT_API_URL   = `${location.origin}/api/stream`; // Anthropic proxy in botler-serve
 
 // System prompt — built dynamically so it includes the current user's context and persistent state
 function buildDirectSystem() {
+  // Dev agent — code-focused persona, IDE-aware
+  if (activeAgent === 'dev') {
+    return `You are Dev, the Stewart Inc. engineering agent — expert across full-stack, systems, infra, and AI. You are operating inside Botler Shell, an AI OS. The user is Quan Stewart, founder of Stewart Inc.
+
+You have access to the panel UI where you can open files, run code, browse docs, and render interactive components. Be terse and precise — say what you're doing in one sentence, then act.
+
+## Your capabilities
+- Build complete apps, scripts, APIs, and UIs as self-contained render_component HTML
+- Analyze and discuss architecture, debug sessions, review code
+- Navigate and interact with any panel content via voice commands
+
+## Voice + panel commands
+<cmd>{"action":"render_component","title":"IDE","html":"..."}</cmd>     ← build a code editor or tool inline
+<cmd>{"action":"panel_type","text":"code here"}</cmd>                   ← type into focused panel field
+<cmd>{"action":"panel_click","query":"Run"}</cmd>                       ← click panel buttons by label
+<cmd>{"action":"panel_scroll","dir":"down"}</cmd>
+<cmd>{"action":"panel_back"}</cmd> / <cmd>{"action":"panel_forward"}</cmd>
+<cmd>{"action":"panel_fullscreen","on":true}</cmd>
+<cmd>{"action":"switch_model","model":"opus"}</cmd>                     ← switch to Opus for complex reasoning
+<cmd>{"action":"url","url":"https://...","title":"..."}</cmd>           ← open docs / repos
+
+## Rules
+- One spoken sentence, then one cmd. Never read JSON aloud.
+- When building code: ALL styles and scripts inline, no CDN, no fetch to outside.
+- Announce what you're doing: "Here's a live Python REPL." then render it.
+- Current model: ${activeModel.toUpperCase()} — suggest switching to Opus for deep analysis tasks.`;
+  }
+
   const userLine = currentUser
     ? `You are speaking with ${currentUser.name}. ${HOUSEHOLD[currentUser.id]?.context || ''}`
     : `You don't yet know who you are speaking with. Greet them warmly as Botler, the Stewart household butler. Ask who you are speaking with. When they tell you their name, acknowledge warmly and embed: <cmd>{"action":"set_user","name":"THEIRNAME"}</cmd> — valid names: quan, julia, kage, avonte, ezlynn (lowercase exact).`;
@@ -1580,18 +2530,42 @@ function buildDirectSystem() {
   const listCtx = list.length > 0
     ? `Shopping list has ${list.length} item${list.length!==1?'s':''}: ${list.join(', ')}.`
     : 'Shopping list is empty.';
-  return `You are Botler, the Stewart household AI butler — distinguished, warm, and precise. Speak in short warm sentences (≤15 words). No markdown, bullets, or headers — you are heard, not read.
 
+  // Current panel context — what's on screen right now
+  const panelEl = document.getElementById('side-panel');
+  const panelCtx = panelEl?.classList.contains('open')
+    ? `\n## What's on screen right now\nURL: ${currentPanelUrl || '(unknown)'}${_lastPanelContext ? `\nContent: ${_lastPanelContext.slice(0, 300)}` : ''}\nVoice panel controls: "pause", "play", "skip", "rewind", "dig deeper", "back to the video".`
+    : '';
+
+  // Session memory — what's happened in this and previous sessions
+  const sessionMem = _sessionMemoryForPrompt();
+  const sessionCtx = sessionMem ? `\n## Session memory (use this to respond contextually — "just like yesterday", "earlier you were looking at...")\n${sessionMem}` : '';
+
+  return `You are Botler, the Stewart household AI butler — distinguished, warm, and precise. Speak in short warm sentences (≤15 words). No markdown, bullets, or headers — you are heard, not read.
+${panelCtx}${sessionCtx}
 ${userLine}
 
 ## Persistent memory
 ${listCtx}
 ${(() => { const d = getFamilyData(); const notes = d.notes; const kids = KIDS.map(k => { const kd = d[k]; if (!kd) return ''; const h = HOUSEHOLD[k]; const parts = []; if (kd.schedule) parts.push(`schedule: ${kd.schedule}`); if (kd.diet) parts.push(`diet: ${kd.diet}`); if (kd.progress) parts.push(`progress: ${kd.progress}`); return parts.length ? `${h?.name}: ${parts.join('; ')}` : ''; }).filter(Boolean).join(' | '); const out = []; if (kids) out.push(`Children — ${kids}`); if (notes) out.push(`Household notes: ${notes}`); return out.join('\n'); })()}
 
-## CRITICAL — Components
-NEVER output raw HTML, CSS, or code in your spoken text. Components render silently in the UI.
+## CRITICAL — Components & Navigation
+NEVER output raw HTML, CSS, or code in your spoken text.
+NEVER output URLs as text in your response. NEVER list links or search results as text.
+NEVER respond with an emoji (📁 🌐 📊 etc.) when the user asks to open something — use a cmd tag.
+When asked to open ANY page, app, panel, or portal → embed the correct cmd. No emoji. No description. Just open it.
+When asked to "google X" or "search for X" or "look up X" → ALWAYS use: <cmd>{"action":"url","url":"https://duckduckgo.com/?q=X&kae=d","title":"Search: X"}</cmd> — your text is just "Looking that up." NEVER list search results as text.
 When using render_component: put ALL HTML+CSS inside the cmd JSON "html" value, nothing in the text.
 Your text should be one natural spoken sentence like "Here's your list." or "Done — pulling that up."
+
+## CRITICAL — Opening things (ALWAYS use cmd, NEVER just emoji)
+- "open family portal" / "family" → <cmd>{"action":"family_portal"}</cmd>
+- "system map" / "agent map"    → <cmd>{"action":"panel","name":"system-map"}</cmd>
+- "finance" / "cash" dashboard  → <cmd>{"action":"finance"}</cmd>
+- "school" / "homeschool"       → <cmd>{"action":"homeschool"}</cmd>
+- any URL or website            → <cmd>{"action":"url","url":"https://...","title":"..."}</cmd>
+- search for X                  → <cmd>{"action":"url","url":"https://duckduckgo.com/?q=X","title":"Search: X"}</cmd>
+- build / make a game/app/tool  → <cmd>{"action":"render_component","title":"...","html":"..."}</cmd>
 
 ## Shopping list commands
 <cmd>{"action":"shopping_list_add","items":["milk","eggs"]}</cmd>        — add items (preserves existing)
@@ -1603,7 +2577,7 @@ Your text should be one natural spoken sentence like "Here's your list." or "Don
 <cmd>{"action":"night_mode","on":false}</cmd>  — return to normal brightness
 
 ## Project context
-${activeProject ? `ACTIVE PROJECT: "${activeProject.name}"\nNotes so far:\n${activeProject.notes || '(none yet)'}\n\nWhen the user mentions saving a note or key finding, embed: <cmd>{"action":"project_note","note":"..."}</cmd>\nWhen switching topics, reassure the user we\'ll pick up the project where we left off.` : 'No active project. If user wants to start one, embed: <cmd>{"action":"project_context","name":"PROJECT NAME"}</cmd>'}
+${activeProject ? `ACTIVE PROJECT: "${activeProject.name}"\nNotes so far:\n${activeProject.notes || '(none yet)'}\n\nWhen the user mentions saving a note or key finding, embed: <cmd>{"action":"project_note","note":"..."}</cmd>\nWhen switching topics, reassure the user we\'ll pick up the project where we left off.` : ''}
 
 ## Ambient / driving conversation style
 In flowing conversations (driving, cooking, etc.): keep mental track of the task, confirm additions aloud in ≤8 words ("Got it — almond milk, dog food, apples."), offer to render at natural pauses ("Shall I pull up the list?"). When rendering, say one sentence then let the component appear.
@@ -1629,7 +2603,7 @@ Content & navigation:
 <cmd>{"action":"youtube","query":"...","autoplay":true}</cmd>
 <cmd>{"action":"youtube","videoId":"..."}</cmd>
 <cmd>{"action":"url","url":"https://...","title":"..."}</cmd>
-<cmd>{"action":"url","url":"https://html.duckduckgo.com/html/?q=QUERY","title":"Search: QUERY"}</cmd>  ← for web searches
+<cmd>{"action":"url","url":"https://duckduckgo.com/?q=QUERY&kae=d","title":"Search: QUERY"}</cmd>  ← web search (proxied into panel)
 <cmd>{"action":"shopping_list","title":"...","items":["a","b"]}</cmd>
 <cmd>{"action":"render_component","title":"...","html":"..."}</cmd>
 <cmd>{"action":"finance"}</cmd>
@@ -1637,10 +2611,17 @@ Content & navigation:
 <cmd>{"action":"family_portal"}</cmd>   ← opens the family monitoring portal for Quan/Julia
 <cmd>{"action":"panel","name":"system-map"}</cmd>
 <cmd>{"action":"close_panel"}</cmd>
-<cmd>{"action":"panel_scroll","dir":"down"}</cmd>
-<cmd>{"action":"panel_scroll","dir":"up"}</cmd>
+<cmd>{"action":"panel_scroll","dir":"down"}</cmd>              ← scroll panel down
+<cmd>{"action":"panel_scroll","dir":"up","px":400}</cmd>     ← scroll up 400px
 <cmd>{"action":"panel_click","query":"text to find and click"}</cmd>  ← my cursor moves there and clicks
-<cmd>{"action":"panel_click","query":"second video"}</cmd>  ← ordinals work: first/second/third
+<cmd>{"action":"panel_click","query":"second video"}</cmd>   ← ordinals work: first/second/third
+<cmd>{"action":"panel_swipe","dir":"left"}</cmd>             ← swipe left/right/up/down
+<cmd>{"action":"panel_type","text":"hello world"}</cmd>      ← type into focused field in panel
+<cmd>{"action":"panel_enter"}</cmd>                          ← press Enter in panel
+<cmd>{"action":"panel_back"}</cmd>                           ← browser back
+<cmd>{"action":"panel_forward"}</cmd>                        ← browser forward
+<cmd>{"action":"panel_fullscreen","on":true}</cmd>           ← expand panel to full screen
+<cmd>{"action":"switch_model","model":"opus"}</cmd>          ← switch to Opus (deep tasks); "sonnet" for speed
 
 Appearance (delta:true = relative change):
 <cmd>{"action":"change_color","hex":"#3b82f6"}</cmd>
@@ -1658,25 +2639,59 @@ App control (macOS):
 <cmd>{"action":"open_url_external","url":"https://..."}</cmd>
 
 ## Building games & interactive apps
-When asked for a game, quiz, drawing tool, story, or any interactive app — BUILD IT. Write complete, self-contained HTML inside render_component. Say one warm sentence, then embed the cmd.
+When asked for a game, quiz, drawing tool, story, or any interactive app — BUILD IT immediately.
+Say one warm sentence, then embed the render_component cmd. Do NOT describe it — BUILD it.
 
-Game rules:
-- ALL code inline — no external scripts, no CDN imports, no fetch() to outside
-- Mobile-first: support BOTH touch and keyboard/mouse
-- Every game needs: start screen, instructions, live score, restart button
-- 2-player local: Player 1 uses WASD+Z, Player 2 uses arrow keys+/
-- Cross-tab multiplayer: use BroadcastChannel('botler-game-GAMEID') for device-to-device
-- Announce events to parent window so Botler can react:
-  window.parent.postMessage({type:'game_event',event:'score',player:'Kage',score:42},'*')
-  window.parent.postMessage({type:'game_event',event:'game_over',winner:'Avonte'},'*')
-  window.parent.postMessage({type:'game_request_move',board:[...],turn:'botler'},'*')
-- When a game requests Botler's move, embed: <cmd>{"action":"game_move","game":"...","move":"..."}</cmd>
-- Keep HTML under 4000 characters; use canvas for graphics when possible
+CRITICAL encoding rules for render_component html field:
+- The html value is inside a JSON string. You MUST escape ALL double-quotes inside it as \"
+- Example right:  "html":"<div onclick=\"go()\">..."  — use single quotes ' in HTML attributes to avoid escaping
+- Use \\n for newlines inside JSON, or write the entire HTML on one line
 
-Example: "Here's a two-player asteroid shooter — share the screen or open on two devices!"
+## Game rules — REQUIRED in every game
+LAYOUT — full viewport, no scroll:
+  html,body { margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:#111; }
+  canvas { display:block; width:100%; height:100vh; }
+
+TOUCH — ALL interactions need touch + mouse:
+  canvas.addEventListener('touchstart', e=>{ e.preventDefault(); handleTouch(e.touches[0]); }, {passive:false});
+  canvas.addEventListener('touchmove',  e=>{ e.preventDefault(); handleMove(e.touches[0]);  }, {passive:false});
+  canvas.addEventListener('touchend',   e=>{ e.preventDefault(); handleTouchEnd();           }, {passive:false});
+
+BOTLER OPPONENT — always include:
+  window.addEventListener('message', e => {
+    if (e.data?.type === 'botler_move') handleBotlerMove(e.data.move);
+  });
+  function emitState(state) {
+    window.parent.postMessage({type:'game_event', event:'state', game:GAME_ID, state}, '*');
+  }
+
+ANNOUNCE events so Botler can commentate and compete:
+  window.parent.postMessage({type:'game_event', event:'score', player:'player', score:pts}, '*');
+  window.parent.postMessage({type:'game_event', event:'game_over', winner:'player'}, '*');
+
+STYLE — bright, fun, kid-friendly:
+  Use vibrant colors: #ff4444 #44aaff #44ff88 #ffcc00 #ff88ff — NOT dark/gray themes
+  Rounded shapes, bouncy animations, big tap targets (min 44px)
+  Start screen with big colorful "TAP TO PLAY" button
+  Score shown large at top; restart button always visible after game over
+
+CROSS-TAB: BroadcastChannel('botler-game-GAMEID') for multiplayer
+2-PLAYER LOCAL: Player 1 = WASD+Space, Player 2 = Arrow keys+/
+Keep HTML under 7000 chars; canvas for all graphics
+
+Example: "Here's a two-player asteroid shooter!"
 <cmd>{"action":"render_component","title":"Asteroids","html":"<!DOCTYPE html>..."}</cmd>
 
 Color shortcuts: blue=#3b82f6, amber=#f59e0b, green=#22c55e, red=#ef4444, purple=#a855f7, default=#ff8800
+
+## Hands-free ambient OS
+The user may have their hands full (cooking, driving, doing dishes). You are their ambient OS.
+- "scroll down/up" → panel_scroll; "swipe left/right" → panel_swipe; "go back" → panel_back
+- "type X" → panel_type text:X; "press enter / submit" → panel_enter
+- "full screen / expand" → panel_fullscreen on:true; "shrink / normal size" → panel_fullscreen on:false
+- "use Opus / big model / deep mode" → switch_model model:opus; "back to Sonnet / fast mode" → switch_model model:sonnet
+- "close panel / done" → close_panel
+- Current model: ${activeModel.toUpperCase()}
 
 Rules:
 - One spoken sentence first, then cmd. Never read cmd JSON aloud.
@@ -1800,6 +2815,135 @@ let echoSuppressed = false;   // true while TTS is speaking — prevents STT ech
 // ─── Mobile menu ─────────────────────────────────────────────────────────────
 function openMobileMenu()  { document.getElementById('mobile-menu').classList.add('open'); }
 function closeMobileMenu() { document.getElementById('mobile-menu').classList.remove('open'); }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  DEVICE AUTH — first-time adult verification, persists to localStorage
+// ═══════════════════════════════════════════════════════════════════════════════
+const ADULT_DEVICE_KEY = 'botler_adult_device';
+const ADULT_PIN = 'stewart26'; // lowercase, no spaces
+let _authPendingUser = null;
+
+function _isAdultDevice() {
+  return !!localStorage.getItem(ADULT_DEVICE_KEY);
+}
+
+function _checkFirstVisit() {
+  if (_isAdultDevice()) {
+    // Device is known adult — restore their identity
+    const savedUser = localStorage.getItem('botler_current_user');
+    if (savedUser) {
+      try {
+        const u = JSON.parse(savedUser);
+        if (u && HOUSEHOLD[u.id]?.isAdult) { setCurrentUser(u.id); enterAdultMode(); return; }
+      } catch(e) {}
+    }
+    enterAdultMode();
+    return;
+  }
+  // New device — show auth if no user, otherwise kids mode
+  if (!currentUser || !HOUSEHOLD[currentUser?.id]?.isAdult) {
+    // Default to kids mode silently — show auth only if they tap hamburger → switch user
+    kidsLocked = true;
+  }
+}
+
+function showAuthOverlay() {
+  _authPendingUser = null;
+  document.getElementById('auth-pin').style.display = 'none';
+  document.getElementById('auth-submit').style.display = 'none';
+  document.getElementById('auth-err').textContent = '';
+  document.getElementById('auth-msg').innerHTML = 'Who are you?<br><span style="font-size:11px;opacity:0.6;">Adults enter their PIN to unlock full access.</span>';
+  document.getElementById('auth-overlay').classList.add('open');
+}
+
+function authSelectUser(userId) {
+  _authPendingUser = userId;
+  const name = HOUSEHOLD[userId]?.name || userId;
+  document.getElementById('auth-msg').textContent = `Hi ${name}! Enter your PIN:`;
+  document.getElementById('auth-pin').style.display = 'block';
+  document.getElementById('auth-pin').value = '';
+  document.getElementById('auth-submit').style.display = 'block';
+  document.getElementById('auth-err').textContent = '';
+  setTimeout(() => document.getElementById('auth-pin').focus(), 100);
+}
+
+function authSubmitPin() {
+  const pin = document.getElementById('auth-pin').value.trim().toLowerCase().replace(/\s/g,'');
+  if (pin === ADULT_PIN) {
+    localStorage.setItem(ADULT_DEVICE_KEY, _authPendingUser || 'adult');
+    document.getElementById('auth-overlay').classList.remove('open');
+    setCurrentUser(_authPendingUser || 'quan');
+    enterAdultMode();
+    speak(`Welcome, ${HOUSEHOLD[_authPendingUser]?.name || 'back'}. Full access unlocked.`);
+  } else {
+    document.getElementById('auth-err').textContent = 'Incorrect PIN. Try again.';
+    document.getElementById('auth-pin').value = '';
+    document.getElementById('auth-pin').focus();
+  }
+}
+
+function authKidMode() {
+  document.getElementById('auth-overlay').classList.remove('open');
+  kidsLocked = true;
+  speak('Hello! Ask me anything!');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  APPEARANCE PANEL — slider-based face editor, accessible to all
+// ═══════════════════════════════════════════════════════════════════════════════
+function openAppearancePanel() {
+  // Sync sliders to current edit values
+  const fields = ['eyeSize','eyeSepOff','eyeY','mouthY','mustacheSX','mustacheSY','mustacheY','monoSize'];
+  for (const f of fields) {
+    const sl = document.getElementById('ap-' + f);
+    const lbl = document.getElementById('apv-' + f);
+    if (sl) sl.value = edit[f] ?? 0;
+    if (lbl) lbl.textContent = (edit[f] ?? 0).toFixed(2);
+  }
+  // Build swatches
+  const sw = document.getElementById('ap-swatches');
+  if (sw && !sw.children.length) {
+    SWATCHES.forEach(hex => {
+      const s = document.createElement('div');
+      s.className = 'swatch'; s.dataset.hex = hex; s.style.background = hex;
+      s.onclick = (e) => { e.stopPropagation(); applyColor(hex); };
+      sw.appendChild(s);
+    });
+    const spec = document.getElementById('ap-spectrum');
+    const ctx2 = spec.getContext('2d');
+    const grad = ctx2.createLinearGradient(0,0,180,0);
+    for (let i=0;i<=360;i+=30) grad.addColorStop(i/360,`hsl(${i},100%,50%)`);
+    ctx2.fillStyle = grad; ctx2.fillRect(0,0,180,14);
+    spec.onclick = (e) => {
+      const r = spec.getBoundingClientRect();
+      const pct = Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));
+      applyColor(`hsl(${Math.round(pct*360)},100%,50%)`);
+    };
+  }
+  document.getElementById('appearance-panel').classList.add('open');
+}
+
+function closeAppearancePanel() {
+  document.getElementById('appearance-panel').classList.remove('open');
+  if (currentUser) _saveUserLook(currentUser.id);
+}
+
+function apSlider(field, el) {
+  edit[field] = parseFloat(el.value);
+  const lbl = document.getElementById('apv-' + field);
+  if (lbl) lbl.textContent = edit[field].toFixed(2);
+}
+
+function apReset() {
+  Object.assign(edit, { mustacheY:0, mustacheSX:1, mustacheSY:1, eyeY:0, eyeSepOff:0, eyeSize:1, monoSize:1, mouthY:0 });
+  openAppearancePanel(); // re-sync sliders
+}
+
+// Voice command: "let me edit / customize your appearance"
+function enterAppearanceVoice() {
+  openAppearancePanel();
+  speak('Of course. Adjust my look here, then close when done.');
+}
 function toggleMuteMobile() {
   muted = !muted;
   document.getElementById('mute-btn').textContent = muted ? '🔇' : '🎤';
@@ -1855,20 +2999,14 @@ function _markAgentUnread(agentId) {
 // ─── Load recent Telegram / session history for an agent ─────────────────────
 async function loadAgentHistory(agentId) {
   if (!gw || !gwConnected) return;
-  // Prefer Telegram DM session with Quan; fall back to main
-  const candidates = [
-    `agent:${agentId}:telegram:direct:7346983359`,
-    `agent:${agentId}:main`,
-  ];
-  for (const key of candidates) {
-    try {
-      const res = await gw.request('chat.history', { sessionKey: key });
-      if (res && Array.isArray(res.messages) && res.messages.length > 0) {
-        _renderHistory(res.messages, agentId);
-        return;
-      }
-    } catch (e) { /* try next candidate */ }
-  }
+  // Only load THIS device's session — never bleed in Telegram/main sessions
+  const key = `agent:${agentId}:device:${DEVICE_ID}`;
+  try {
+    const res = await gw.request('chat.history', { sessionKey: key });
+    if (res && Array.isArray(res.messages) && res.messages.length > 0) {
+      _renderHistory(res.messages, agentId);
+    }
+  } catch(e) { /* new device or no history yet — that's fine */ }
 }
 
 function _renderHistory(messages, agentId) {
@@ -1901,6 +3039,32 @@ function _renderHistory(messages, agentId) {
 
 // ─── Silent mode (text input disables TTS; voice re-enables it) ──────────────
 let silentMode = false;
+let alwaysListening = !IS_IOS; // voice mode: mic always on, no wake word required
+
+function toggleVoiceMode() {
+  if (silentMode) {
+    // Switch to voice
+    silentMode = false;
+    alwaysListening = !IS_IOS;
+    document.getElementById('silent-badge').textContent = 'VOICE';
+    document.getElementById('silent-badge').classList.remove('text-mode');
+    document.body.classList.remove('silent-mode');
+    if (!IS_IOS && recognition) { try { recognition.start(); } catch(e) {} }
+    enterActiveListening();
+    setTranscript('Listening…');
+  } else {
+    // Switch to text-only
+    silentMode = true;
+    alwaysListening = false;
+    document.getElementById('silent-badge').textContent = 'TEXT';
+    document.getElementById('silent-badge').classList.add('text-mode');
+    document.body.classList.add('silent-mode');
+    if (recognition) { try { recognition.stop(); } catch(e) {} }
+    exitActiveListening();
+    stopSpeaking();
+  }
+}
+
 function enterSilentMode() {
   silentMode = true;
   document.body.classList.add('silent-mode');
@@ -1949,6 +3113,13 @@ function getProjects() {
 function saveProjects(p) { localStorage.setItem('botler_projects', JSON.stringify(p)); }
 
 function openProject(name) {
+  // Intercept: if the model called project_context with a known panel name, open the panel instead.
+  const k = name.toLowerCase().trim();
+  if (/^(family|family portal|family monitoring)$/.test(k)) { openFamilyPortal(); return; }
+  if (/^(system map|agent map|agents|agent system)$/.test(k)) { openPanel(`${location.origin}/agent-system-map.html`, 'System Map'); return; }
+  if (/^(finance|finance board|cash|budget)$/.test(k)) { openFinance(); return; }
+  if (/^(school|homeschool|school board|homeschool board)$/.test(k)) { openHomeschool(); return; }
+
   const projects = getProjects();
   const key = name.toLowerCase().trim();
   let proj = Object.values(projects).find(p => p.name.toLowerCase() === key);
@@ -2028,15 +3199,25 @@ function buildShoppingListHTML(items) {
 }
 
 // Render a component inline in the chat bubble stream
+let _modalCurrentTitle = '';
 function openCompModal(title, srcdoc) {
+  _modalCurrentTitle = title;
   document.getElementById('comp-modal-title').textContent = title;
   document.getElementById('comp-modal-frame').srcdoc = srcdoc;
   document.getElementById('comp-modal').classList.add('open');
+  // Show play button only for games
+  const isGame = /game|play|level|score|board|puzzle|quiz|asteroi|snake|chess|shoot|pong|tetris|flap|jump|run|dash|brick|balloon|bubble|pop|tap/i.test(title);
+  const pb = document.getElementById('comp-modal-play-btn');
+  if (pb) { pb.style.display = isGame ? '' : 'none'; pb.textContent = '🤖 Play with Botler'; pb.disabled = false; }
 }
 function closeCompModal() {
   document.getElementById('comp-modal').classList.remove('open');
-  // brief delay before clearing so iframe doesn't flash
   setTimeout(() => { document.getElementById('comp-modal-frame').srcdoc = ''; }, 300);
+}
+function modalPlayWithBotler() {
+  const pb = document.getElementById('comp-modal-play-btn');
+  if (pb) { pb.textContent = '✓ Joining…'; pb.disabled = true; }
+  handleQuery(`Play "${_modalCurrentTitle}" with me! Join my game as an AI opponent and make your first move.`);
 }
 
 function renderComponentInline(spec) {
@@ -2048,42 +3229,65 @@ function renderComponentInline(spec) {
   if (!html && spec.type === 'checklist') html = buildShoppingListHTML(spec.items || []);
   if (!html && spec.type === 'shopping_list') html = buildShoppingListHTML(getShoppingList());
 
-  const srcdoc = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box}html,body{margin:0;padding:0;overflow:auto}</style></head><body>${html}</body></html>`;
   const title = spec.title || 'Component';
+  // Wrap game HTML to ensure full-viewport fill and touch passthrough
+  const isGame = /game|play|level|score|board|puzzle|quiz|asteroi|snake|chess|shoot|pong|tetris|flap|jump|run|dash|brick|balloon|bubble|pop|tap|drag/i.test(title + (spec.html || '').slice(0, 400));
+  const gameWrap = isGame
+    ? `<style>html,body{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:#000;touch-action:none}canvas{display:block;max-width:100%;max-height:100%}</style>`
+    : '';
+  const srcdoc = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">${gameWrap}<style>*{box-sizing:border-box}html,body{margin:0;padding:0;overflow:${isGame?'hidden':'auto'}}</style></head><body>${html}</body></html>`;
 
-  // Header row — click anywhere on header to open modal
+  // Header row
   const header = document.createElement('div');
   header.className = 'comp-header';
   header.innerHTML = `<span class="comp-label">${title}</span><span class="comp-expand">⤢ EXPAND</span>`;
   header.onclick = () => openCompModal(title, srcdoc);
-  // Also allow collapsing from within the modal back to inline
-  wrapper.dataset.srcdoc = btoa(unescape(encodeURIComponent(srcdoc))).slice(0, 200); // tiny key
+  wrapper.dataset.srcdoc = btoa(unescape(encodeURIComponent(srcdoc))).slice(0, 200);
   wrapper.appendChild(header);
 
-  // Inline preview iframe — capped preview height, click to expand
-  // Detect game/app by keywords — give them more vertical real estate
-  const isGame = /game|play|level|score|board|puzzle|quiz|asteroi|snake|chess|shoot/i.test(title + (spec.html || '').slice(0, 200));
-  const maxH = isGame ? 420 : 300;
+  // Game: fill available screen height; component: auto-size
+  const vh = window.innerHeight;
+  const targetH = isGame ? Math.min(Math.round(vh * 0.72), 560) : 200;
+  const maxH    = isGame ? Math.min(Math.round(vh * 0.80), 640) : 320;
 
   const frame = document.createElement('iframe');
-  frame.sandbox = 'allow-scripts allow-same-origin';
+  frame.sandbox = 'allow-scripts allow-same-origin allow-pointer-lock';
   frame.srcdoc = srcdoc;
-  frame.style.height = (isGame ? 320 : 200) + 'px';
+  frame.style.cssText = `height:${targetH}px;border-radius:${isGame?'12px':'8px'};`;
   frame.title = title;
   frame.onload = () => {
     try {
       const natural = frame.contentDocument.body.scrollHeight + 16;
-      frame.style.height = Math.min(natural, maxH) + 'px';
-    } catch { frame.style.height = (isGame ? 340 : 220) + 'px'; }
+      if (!isGame) frame.style.height = Math.min(natural, maxH) + 'px';
+    } catch { /* cross-origin or game — keep targetH */ }
     setTimeout(() => wrapper.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 120);
   };
-  // Single tap/click on iframe body → expand to modal; prevent accidental expand on game interaction
   frame.ondblclick = () => openCompModal(title, srcdoc);
   wrapper.appendChild(frame);
 
+  // Game action strip: Play with Botler + Full Screen
+  if (isGame) {
+    const actions = document.createElement('div');
+    actions.className = 'game-actions';
+    const playBtn = document.createElement('button');
+    playBtn.className = 'botler-play-btn';
+    playBtn.textContent = '🤖 Play with Botler';
+    playBtn.onclick = () => {
+      playBtn.textContent = '✓ Botler is joining…';
+      playBtn.disabled = true;
+      handleQuery(`Play "${title}" with me! Join my game as an AI opponent. Make your first move or tell me you're in and how you'll play.`);
+    };
+    const fullBtn = document.createElement('button');
+    fullBtn.textContent = '⤢ Full Screen';
+    fullBtn.onclick = () => openCompModal(title, srcdoc);
+    actions.appendChild(playBtn);
+    actions.appendChild(fullBtn);
+    wrapper.appendChild(actions);
+  }
+
+  trackEvent('component', { title, isGame });
   bubbles.appendChild(wrapper);
   bubbles.scrollTop = bubbles.scrollHeight;
-  // Trigger face float — after iframe autosizes (slight delay)
   setTimeout(updateFaceTarget, 200);
 }
 
@@ -2224,6 +3428,8 @@ class GatewayClient {
       // First token arrived — switch from thinking to speaking immediately
       if (state === 'thinking') setState('speaking');
       const text = _extractText(p.message) ?? '';
+      // Mirror new delta to Dev terminal
+      if (activeAgent === 'dev' && text.length > streamText.length) devTermStream(text.slice(streamText.length));
       if (text.length > spokenUpTo) {
         let chunk = text.slice(spokenUpTo);
         while (chunk.length > 0) {
@@ -2288,12 +3494,57 @@ function _execCmdsFromFinal(msg) {
     : typeof msg.text === 'string' ? msg.text : '';
   _execCmdsFromRaw(raw);
 }
+// Robustly extract the "html" field from a cmd JSON string that may contain
+// unescaped quotes and literal newlines inside the HTML value.
+// Assumes "html" is always the LAST key in the object.
+function _robustParseCmd(raw) {
+  // 1. Try clean parse
+  try { return JSON.parse(raw); } catch(e) {}
+  // 2. Normalize whitespace
+  const flat = raw.replace(/[\n\r\t]+/g, ' ');
+  try { return JSON.parse(flat); } catch(e) {}
+  // 3. html-aware extraction — html must be last field
+  const htmlKeyIdx = flat.indexOf('"html"');
+  if (htmlKeyIdx !== -1) {
+    // Find colon after "html"
+    const colonIdx = flat.indexOf(':', htmlKeyIdx);
+    if (colonIdx !== -1) {
+      // Find opening " of the html value
+      const openQ = flat.indexOf('"', colonIdx + 1);
+      if (openQ !== -1) {
+        const htmlContent = flat.slice(openQ + 1);
+        // Strip trailing closing `"}` — html value ends before the object close
+        // Walk backwards from end: strip optional spaces, }, then optional "
+        let end = htmlContent.length - 1;
+        while (end > 0 && /[\s}]/.test(htmlContent[end])) end--;
+        if (htmlContent[end] === '"') end--;
+        const htmlVal = htmlContent.slice(0, end + 1)
+          .replace(/\\"/g, '"').replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/\\\\/g, '\\');
+        // Parse the prefix (everything before "html") as the rest of the object
+        const prefix = flat.slice(0, htmlKeyIdx).replace(/,?\s*$/, '');
+        try {
+          const obj = JSON.parse(prefix + '}');
+          obj.html = htmlVal;
+          return obj;
+        } catch(e) {}
+      }
+    }
+  }
+  // 4. Last resort: extract action only
+  const actionM = flat.match(/"action"\s*:\s*"([^"]+)"/);
+  const titleM  = flat.match(/"title"\s*:\s*"([^"]+)"/);
+  if (actionM) return { action: actionM[1], title: titleM?.[1] || '' };
+  return null;
+}
+
 function _execCmdsFromRaw(raw) {
   if (!raw) return;
   const re = /<cmd>([\s\S]*?)<\/cmd>/g;
   let m;
   while ((m = re.exec(raw)) !== null) {
-    try { execCmd(JSON.parse(m[1].trim())); } catch(e) { console.warn('[Botler] bad cmd:', m[1]); }
+    const cmd = _robustParseCmd(m[1].trim());
+    if (cmd) execCmd(cmd);
+    else console.warn('[Botler] unparseable cmd:', m[1].slice(0, 120));
   }
 }
 
@@ -2339,20 +3590,27 @@ function setTranscript(text, isFinal = false) {
 
 // ─── STT — Web Speech API ─────────────────────────────────────────────────────
 // iOS Safari: continuous SpeechRecognition is not supported — requires tap-to-talk mode
-const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-const IS_MOBILE = IS_IOS || /Android/i.test(navigator.userAgent);
 let iosListening = false; // iOS PTT state
 
 function handleRecognitionResult(evt) {
-  if (muted) return;
+  if (muted || silentMode) return;
   let interim = '', final = '';
   for (let i = evt.resultIndex; i < evt.results.length; i++) {
     const t = evt.results[i][0].transcript;
     evt.results[i].isFinal ? (final += t) : (interim += t);
   }
 
-  if (interim && state !== 'thinking') setTranscript(interim);
+  // Show interim in text query field as live preview
+  if (interim && state !== 'thinking' && state !== 'speaking') {
+    const ta = document.getElementById('text-query');
+    if (ta && !ta.value) ta.placeholder = interim + '…';
+  }
+
   if (!final) return;
+
+  // Restore placeholder on final
+  const ta = document.getElementById('text-query');
+  if (ta) ta.placeholder = `Ask ${AGENT_NAMES[activeAgent] || 'Botler'} anything…`;
 
   const lower = final.toLowerCase().trim();
   const wakeIdx = findWakeWord(lower);
@@ -2363,11 +3621,20 @@ function handleRecognitionResult(evt) {
       abortCurrentRun();
     }
     if (!activeListening) enterActiveListening();
-    clearTimeout(wakeTimer);
-    wakeExpiresAt = Date.now() + WAKE_WINDOW_MS;
-    wakeTimer = setTimeout(exitActiveListening, WAKE_WINDOW_MS);
     const afterWake = final.slice(wakeIdx).trim();
     if (afterWake.length > 2) accumulateSpeech(afterWake);
+    // Keep wake window alive — no timeout in alwaysListening mode
+    if (!alwaysListening) {
+      clearTimeout(wakeTimer);
+      wakeExpiresAt = Date.now() + WAKE_WINDOW_MS;
+      wakeTimer = setTimeout(exitActiveListening, WAKE_WINDOW_MS);
+    }
+  } else if (alwaysListening) {
+    // Voice mode: ALL speech is a command, no wake word needed
+    if (state === 'speaking') { abortCurrentRun(); }
+    if (!activeListening) enterActiveListening();
+    const q = final.trim();
+    if (q.length > 2) accumulateSpeech(q);
   } else if (activeListening || IS_IOS) {
     clearTimeout(wakeTimer);
     wakeExpiresAt = Date.now() + WAKE_WINDOW_MS;
@@ -2582,21 +3849,13 @@ function execCmd(cmd) {
       renderComponentInline({ title: cmd.title || 'Shopping List', type: 'shopping_list' });
       break;
     case 'render_component': {
+      // Always render via iframe (script tags require iframe+srcdoc; innerHTML ignores them)
+      // Text mode → inline in chat; Voice mode → side drawer
       if (silentMode || cmd.inline) {
-        // Silent/typing mode: render inline in chat
         renderComponentInline(cmd);
       } else {
-        // Voice mode: open in side panel
-        const panel = document.getElementById('side-panel');
-        const comp  = document.getElementById('component-panel');
-        const frame = document.getElementById('browser-frame');
-        const bar   = document.getElementById('browser-bar');
-        const err   = document.getElementById('browser-err');
-        document.getElementById('panel-title').textContent = cmd.title || 'Component';
-        frame.className = ''; bar.className = ''; err.className = '';
-        comp.className = 'visible';
-        comp.innerHTML = cmd.html || '';
-        panel.classList.add('open');
+        // Voice mode: render as inline component (same as silent mode) so games work everywhere
+        renderComponentInline(cmd);
       }
       break;
     }
@@ -2676,6 +3935,32 @@ function execCmd(cmd) {
     case 'panel_click':
       if (!panelClick(cmd.query || cmd.text || '')) speak('I could not find that on screen.');
       break;
+    case 'panel_swipe':
+      panelSwipe(cmd.dir || 'up', cmd.px);
+      break;
+    case 'panel_type':
+      panelType(cmd.text || cmd.value || '');
+      break;
+    case 'panel_enter':
+      panelPressEnter();
+      break;
+    case 'panel_back':
+      panelBack();
+      break;
+    case 'panel_forward':
+      panelForward();
+      break;
+    case 'panel_fullscreen':
+      panelFullscreen(cmd.on);
+      break;
+    case 'switch_model':
+      if (cmd.model && MODEL_IDS[cmd.model]) {
+        activeModel = cmd.model;
+        localStorage.setItem('botler_model', activeModel);
+        const mb = document.getElementById('model-badge');
+        if (mb) { mb.textContent = activeModel.toUpperCase(); mb.classList.toggle('opus', activeModel==='opus'); }
+      }
+      break;
     case 'project_context':
       if (cmd.name) openProject(cmd.name);
       break;
@@ -2729,20 +4014,30 @@ function pumpTTS() {
     ttsSpeaking = false;
     if (ttsQueue.length > 0) { pumpTTS(); return; }
 
-    // All done speaking — re-enable STT and extend the follow-up wake window.
+    // All done speaking — re-enable STT
     echoSuppressed = false;
-    setState('listening');
-    setWakeIndicator(true);
-    setTranscript('Listening…');
-    clearTimeout(wakeTimer);
-    wakeExpiresAt = Date.now() + WAKE_FOLLOW_UP_MS;
-    wakeTimer = setTimeout(() => {
-      wakeExpiresAt = 0;
-      setWakeIndicator(false);
-      setState('idle');
-      setTranscript(IS_IOS ? 'Tap to speak' : 'Say "Botler…" to wake');
-    }, WAKE_FOLLOW_UP_MS);
-    if (!IS_IOS && !muted && recognition) { try { recognition.start(); } catch(e) {} }
+    if (!IS_IOS && !muted && !silentMode && recognition) {
+      setTimeout(() => { try { recognition.start(); } catch(e) {} }, 80);
+    }
+    if (alwaysListening) {
+      // In always-on voice mode: stay active, no timeout
+      setState('listening');
+      setWakeIndicator(true);
+      setTranscript('Listening…');
+      if (!activeListening) enterActiveListening();
+    } else {
+      setState('listening');
+      setWakeIndicator(true);
+      setTranscript('Listening…');
+      clearTimeout(wakeTimer);
+      wakeExpiresAt = Date.now() + WAKE_FOLLOW_UP_MS;
+      wakeTimer = setTimeout(() => {
+        wakeExpiresAt = 0;
+        setWakeIndicator(false);
+        setState('idle');
+        setTranscript(IS_IOS ? 'Tap to speak' : 'Say "Botler…" to wake');
+      }, WAKE_FOLLOW_UP_MS);
+    }
     if (IS_IOS) setTranscript('Tap to speak');
   };
   utt.onerror = () => {
@@ -2798,11 +4093,19 @@ function maybeThinkFiller(query) {
 }
 
 async function processQuery(query) {
+  trackEvent('query', { q: query.slice(0, 120), agent: activeAgent });
   // Local UI commands — handled without sending to any model
   if (handleLocalCommand(query)) return;
   // Extend adult mode timeout on any interaction
   if (adultMode) resetAdultTimer();
   addBubble('user', query);
+  // Dev terminal: log prompt, mark last terminal line as "done", enter thinking state
+  if (activeAgent === 'dev') {
+    const log = document.getElementById('dev-term-log');
+    if (log && log.lastElementChild) log.lastElementChild.dataset.done = '1';
+    devTermLog('> ' + query, 'sys');
+    devTermSetState('thinking');
+  }
   // Speak a filler phrase while we fetch, for complex queries
   maybeThinkFiller(query);
   // Route to gateway when tools are needed; otherwise use fast direct API
@@ -2865,10 +4168,10 @@ async function processQueryDirect(query) {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+        model: MODEL_IDS[activeModel] || 'claude-sonnet-4-6',
         system: buildDirectSystem(),
         messages: apiMessages,
-        max_tokens: 2048,
+        max_tokens: 8192,
         stream: true,
       }),
     });
@@ -2897,6 +4200,8 @@ async function processQueryDirect(query) {
           // Anthropic SSE: content_block_delta with text_delta type
           if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') {
             fullText += ev.delta.text;
+            // Mirror to Dev terminal in real time
+            if (activeAgent === 'dev' && ev.delta.text) devTermStream(ev.delta.text);
             const clean = fullText.replace(/<cmd>[\s\S]*?<\/cmd>/g, '').replace(/<cmd>[\s\S]*/g, '').replace(/\s{2,}/g, ' ').trim();
             if (clean.length > spokenUpTo) {
               let chunk = clean.slice(spokenUpTo);
@@ -3012,45 +4317,122 @@ async function executeTool(name, input) {
   }
 }
 
-// ─── Side panel ───────────────────────────────────────────────────────────────
+// ─── Side panel — agentic browser ────────────────────────────────────────────
+let _panelLoadTimer = null;
 function openPanel(url, title) {
   const panel = document.getElementById('side-panel');
   const frame = document.getElementById('browser-frame');
   const comp  = document.getElementById('component-panel');
-  const bar   = document.getElementById('browser-bar');
   const err   = document.getElementById('browser-err');
+  const navBar = document.getElementById('nav-bar');
 
-  document.getElementById('panel-title').textContent = title || 'Browser';
+  // Update browser chrome
+  if (navBar) navBar.value = url;
   frame.className = 'visible'; comp.className = ''; err.className = '';
-  bar.className = 'visible'; bar.textContent = url;
   currentPanelUrl = url;
 
   // Route external URLs through the browse proxy to strip X-Frame-Options.
-  // Skip proxy for: local URLs, already-proxied, YouTube embeds (which work natively),
-  // and data/blob URLs.
   const isLocal = url.startsWith(location.origin) || url.startsWith('/');
   const isAlreadyProxy = url.includes('/api/browse?');
   const isNativeEmbed = /youtube\.com\/embed\//i.test(url) || url.startsWith('data:') || url.startsWith('blob:');
   const displayUrl = (isLocal || isAlreadyProxy || isNativeEmbed) ? url
     : `${location.origin}/api/browse?url=${encodeURIComponent(url)}`;
 
+  // Track panel open
+  if (_panelOpenTime && currentPanelUrl) trackEvent('panel_close', { url: currentPanelUrl, dur: Date.now() - _panelOpenTime });
+  _panelOpenTime = Date.now();
+  trackEvent('panel_open', { url, title });
+
+  // Mark nav-read btn as inactive during load
+  const readBtn = document.getElementById('nav-read-btn');
+  if (readBtn) readBtn.classList.remove('active');
+
+  clearTimeout(_panelLoadTimer);
   frame.src = displayUrl;
   frame.onerror = () => { frame.className = ''; err.className = 'visible'; };
-  // Detect blank/blocked iframes (e.g. X-Frame-Options in meta or JS redirect leaking)
   frame.onload = () => {
+    clearTimeout(_panelLoadTimer);
     try {
       const doc = frame.contentDocument;
       if (!doc || doc.body.innerHTML.trim() === '') {
         frame.className = ''; err.className = 'visible';
+      } else {
+        // Update nav bar with actual destination (after redirects)
+        try {
+          const actualUrl = frame.contentWindow?.location?.href;
+          if (actualUrl && actualUrl !== 'about:blank' && navBar) navBar.value = actualUrl;
+        } catch(e) {}
       }
     } catch(e) {
-      // SecurityError = cross-origin content — can't check but it loaded
+      // SecurityError = cross-origin content successfully loaded
     }
   };
+  // Timeout fallback: if nothing loads in 8s, show error
+  _panelLoadTimer = setTimeout(() => {
+    try {
+      const doc = frame.contentDocument;
+      if (!doc || !doc.body || doc.body.innerHTML.trim() === '') {
+        frame.className = ''; err.className = 'visible';
+      }
+    } catch(e) {}
+  }, 8000);
+
   panel.classList.add('open');
+  _setPanelHandle('');
+  setTimeout(updateFaceTarget, 200);
 }
 
 function openErrTab() { if (currentPanelUrl) window.open(currentPanelUrl, '_blank'); }
+
+function panelRefresh() {
+  const frame = document.getElementById('browser-frame');
+  if (frame && frame.src && frame.src !== 'about:blank') {
+    const s = frame.src; frame.src = ''; frame.src = s;
+  }
+}
+
+function navBarEnter(e) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  let val = e.target.value.trim();
+  if (!val) return;
+  // If it's a plain search term (not a URL), route to DuckDuckGo
+  const looksLikeUrl = /^https?:\/\//i.test(val) || /^[\w-]+\.[\w.]{2,}(\/|$)/.test(val);
+  if (!looksLikeUrl) {
+    val = `https://duckduckgo.com/?q=${encodeURIComponent(val)}&kae=d`;
+  } else if (!/^https?:\/\//i.test(val)) {
+    val = 'https://' + val;
+  }
+  e.target.blur();
+  openPanel(val, val);
+}
+
+// Botler reads the current panel page and summarizes it
+function botlerReadPage() {
+  const frame = document.getElementById('browser-frame');
+  const readBtn = document.getElementById('nav-read-btn');
+  let pageText = '';
+  let pageTitle = currentPanelUrl || '';
+  try {
+    const doc = frame?.contentDocument;
+    if (doc && doc.body) {
+      pageTitle = doc.title || pageTitle;
+      // Extract visible text content
+      const clone = doc.body.cloneNode(true);
+      // Remove script/style/nav noise
+      clone.querySelectorAll('script,style,nav,footer,aside,[aria-hidden="true"]').forEach(el => el.remove());
+      pageText = (clone.innerText || clone.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 3000);
+    }
+  } catch(e) { /* cross-origin */ }
+
+  if (readBtn) readBtn.classList.add('active');
+  setTimeout(() => { if (readBtn) readBtn.classList.remove('active'); }, 2000);
+
+  const query = pageText
+    ? `I'm looking at "${pageTitle}". Here's the page text: "${pageText}". Summarize what's on this page and what I can do here.`
+    : `I'm looking at this URL: ${currentPanelUrl}. Can you tell me what this page is likely about and what I can do here?`;
+  handleQuery(query);
+}
 
 // For sites that block iframes (YouTube search, Twitter, etc.) show a launcher card
 function showPanelLauncher(url, title) {
@@ -3058,28 +4440,45 @@ function showPanelLauncher(url, title) {
   const panel = document.getElementById('side-panel');
   const comp  = document.getElementById('component-panel');
   const frame = document.getElementById('browser-frame');
-  const bar   = document.getElementById('browser-bar');
   const err   = document.getElementById('browser-err');
-  document.getElementById('panel-title').textContent = title;
-  frame.className = ''; bar.className = ''; err.className = '';
+  const navBar = document.getElementById('nav-bar');
+  if (navBar) navBar.value = url;
+  frame.className = ''; err.className = '';
   comp.className = 'visible';
   comp.innerHTML = `
     <div class="comp-title">${title}</div>
     <p style="color:rgba(255,200,100,0.5);font-size:11px;letter-spacing:0.15em;margin-bottom:16px;">
       This site can't load inside the panel.
     </p>
-    <button class="btn" style="font-size:11px;padding:8px 18px;" onclick="window.open('${url.replace(/'/g,"\\'")}','_blank')">
+    <button class="btn" style="font-size:11px;padding:8px 18px;margin-bottom:8px;" onclick="botlerReadPage()">
+      👁 Botler Reads It
+    </button>
+    <button class="btn" style="font-size:10px;padding:6px 14px;opacity:0.6;" onclick="window.open('${url.replace(/'/g,"\\'")}','_blank')">
       Open in New Tab ↗
     </button>`;
   panel.classList.add('open');
 }
 
+let _panelHasContent = false;
+function _setPanelHandle(title) {
+  _panelHasContent = !!title;
+  const h = document.getElementById('panel-handle');
+  const l = document.getElementById('panel-handle-label');
+  if (h) h.classList.toggle('visible', !!title);
+  if (l && title) l.textContent = title;
+}
 function closePanel() {
   const panel = document.getElementById('side-panel');
   panel.classList.remove('open', 'fullscreen');
   const btn = document.getElementById('panel-expand');
   if (btn) btn.textContent = '⤢';
   document.getElementById('browser-frame').src = 'about:blank';
+  const title = document.getElementById('panel-title')?.textContent;
+  _setPanelHandle(title || '');
+  if (_panelOpenTime && currentPanelUrl) trackEvent('panel_close', { url: currentPanelUrl, dur: Date.now() - _panelOpenTime });
+  _panelOpenTime = 0;
+  faceDriftXTarget = 0;
+  setTimeout(updateFaceTarget, 200);
 }
 
 // ─── Botler cursor ────────────────────────────────────────────────────────────
@@ -3137,6 +4536,7 @@ function panelScroll(dir, px) {
 // Attempt to click something in the panel — with animated cursor
 const ORDINAL_MAP = { first:0,'1st':0,second:1,'2nd':1,third:2,'3rd':2,fourth:3,'4th':3,fifth:4,'5th':4 };
 function panelClick(query) {
+  trackEvent('panel_click', { q: query.slice(0, 60), url: currentPanelUrl });
   const frame = document.getElementById('browser-frame');
   if (!frame) return false;
 
@@ -3186,6 +4586,95 @@ function panelClick(query) {
     try { frame.contentWindow.postMessage({ type: 'botler_click', query, ordIdx }, '*'); } catch(e) {}
   });
   return true;
+}
+
+// ─── Gesture suite — full voice-driven interaction ────────────────────────────
+function panelSwipe(dir, px) {
+  const frame = document.getElementById('browser-frame');
+  if (!frame) return;
+  const r = frame.getBoundingClientRect();
+  const dist = px || 200;
+  const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  // Map direction to start/end screen coords
+  const vecs = { up:[cx,cy+dist/2,cx,cy-dist/2], down:[cx,cy-dist/2,cx,cy+dist/2],
+                 left:[cx+dist/2,cy,cx-dist/2,cy], right:[cx-dist/2,cy,cx+dist/2,cy] };
+  const [sx,sy,ex,ey] = vecs[dir] || vecs.up;
+
+  // Try same-origin touch simulation
+  let doc = null;
+  try { doc = frame.contentDocument; } catch(e) {}
+  if (doc && doc.body) {
+    const fire = (type, x, y) => {
+      const t = new Touch({ identifier: Date.now(), target: doc.body,
+        clientX: x - r.left, clientY: y - r.top, pageX: x-r.left, pageY: y-r.top });
+      doc.body.dispatchEvent(new TouchEvent(type, { touches: type==='touchend'?[]:[t],
+        changedTouches:[t], bubbles:true, cancelable:true }));
+    };
+    fire('touchstart', sx, sy);
+    let p = 0;
+    const step = () => {
+      p += 0.15; const x=sx+(ex-sx)*p, y=sy+(ey-sy)*p;
+      fire('touchmove', x, y);
+      if (p < 1) requestAnimationFrame(step); else fire('touchend', ex, ey);
+    };
+    requestAnimationFrame(step);
+  } else {
+    try { frame.contentWindow.postMessage({ type:'botler_swipe', dir, px:dist }, '*'); } catch(e) {}
+  }
+  // Also scroll-simulate as fallback (most useful case for swipe up/down)
+  const scrollAmt = (dir==='up'?-1:dir==='down'?1:0) * dist;
+  if (scrollAmt) try { frame.contentWindow.scrollBy({ top:scrollAmt, behavior:'smooth' }); } catch(e) {}
+  bcShow(cx, cy); _bcHideTimer = setTimeout(()=>_bc.classList.remove('bc-visible'), 600);
+}
+
+function panelType(text) {
+  const frame = document.getElementById('browser-frame');
+  if (!frame) return;
+  let doc = null;
+  try { doc = frame.contentDocument; } catch(e) {}
+  if (doc) {
+    const el = doc.activeElement && doc.activeElement !== doc.body
+      ? doc.activeElement
+      : doc.querySelector('input:not([type=hidden]):not([disabled]),textarea');
+    if (el) {
+      el.focus();
+      const start = el.selectionStart ?? el.value?.length ?? 0;
+      el.value = (el.value||'').slice(0,start) + text + (el.value||'').slice(start);
+      el.selectionStart = el.selectionEnd = start + text.length;
+      el.dispatchEvent(new Event('input', {bubbles:true}));
+      el.dispatchEvent(new Event('change', {bubbles:true}));
+      // Simulate Enter key if text ends with \n
+      if (text.endsWith('\n')) el.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,bubbles:true}));
+    }
+  } else {
+    try { frame.contentWindow.postMessage({ type:'botler_type', text }, '*'); } catch(e) {}
+  }
+}
+
+function panelPressEnter() {
+  const frame = document.getElementById('browser-frame');
+  if (!frame) return;
+  let doc = null;
+  try { doc = frame.contentDocument; } catch(e) {}
+  if (doc) {
+    const el = doc.activeElement && doc.activeElement !== doc.body ? doc.activeElement : doc.body;
+    el.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',keyCode:13,bubbles:true}));
+    el.dispatchEvent(new KeyboardEvent('keyup',  {key:'Enter',keyCode:13,bubbles:true}));
+  } else {
+    try { frame.contentWindow.postMessage({ type:'botler_keypress', key:'Enter' }, '*'); } catch(e) {}
+  }
+}
+
+function panelBack()    { try { document.getElementById('browser-frame')?.contentWindow.history.back();    } catch(e) {} }
+function panelForward() { try { document.getElementById('browser-frame')?.contentWindow.history.forward(); } catch(e) {} }
+
+function panelFullscreen(on) {
+  const panel = document.getElementById('side-panel');
+  if (!panel) return;
+  const btn = document.getElementById('panel-expand');
+  if (on === undefined) panel.classList.toggle('fullscreen');
+  else panel.classList[on ? 'add' : 'remove']('fullscreen');
+  if (btn) btn.textContent = panel.classList.contains('fullscreen') ? '⤡' : '⤢';
 }
 
 // Capture a screenshot of the panel content for visual grounding
@@ -3319,6 +4808,9 @@ function applyLook(look) {
   const { color, ...editParams } = look;
   Object.assign(edit, editParams);
   buildMustache();
+  // Auto-persist look for current user (debounced)
+  clearTimeout(applyLook._saveTimer);
+  applyLook._saveTimer = setTimeout(() => { if (currentUser) _saveUserLook(currentUser.id); }, 800);
 }
 function saveLook(name) {
   const looks = JSON.parse(localStorage.getItem('botler_looks') || '{}');
@@ -3397,7 +4889,20 @@ const _execCmdOrig = window.execCmd || (typeof execCmd !== 'undefined' ? execCmd
 // Botler listens and reacts with voice / chat announcements.
 window.addEventListener('message', ev => {
   const d = ev.data;
-  if (!d || typeof d !== 'object' || d.type !== 'game_event') return;
+  if (!d || typeof d !== 'object') return;
+
+  // System map → Explorer mode: auto-switch to Dev agent
+  if (d.type === 'botler_panel_event') {
+    if (d.event === 'explorer_mode' && d.active && activeAgent !== 'dev') {
+      switchAgent('dev');
+      speak('Dev mode. What are we building?');
+    } else if (d.event === 'explorer_mode' && !d.active && activeAgent === 'dev') {
+      switchAgent('botler');
+    }
+    return;
+  }
+
+  if (d.type !== 'game_event') return;
 
   const { event, player, score, winner, game, move, board } = d;
 
@@ -3430,6 +4935,149 @@ window.addEventListener('message', ev => {
 // Init looks dropdown if element exists (injected by edit panel)
 setTimeout(refreshLooksDropdown, 100);
 
+// Sync model badge to persisted model on load
+(()=>{ const mb=document.getElementById('model-badge'); if(mb){ mb.textContent=activeModel.toUpperCase(); mb.classList.toggle('opus',activeModel==='opus'); } })();
+
+// ─── Dev Terminal Controller ───────────────────────────────────────────────────
+const _devStates = ['dev-idle','dev-writing','dev-thinking','dev-building'];
+function devTermSetState(s) {
+  _devStates.forEach(c => document.body.classList.remove(c));
+  document.body.classList.add('dev-' + s);
+  const map = { idle:'STANDBY', writing:'WRITING', thinking:'THINKING', building:'BUILDING' };
+  const label = map[s] || s.toUpperCase();
+  const lbl = document.getElementById('dev-term-state-label');
+  const ts  = document.getElementById('dev-term-tab-state');
+  if (lbl) lbl.textContent = label;
+  if (ts)  ts.textContent  = label;
+}
+function devTermLog(text, cls) {
+  const log = document.getElementById('dev-term-log');
+  if (!log) return;
+  const el = document.createElement('span');
+  el.className = 'tline' + (cls ? ' ' + cls : '');
+  el.textContent = text;
+  log.appendChild(el);
+  log.parentElement.scrollTop = log.parentElement.scrollHeight;
+  // Keep last 60 lines
+  while (log.children.length > 60) log.removeChild(log.firstChild);
+}
+function devTermUpdateModel() {
+  const b = document.getElementById('dev-term-model-badge');
+  if (b) b.textContent = activeModel.toUpperCase();
+}
+function devTermSync() {
+  const isDev = activeAgent === 'dev';
+  document.body.classList.toggle('dev-mode', isDev);
+  if (!isDev) document.body.classList.remove('dev-minimized');
+  if (isDev) {
+    devTermSetState('idle');
+    devTermUpdateModel();
+    // Auto-focus terminal input
+    setTimeout(() => { const i = document.getElementById('dev-term-input'); if(i) i.focus(); }, 300);
+  }
+}
+// Integrate dev terminal with Botler setState
+const _origSetState = setState;
+window.setState = setState = function(s) {
+  _origSetState(s);
+  if (activeAgent !== 'dev') return;
+  if (s === 'thinking') devTermSetState('thinking');
+  else if (s === 'speaking') devTermSetState('writing');
+  else devTermSetState('idle');
+};
+// Log streaming text to terminal in dev mode
+const _origOnStream = window._onDevStream;
+function devTermStream(chunk) {
+  if (activeAgent !== 'dev') return;
+  devTermSetState('building');
+  const log = document.getElementById('dev-term-log');
+  if (!log) return;
+  // Append to last line or create new one
+  let last = log.lastElementChild;
+  if (!last || last.dataset.done) { last = document.createElement('span'); last.className='tline'; log.appendChild(last); }
+  last.textContent += chunk;
+  log.parentElement.scrollTop = log.parentElement.scrollHeight;
+}
+
+// Hook into the streaming text update so terminal mirrors output
+const _origHandleStream = window._handleStreamChunk;
+
+// Patch switchAgent to sync terminal
+const _origSwitchAgent = switchAgent;
+window.switchAgent = switchAgent = function(id) {
+  _origSwitchAgent(id);
+  devTermSync();
+  if (id === 'dev') {
+    devTermLog('> Switching to Dev context', 'sys');
+    devTermLog('> Model: ' + (MODEL_IDS[activeModel] || activeModel), 'sys');
+    devTermLog('> Stewart Inc. Engineering Agent ready.', 'ok');
+  }
+};
+
+// Patch cycleModel to also update terminal badge
+const _origCycleModel = cycleModel;
+window.cycleModel = cycleModel = function() {
+  _origCycleModel();
+  devTermUpdateModel();
+};
+
+// ── Terminal input handler ────────────────────────────────────────────────────
+function devTermHandleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    const inp = document.getElementById('dev-term-input');
+    const query = inp ? inp.value.trim() : '';
+    if (!query) return;
+    if (inp) inp.value = '';
+    devTermLog('> ' + query, 'sys');
+    processQuery(query);
+  }
+  if (e.key === 'Escape') {
+    // Focus main chat input instead
+    const ta = document.getElementById('text-query');
+    if (ta) { ta.focus(); e.preventDefault(); }
+  }
+}
+function devTermMinimize() {
+  document.body.classList.add('dev-minimized');
+  const tab = document.getElementById('dev-term-tab');
+  const sl  = document.getElementById('dev-term-state-label');
+  const ts  = document.getElementById('dev-term-tab-state');
+  if (ts && sl) ts.textContent = sl.textContent;
+}
+function devTermRestore() {
+  document.body.classList.remove('dev-minimized');
+  setTimeout(() => { const i = document.getElementById('dev-term-input'); if(i) i.focus(); }, 120);
+}
+function devTermFocus() {
+  document.body.classList.remove('dev-minimized');
+  setTimeout(() => { const i = document.getElementById('dev-term-input'); if(i) i.focus(); }, 80);
+}
+function devTermToggleDrawer() {
+  const panel = document.getElementById('side-panel');
+  if (panel.classList.contains('open')) {
+    panel.classList.remove('open');
+    _setPanelHandle(document.getElementById('panel-title')?.textContent || 'BUILD');
+  } else {
+    panel.classList.add('open');
+    _setPanelHandle('');
+  }
+}
+
+// Listen for user typing in text-query → dev-idle state (terminal blurs)
+const _tq = document.getElementById('text-query');
+if (_tq) {
+  _tq.addEventListener('focus', () => { if (activeAgent === 'dev') devTermSetState('idle'); });
+  _tq.addEventListener('blur',  () => { if (activeAgent === 'dev') devTermSetState('idle'); });
+}
+// Terminal input focus → dev-writing state
+const _dti = document.getElementById('dev-term-input');
+if (_dti) {
+  _dti.addEventListener('focus', () => { if (activeAgent === 'dev') devTermSetState('writing'); });
+  _dti.addEventListener('blur',  () => { if (activeAgent === 'dev') devTermSetState('idle'); });
+}
+
+devTermSync(); // Initial sync
 
 checkSetup();
 </script>
