@@ -777,7 +777,8 @@ function executeTool(cmd) {
     case 'shopping_list':    renderShoppingList(cmd); break;
     case 'browser':          openBrowser(cmd); break;
     case 'finance':          openFinance(cmd); break;
-    case 'homeschool':       openHomeschool(cmd); break; // New: Open Homeschool tab
+    case 'homeschool':       openHomeschool(cmd); break;
+    case 'change_color':     applyColor(cmd.hex || cmd.color); break;
     case 'close_panel':      closeToolPanel(); break;
     default: console.log('Unknown cmd action:', cmd.action, cmd);
   }
@@ -822,6 +823,13 @@ function openFinance(cmd) {
   });
 }
 
+function openHomeschool(cmd) {
+  renderComponent({
+    title: cmd.title || 'Homeschool',
+    html: `<iframe src="./homeschool/index.html" style="width:100%;height:100%;border:none;"></iframe>`,
+  });
+}
+
 function openToolPanel() {
   const body = document.getElementById('tool-panel-body');
   document.getElementById('tool-panel-title').textContent = 'Available Tools';
@@ -834,16 +842,6 @@ function openToolPanel() {
     <div class="tool-list-item"><span class="tool-item-check">⬡</span><span class="tool-item-text">change_color — change Botler background color</span></div>
   `;
   document.getElementById('tool-panel').classList.add('open');
-}
-
-function applyColor(hex) {
-  if (window.bgMat && window.THREE) {
-    const c = new window.THREE.Color(hex);
-    window.bgMat.uniforms.tint.value.set(c);
-    setTranscript(`Background color changed to ${hex}.`, true, 'tool');
-  } else {
-    setTranscript('Could not change color. Background material not ready.', true, 'tool');
-  }
 }
 
 function closeToolPanel() {

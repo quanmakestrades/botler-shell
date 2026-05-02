@@ -44,7 +44,7 @@ async function buildHouseholdContext() {
     safeRead('USER.md'),
     safeRead('MEMORY.md'),
     safeRead('Projects.md'),
-    safeRead('memory/2026-03-11.md'),
+    safeRead(`memory/${new Date().toISOString().slice(0, 10)}.md`),
     safeRead('Homeschool_Vault.md'),
     safeRead('TOOLS.md')
   ]);
