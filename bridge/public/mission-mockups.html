@@ -1,0 +1,1556 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>StewartOS Mission Control</title>
+  <style>
+    :root {
+      --bg: #05070d;
+      --text: #f1f6ff;
+      --muted: #a9b2c5;
+      --dim: #778197;
+      --line: rgba(166, 181, 216, 0.16);
+      --panel: rgba(14, 18, 29, 0.84);
+      --green: #42f596;
+      --blue: #65a8ff;
+      --cyan: #28d5d0;
+      --gold: #d8a15d;
+      --orange: #ff9448;
+      --red: #ff5a65;
+      --violet: #c477ff;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      scrollbar-width: none;
+    }
+
+    *::-webkit-scrollbar {
+      display: none;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 14% 8%, rgba(77, 145, 227, 0.26), transparent 27%),
+        radial-gradient(circle at 86% 7%, rgba(131, 70, 201, 0.28), transparent 29%),
+        radial-gradient(circle at 90% 93%, rgba(39, 216, 212, 0.11), transparent 25%),
+        linear-gradient(180deg, #070912, #03050a 72%);
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(circle at center, black, transparent 82%);
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    button {
+      font: inherit;
+    }
+
+    .canvas-shell {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      overscroll-behavior: contain;
+      touch-action: none;
+      cursor: grab;
+    }
+
+    .canvas-shell.is-panning {
+      cursor: grabbing;
+    }
+
+    .canvas {
+      position: relative;
+      width: max(1680px, 150vw);
+      height: max(1040px, 132vh);
+      padding: 24px;
+      isolation: isolate;
+      transform-origin: 0 0;
+      will-change: transform;
+    }
+
+    .canvas::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 30% 25%, rgba(101, 168, 255, 0.08), transparent 30%),
+        radial-gradient(circle at 65% 50%, rgba(66, 245, 150, 0.055), transparent 32%),
+        radial-gradient(circle at 78% 22%, rgba(196, 119, 255, 0.09), transparent 26%);
+    }
+
+    .status-rail {
+      position: fixed;
+      z-index: 20;
+      top: 14px;
+      right: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px;
+      border: 1px solid rgba(166, 181, 216, 0.12);
+      border-radius: 999px;
+      background: rgba(7, 10, 18, 0.7);
+      backdrop-filter: blur(18px);
+    }
+
+    .mode-pill,
+    .canvas-action {
+      border: 1px solid rgba(166, 181, 216, 0.16);
+      border-radius: 999px;
+      color: #c9d3e6;
+      background: rgba(17, 22, 35, 0.82);
+      padding: 7px 10px;
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .mode-pill.live {
+      color: var(--green);
+      border-color: rgba(66, 245, 150, 0.42);
+    }
+
+    .mode-pill.offline {
+      color: #ffd46e;
+      border-color: rgba(255, 212, 110, 0.42);
+    }
+
+    .canvas-action {
+      cursor: pointer;
+    }
+
+    .widget {
+      --accent: var(--blue);
+      position: absolute;
+      left: var(--x);
+      top: var(--y);
+      width: var(--w);
+      height: var(--h);
+      min-width: 230px;
+      min-height: 150px;
+      overflow: hidden;
+      resize: both;
+      cursor: default;
+      border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--line));
+      border-radius: 22px;
+      background:
+        radial-gradient(circle at 82% 18%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 45%),
+        radial-gradient(circle at 6% 100%, rgba(255, 255, 255, 0.045), transparent 45%),
+        linear-gradient(145deg, rgba(19, 24, 38, 0.9), rgba(7, 10, 18, 0.94));
+      box-shadow:
+        0 22px 60px rgba(0, 0, 0, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      padding: 16px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+      gap: 10px;
+      transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+    }
+
+    .widget:hover {
+      z-index: 10;
+      border-color: color-mix(in srgb, var(--accent) 76%, white 10%);
+      box-shadow:
+        0 26px 70px rgba(0, 0, 0, 0.34),
+        0 0 32px color-mix(in srgb, var(--accent) 17%, transparent),
+        inset 0 1px 0 rgba(255, 255, 255, 0.055);
+    }
+
+    .widget.is-dragging {
+      z-index: 30;
+      transform: scale(1.006);
+      user-select: none;
+    }
+
+    .widget::after {
+      content: attr(data-more);
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: 14px;
+      z-index: 6;
+      padding: 12px 14px;
+      border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--line));
+      border-radius: 16px;
+      background: rgba(5, 8, 15, 0.9);
+      color: #dfe8fb;
+      font-size: 13px;
+      line-height: 1.3;
+      font-weight: 750;
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+      transition: opacity 150ms ease, transform 150ms ease;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.36);
+    }
+
+    .widget:hover::after {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .widget.is-expanded {
+      z-index: 40;
+      width: min(860px, calc(100vw - 80px)) !important;
+      height: min(620px, calc(100vh - 80px)) !important;
+    }
+
+    .topline {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      min-width: 0;
+      cursor: move;
+    }
+
+    .identity {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .icon {
+      width: 48px;
+      aspect-ratio: 1;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      border-radius: 17px;
+      border: 1px solid color-mix(in srgb, var(--accent) 72%, rgba(255,255,255,0.16));
+      color: var(--accent);
+      background:
+        radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--accent) 34%, transparent), transparent 58%),
+        rgba(255,255,255,0.04);
+      box-shadow: 0 0 28px color-mix(in srgb, var(--accent) 18%, transparent);
+      font-size: 24px;
+      font-weight: 950;
+    }
+
+    h2,
+    h3 {
+      margin: 0;
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      font-size: clamp(24px, 2.1vw, 42px);
+    }
+
+    h3 {
+      font-size: clamp(18px, 1.32vw, 26px);
+    }
+
+    .subtitle {
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.2;
+      font-weight: 800;
+    }
+
+    .state-pill,
+    .label,
+    .kicker,
+    .feed-time,
+    .action-link {
+      text-transform: uppercase;
+      letter-spacing: 0.13em;
+      font-weight: 900;
+    }
+
+    .state-pill {
+      border: 1px solid color-mix(in srgb, var(--accent) 48%, var(--line));
+      border-radius: 999px;
+      padding: 6px 9px;
+      color: color-mix(in srgb, var(--accent) 72%, white);
+      background: rgba(5, 8, 15, 0.48);
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .state-pill.warn {
+      color: #ffd46e;
+      border-color: rgba(255, 212, 110, 0.52);
+    }
+
+    .state-pill.hot {
+      color: #ff8890;
+      border-color: rgba(255, 90, 101, 0.58);
+    }
+
+    .content {
+      min-height: 0;
+      position: relative;
+      display: grid;
+      gap: 10px;
+      align-content: stretch;
+      overflow: hidden;
+    }
+
+    .scroll-pane {
+      overflow: auto;
+      min-height: 0;
+      mask-image: linear-gradient(180deg, transparent, black 8px, black calc(100% - 14px), transparent);
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 9px;
+    }
+
+    .metric {
+      min-width: 0;
+      min-height: 0;
+      border: 1px solid rgba(166, 181, 216, 0.13);
+      border-radius: 15px;
+      padding: 9px 10px;
+      background: rgba(18, 23, 36, 0.62);
+      overflow: hidden;
+    }
+
+    .metric b {
+      display: block;
+      font-size: clamp(20px, 1.65vw, 32px);
+      line-height: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .metric .label {
+      display: block;
+      margin-top: 7px;
+      color: #808aa0;
+      font-size: 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .line-list {
+      display: grid;
+      gap: 8px;
+      min-height: 0;
+    }
+
+    .line-item {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      min-width: 0;
+      padding: 7px 0;
+      border-bottom: 1px solid rgba(166, 181, 216, 0.08);
+      color: #b8c1d3;
+      font-size: 13px;
+      font-weight: 770;
+    }
+
+    .line-item:last-child {
+      border-bottom: 0;
+    }
+
+    .dot {
+      width: 10px;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: var(--dot, var(--accent));
+      box-shadow: 0 0 16px color-mix(in srgb, var(--dot, var(--accent)) 70%, transparent);
+    }
+
+    .dot.pulse {
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(0.78); opacity: 0.55; }
+      50% { transform: scale(1.22); opacity: 1; }
+    }
+
+    .line-main {
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .line-side,
+    .feed-time {
+      color: #7f8a9f;
+      font-size: 10px;
+      white-space: nowrap;
+    }
+
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-width: 0;
+      color: #8691a7;
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .footer-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .action-link {
+      border: 1px solid rgba(166, 181, 216, 0.16);
+      border-radius: 999px;
+      padding: 6px 9px;
+      background: rgba(5, 8, 15, 0.45);
+      color: color-mix(in srgb, var(--accent) 72%, white);
+      font-size: 10px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .agent-strip {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 30px;
+      overflow: hidden;
+    }
+
+    .agent-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      max-width: 116px;
+      border: 1px solid rgba(166, 181, 216, 0.13);
+      border-radius: 999px;
+      padding: 6px 9px;
+      background: rgba(5, 8, 15, 0.42);
+      color: #c2ccdf;
+      font-size: 11px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .agent-chip::before {
+      content: "";
+      width: 8px;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: var(--chip, var(--accent));
+      box-shadow: 0 0 12px var(--chip, var(--accent));
+    }
+
+    .chart {
+      width: 100%;
+      height: 100%;
+      min-height: 82px;
+      display: block;
+      overflow: visible;
+    }
+
+    .chart path.live {
+      stroke-dasharray: 8 16;
+      animation: flowLine 2.8s linear infinite;
+    }
+
+    .chart path.stale {
+      opacity: 0.46;
+      stroke-dasharray: 0;
+      animation: none;
+    }
+
+    @keyframes flowLine {
+      to { stroke-dashoffset: -80; }
+    }
+
+    .bar-stack {
+      display: grid;
+      gap: 8px;
+    }
+
+    .bar-line {
+      display: grid;
+      grid-template-columns: 90px minmax(0, 1fr) 54px;
+      gap: 10px;
+      align-items: center;
+      color: #aeb8c8;
+      font-size: 12px;
+      font-weight: 850;
+    }
+
+    .bar {
+      height: 9px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(166, 181, 216, 0.12);
+    }
+
+    .bar > span {
+      display: block;
+      height: 100%;
+      width: var(--w);
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 40%, white));
+      box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 24%, transparent);
+    }
+
+    .ring-wrap {
+      display: grid;
+      grid-template-columns: 112px minmax(0, 1fr);
+      gap: 14px;
+      align-items: center;
+      min-height: 0;
+    }
+
+    .ring {
+      width: min(112px, 100%);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at center, rgba(10, 14, 23, 0.96) 48%, transparent 50%),
+        conic-gradient(var(--accent) var(--p), rgba(166, 181, 216, 0.11) 0);
+      box-shadow: 0 0 28px color-mix(in srgb, var(--accent) 19%, transparent);
+      font-weight: 950;
+      font-size: 22px;
+    }
+
+    .audio-row {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      padding: 9px;
+      border: 1px solid rgba(166, 181, 216, 0.12);
+      border-radius: 15px;
+      background: rgba(5, 8, 15, 0.34);
+    }
+
+    .play-btn {
+      width: 36px;
+      aspect-ratio: 1;
+      border: 1px solid color-mix(in srgb, var(--accent) 55%, var(--line));
+      border-radius: 50%;
+      color: var(--accent);
+      background: rgba(255,255,255,0.035);
+      cursor: pointer;
+    }
+
+    .media-title {
+      min-width: 0;
+      font-weight: 900;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .media-sub {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #jim-audio {
+      width: 100%;
+      height: 34px;
+      border-radius: 999px;
+      opacity: 0.92;
+    }
+
+    .mini-calendar {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 6px;
+      min-height: 0;
+    }
+
+    .day-cell {
+      border: 1px solid rgba(166, 181, 216, 0.1);
+      border-radius: 12px;
+      min-height: 42px;
+      padding: 7px;
+      background: rgba(5, 8, 15, 0.35);
+      color: #b8c3d6;
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .day-cell.has-event {
+      border-color: color-mix(in srgb, var(--accent) 48%, var(--line));
+      box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--accent) 60%, transparent);
+    }
+
+    .traffic-dots {
+      position: relative;
+      height: 100%;
+      min-height: 120px;
+      border: 1px solid rgba(166, 181, 216, 0.1);
+      border-radius: 18px;
+      overflow: hidden;
+      background:
+        linear-gradient(90deg, rgba(255,255,255,.03) 1px, transparent 1px),
+        linear-gradient(rgba(255,255,255,.03) 1px, transparent 1px);
+      background-size: 34px 34px;
+    }
+
+    .traffic-dot {
+      position: absolute;
+      width: 11px;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 22px var(--accent);
+      animation: drift 7s linear infinite;
+    }
+
+    .traffic-dots.idle .traffic-dot {
+      animation: none;
+      opacity: 0.22;
+    }
+
+    @keyframes drift {
+      from { transform: translate3d(-18px, 0, 0); opacity: .35; }
+      45% { opacity: 1; }
+      to { transform: translate3d(260px, -44px, 0); opacity: .2; }
+    }
+
+    .proof-feed {
+      display: grid;
+      gap: 8px;
+      min-height: 0;
+    }
+
+    .proof-row {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 9px;
+      align-items: start;
+      color: #b7c1d2;
+      font-size: 12px;
+      line-height: 1.24;
+      font-weight: 760;
+    }
+
+    .proof-mark {
+      width: 22px;
+      aspect-ratio: 1;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: color-mix(in srgb, var(--accent) 18%, rgba(255,255,255,0.03));
+      color: color-mix(in srgb, var(--accent) 70%, white);
+      font-size: 13px;
+      font-weight: 950;
+    }
+
+    .overview { --accent: var(--blue); }
+    .revenue { --accent: var(--green); }
+    .rhythm { --accent: var(--gold); }
+    .proof { --accent: var(--blue); }
+    .tideflow { --accent: var(--cyan); }
+    .taxtrakr { --accent: var(--green); }
+    .youcast { --accent: var(--gold); }
+    .impulse { --accent: var(--red); }
+    .jim { --accent: var(--violet); }
+    .traffic { --accent: var(--blue); }
+    .call-list { --accent: #49bdf5; }
+    .family { --accent: var(--orange); }
+    .system { --accent: var(--blue); }
+
+    @media (max-width: 900px) {
+      html,
+      body {
+        overflow: auto;
+      }
+
+      .canvas-shell {
+        overflow: auto;
+      }
+
+      .canvas {
+        width: 100%;
+        height: auto;
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 14px;
+        padding: 16px;
+      }
+
+      .widget {
+        position: relative;
+        left: auto;
+        top: auto;
+        width: 100% !important;
+        height: auto !important;
+        min-height: 220px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="status-rail">
+    <span id="bridge-status" class="mode-pill offline">bridge pending</span>
+    <button id="reset-layout" class="canvas-action" type="button">Reset layout</button>
+  </div>
+
+  <main class="canvas-shell" id="canvas-shell" aria-label="StewartOS infinite mission canvas">
+    <section class="canvas" id="mission-canvas">
+      <article class="widget overview" data-widget="overview" data-link="ops.html" style="--x: 28px; --y: 28px; --w: 560px; --h: 310px;" data-more="At a glance binds to Ops snapshot/feed when served through the bridge. If bridge is unavailable, it says so instead of pretending stale data is live.">
+        <div class="topline">
+          <div>
+            <h2>At a glance</h2>
+            <div class="subtitle">Current blockers, agent motion, next work, and live signals</div>
+          </div>
+          <span id="overview-pill" class="state-pill warn">loading</span>
+        </div>
+        <div class="content">
+          <div class="metric-grid">
+            <div class="metric"><b id="metric-agents">--</b><span class="label">Agents</span></div>
+            <div class="metric"><b id="metric-running">--</b><span class="label">Running</span></div>
+            <div class="metric"><b id="metric-attention">--</b><span class="label">Attention</span></div>
+          </div>
+          <div id="live-feed" class="line-list scroll-pane">
+            <div class="line-item"><span class="dot pulse"></span><span class="line-main">Connecting to Ops bridge for live feed...</span><span class="line-side">now</span></div>
+          </div>
+        </div>
+        <div class="footer"><span>Mission surface</span><span class="footer-actions"><button class="action-link" data-open="ops.html" type="button">Workspace</button></span></div>
+      </article>
+
+      <article class="widget revenue" data-widget="revenue" data-link="ops.html" style="--x: 620px; --y: 30px; --w: 330px; --h: 260px;" data-more="Finance reads the bridge finance store when available. The widget separates cash truth from claims and proof gaps.">
+        <div class="topline">
+          <div>
+            <h2>Revenue Cockpit</h2>
+            <div class="subtitle">Cash, receivables, bills, and approval gates</div>
+          </div>
+          <span id="finance-pill" class="state-pill warn">source</span>
+        </div>
+        <div class="content">
+          <div class="metric-grid">
+            <div class="metric"><b id="cash-liquid">--</b><span class="label">Liquid</span></div>
+            <div class="metric"><b id="cash-incoming">--</b><span class="label">Incoming</span></div>
+            <div class="metric"><b id="cash-bills">--</b><span class="label">Bills</span></div>
+          </div>
+          <div class="bar-stack">
+            <div class="bar-line"><span>Runway</span><div class="bar"><span id="runway-bar" style="--w: 18%"></span></div><span id="runway-value">--</span></div>
+            <div class="bar-line"><span>Proof</span><div class="bar"><span id="proof-bar" style="--w: 0%"></span></div><span id="proof-value">check</span></div>
+          </div>
+        </div>
+        <div class="footer"><span>Cash lane</span><span class="footer-actions"><button class="action-link" data-open="ops.html" type="button">Finance</button></span></div>
+      </article>
+
+      <article class="widget rhythm" data-widget="rhythm" data-link="ops.html" style="--x: 980px; --y: 30px; --w: 260px; --h: 380px;" data-more="Calendar pulls scheduled agent work, bills, income events, and homeschool blocks from the Ops calendar endpoint.">
+        <div class="topline">
+          <div>
+            <h2>Rhythm</h2>
+            <div class="subtitle">Today and next beats</div>
+          </div>
+          <span id="calendar-pill" class="state-pill">calendar</span>
+        </div>
+        <div class="content">
+          <div id="mini-calendar" class="mini-calendar"></div>
+          <div id="next-events" class="line-list scroll-pane"></div>
+        </div>
+        <div class="footer"><span id="event-count">-- events</span><span class="footer-actions"><button class="action-link" data-open="ops.html" type="button">Calendar</button></span></div>
+      </article>
+
+      <article class="widget proof" data-widget="proof" data-link="ops.html" style="--x: 1270px; --y: 32px; --w: 330px; --h: 300px;" data-more="Proof should be uncomfortable: unresolved DNS, failed deploys, missing source truth, and non-certifying scheduler checks show here first.">
+        <div class="topline">
+          <div>
+            <h2>Proof Ledger</h2>
+            <div class="subtitle">Verified, stale, blocked, unsafe</div>
+          </div>
+          <span id="proof-pill" class="state-pill hot">watch</span>
+        </div>
+        <div id="proof-feed" class="content proof-feed scroll-pane">
+          <div class="proof-row"><span class="proof-mark">!</span><span>Loading latest proof issues from Ops feed...</span></div>
+        </div>
+        <div class="footer"><span>Evidence</span><span class="footer-actions"><button class="action-link" data-open="ops.html" type="button">Review</button></span></div>
+      </article>
+
+      <article class="widget impulse" data-widget="impulse" data-link="https://ops.f100rd.com/impulse-journal/?access=8691711e7ed04046087bc588d5d8a46724aa" style="--x: 30px; --y: 370px; --w: 520px; --h: 330px;" data-more="Impulse no longer displays hardcoded balances. It tries to read Coinbase/order/position state through Ops file access, then shows source age and whether it is live or stale.">
+        <div class="topline">
+          <div class="identity"><span class="icon">ϟ</span><div><h3>Impulse</h3><div class="subtitle">Trading desk, positions, orders, equity curve</div></div></div>
+          <span id="impulse-pill" class="state-pill warn">checking</span>
+        </div>
+        <div class="content">
+          <svg class="chart" viewBox="0 0 520 140" role="img" aria-label="Impulse equity curve">
+            <defs>
+              <linearGradient id="impulseFill" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0" stop-color="rgba(255,90,101,.38)" />
+                <stop offset="1" stop-color="rgba(255,90,101,0)" />
+              </linearGradient>
+            </defs>
+            <path id="impulse-area" d="M8 112 C70 92 118 120 170 86 S270 56 330 72 420 116 512 42 L512 132 L8 132 Z" fill="url(#impulseFill)" />
+            <path id="impulse-line" class="live" d="M8 112 C70 92 118 120 170 86 S270 56 330 72 420 116 512 42" fill="none" stroke="rgba(255,90,101,.95)" stroke-width="5" stroke-linecap="round" />
+          </svg>
+          <div class="metric-grid">
+            <div class="metric"><b id="impulse-balance">source</b><span class="label">Balance</span></div>
+            <div class="metric"><b id="impulse-positions">--</b><span class="label">Positions</span></div>
+            <div class="metric"><b id="impulse-orders">--</b><span class="label">Open orders</span></div>
+          </div>
+          <div id="impulse-trades" class="line-list scroll-pane"></div>
+        </div>
+        <div class="footer"><span id="impulse-source">reading state files</span><span class="footer-actions"><button class="action-link" data-open="https://ops.f100rd.com/impulse-journal/?access=8691711e7ed04046087bc588d5d8a46724aa" type="button">Journal</button></span></div>
+      </article>
+
+      <article class="widget youcast" data-widget="youcast" data-link="agent-components/dev/youcast/index.html" style="--x: 580px; --y: 320px; --w: 400px; --h: 260px;" data-more="YouCast shows the current local episode and exposes inline playback when the MP3 is accessible. The widget should eventually show the active render pipeline while it is making a cast.">
+        <div class="topline">
+          <div class="identity"><span class="icon">≋</span><div><h3>YouCast</h3><div class="subtitle">Private AI listening room</div></div></div>
+          <span id="youcast-pill" class="state-pill warn">loading</span>
+        </div>
+        <div class="content">
+          <div class="audio-row">
+            <button id="youcast-play" class="play-btn" type="button">▶</button>
+            <div>
+              <div id="youcast-title" class="media-title">Loading current episode...</div>
+              <div id="youcast-sub" class="media-sub">Waiting for current.json</div>
+            </div>
+            <span id="youcast-size" class="state-pill">--</span>
+          </div>
+          <div id="youcast-library" class="line-list scroll-pane"></div>
+          <audio id="youcast-audio" preload="metadata"></audio>
+        </div>
+        <div class="footer"><span>Episode shelf</span><span class="footer-actions"><button class="action-link" data-open="agent-components/dev/youcast/index.html" type="button">Open</button></span></div>
+      </article>
+
+      <article class="widget jim" data-widget="jim" data-link="https://www.f100rd.com/ops" style="--x: 1010px; --y: 450px; --w: 340px; --h: 250px;" data-more="Jim should show studio health, traffic, content drafts, current music work, and social activity. This widget uses latest known local social proof until a live Jim endpoint is attached.">
+        <div class="topline">
+          <div class="identity"><span class="icon">♫</span><div><h3>Jim Music</h3><div class="subtitle">Content, music, storefront, social</div></div></div>
+          <span id="jim-pill" class="state-pill">studio</span>
+        </div>
+        <div class="content">
+          <div class="metric-grid">
+            <div class="metric"><b id="jim-followers">456</b><span class="label">Followers</span></div>
+            <div class="metric"><b id="jim-media">103</b><span class="label">Media</span></div>
+            <div class="metric"><b id="jim-work">idle</b><span class="label">Now</span></div>
+          </div>
+          <div class="line-list">
+            <div class="line-item"><span class="dot" style="--dot: var(--violet)"></span><span class="line-main">Studio health and content queue need live endpoint</span><span class="line-side">watch</span></div>
+            <div class="line-item"><span class="dot" style="--dot: var(--blue)"></span><span class="line-main">f100rd.com widget opens canonical Ops route</span><span class="line-side">link</span></div>
+          </div>
+          <div id="jim-media-shelf" class="line-list scroll-pane"></div>
+          <audio id="jim-audio" preload="metadata" controls></audio>
+        </div>
+        <div class="footer"><span class="agent-strip"><span class="agent-chip" style="--chip: var(--violet)">jim</span><span class="agent-chip" style="--chip: var(--blue)">dev</span></span><span class="footer-actions"><button class="action-link" data-open="https://www.f100rd.com/ops" type="button">Studio</button></span></div>
+      </article>
+
+      <article class="widget traffic" data-widget="traffic" data-link="ops.html" style="--x: 1380px; --y: 365px; --w: 260px; --h: 360px;" data-more="Traffic needs a live analytics endpoint. Until attached, the widget shows the expected live-motion model and marks the source as not connected.">
+        <div class="topline">
+          <div>
+            <h2>Live Visits</h2>
+            <div class="subtitle">f100rd.com, quanbuilds, app lanes</div>
+          </div>
+          <span id="traffic-pill" class="state-pill warn">no feed</span>
+        </div>
+        <div class="content">
+          <div class="traffic-dots">
+            <span class="traffic-dot" style="left:12%; top:70%; animation-delay:-1s"></span>
+            <span class="traffic-dot" style="left:5%; top:42%; animation-delay:-3s"></span>
+            <span class="traffic-dot" style="left:24%; top:86%; animation-delay:-5s"></span>
+          </div>
+          <div class="metric-grid">
+            <div class="metric"><b id="traffic-now">--</b><span class="label">Now</span></div>
+            <div class="metric"><b id="traffic-visitors">--</b><span class="label">Visitors</span></div>
+            <div class="metric"><b id="traffic-projects">--</b><span class="label">Projects</span></div>
+          </div>
+        </div>
+        <div class="footer"><span id="traffic-source">Analytics lane</span><span class="footer-actions"><button class="action-link" data-open="https://quanbuilds.netlify.app/" type="button">Open</button></span></div>
+      </article>
+
+      <article class="widget taxtrakr" data-widget="taxtrakr" data-link="https://taxtrack.f100rd.com/admin/dashboard" style="--x: 310px; --y: 730px; --w: 360px; --h: 230px;" data-more="TaxTrakr opens the owner admin dashboard. Current local repair proof says fallback/origin health pass, branded taxtrakr.ai DNS remains the watched blocker.">
+        <div class="topline">
+          <div class="identity"><span class="icon">▤</span><div><h3>TaxTrakr</h3><div class="subtitle">Tax, mileage, owner admin</div></div></div>
+          <span class="state-pill warn">DNS watch</span>
+        </div>
+        <div class="content ring-wrap">
+          <div class="ring" style="--p: 72%">72%</div>
+          <div class="bar-stack">
+            <div class="bar-line"><span>Fallback</span><div class="bar"><span style="--w: 100%"></span></div><span>200</span></div>
+            <div class="bar-line"><span>Origin</span><div class="bar"><span style="--w: 100%"></span></div><span>200</span></div>
+            <div class="bar-line"><span>Branded</span><div class="bar"><span style="--w: 0%"></span></div><span>DNS</span></div>
+          </div>
+        </div>
+        <div class="footer"><span class="agent-strip"><span class="agent-chip" style="--chip: var(--blue)">dev</span><span class="agent-chip" style="--chip: var(--cyan)">doc</span></span><span class="footer-actions"><button class="action-link" data-open="https://taxtrack.f100rd.com/admin/dashboard" type="button">Admin</button></span></div>
+      </article>
+
+      <article class="widget tideflow" data-widget="tideflow" data-link="file:///Users/stewartos/Documents/StewartOS/Projects/TideFlow/north-star/facility-ops-demo-board.html" style="--x: 700px; --y: 620px; --w: 420px; --h: 280px;" data-more="TideFlow is a mini ops board here: private local demo is ready with caveats, while public proof and outreach safety are still blocked.">
+        <div class="topline">
+          <div class="identity"><span class="icon">≋</span><div><h3>TideFlow</h3><div class="subtitle">Business ops and contracts</div></div></div>
+          <span class="state-pill warn">approval</span>
+        </div>
+        <div class="content">
+          <div class="bar-stack">
+            <div class="bar-line"><span>Private</span><div class="bar"><span style="--w: 100%"></span></div><span>ready</span></div>
+            <div class="bar-line"><span>Public</span><div class="bar"><span style="--w: 22%"></span></div><span>proof</span></div>
+            <div class="bar-line"><span>Outreach</span><div class="bar"><span style="--w: 12%"></span></div><span>hold</span></div>
+          </div>
+          <div class="line-list">
+            <div class="line-item"><span class="dot" style="--dot: var(--cyan)"></span><span class="line-main">Needs Quan path decision before repair/send lane</span><span class="line-side">next</span></div>
+          </div>
+        </div>
+        <div class="footer"><span class="agent-strip"><span class="agent-chip" style="--chip: var(--cyan)">loki</span><span class="agent-chip" style="--chip: var(--blue)">dev</span></span><span class="footer-actions"><button class="action-link" data-open="file:///Users/stewartos/Documents/StewartOS/Projects/TideFlow/north-star/facility-ops-demo-board.html" type="button">Demo</button></span></div>
+      </article>
+
+      <article class="widget call-list" data-widget="call-list" data-link="file:///Users/stewartos/Documents/StewartOS/Projects/National%20Website%20Prospects/Call%20Board%20State.md" style="--x: 1160px; --y: 760px; --w: 440px; --h: 250px;" data-more="National Website Call List reads the saved prospect board counts. It should become a ring/progress lane tied to lead nurturing and build status.">
+        <div class="topline">
+          <div class="identity"><span class="icon">▦</span><div><h3>National Website Call List</h3><div class="subtitle">Prospects, meetings, callbacks, build pipeline</div></div></div>
+          <span class="state-pill">pipeline</span>
+        </div>
+        <div class="content ring-wrap">
+          <div class="ring" style="--p: 89%">89</div>
+          <div class="bar-stack">
+            <div class="bar-line"><span>Meetings</span><div class="bar"><span style="--w: 31%"></span></div><span>4</span></div>
+            <div class="bar-line"><span>Callbacks</span><div class="bar"><span style="--w: 100%"></span></div><span>13</span></div>
+            <div class="bar-line"><span>Has site</span><div class="bar"><span style="--w: 100%"></span></div><span>29</span></div>
+          </div>
+        </div>
+        <div class="footer"><span class="agent-strip"><span class="agent-chip" style="--chip: var(--gold)">botler</span><span class="agent-chip" style="--chip: var(--blue)">dev</span></span><span class="footer-actions"><button class="action-link" data-open="file:///Users/stewartos/Documents/StewartOS/Projects/National%20Website%20Prospects/Call%20Board%20State.md" type="button">Board</button></span></div>
+      </article>
+
+      <article class="widget family" data-widget="family" data-link="ops.html" style="--x: 40px; --y: 735px; --w: 240px; --h: 250px;" data-more="Family and homeschool should eventually show today’s learning plan, calendar, safety reminders, and household asks directly in the widget.">
+        <div class="topline">
+          <div class="identity"><span class="icon">⌂</span><div><h3>Family</h3><div class="subtitle">Home, school, calendar</div></div></div>
+        </div>
+        <div class="content">
+          <div class="metric-grid">
+            <div class="metric"><b>3</b><span class="label">Kids</span></div>
+            <div class="metric"><b id="school-events">--</b><span class="label">School</span></div>
+            <div class="metric"><b>5</b><span class="label">Rules</span></div>
+          </div>
+          <div id="family-lines" class="line-list"></div>
+        </div>
+        <div class="footer"><span>Household</span><span class="footer-actions"><button class="action-link" data-open="ops.html" type="button">Portal</button></span></div>
+      </article>
+
+      <article class="widget system" data-widget="system" data-link="ops.html" style="--x: 1350px; --y: 40px; --w: 280px; --h: 270px;" data-more="Agents & System shows current agents, running jobs, and bridge/source health. Moving dots only animate when the bridge reports active tasks.">
+        <div class="topline">
+          <div class="identity"><span class="icon">⌘</span><div><h3>Agents</h3><div class="subtitle">Network and ops health</div></div></div>
+          <span id="system-pill" class="state-pill warn">watch</span>
+        </div>
+        <div class="content">
+          <div class="metric-grid">
+            <div class="metric"><b id="sys-agents">--</b><span class="label">Agents</span></div>
+            <div class="metric"><b id="sys-running">--</b><span class="label">Running</span></div>
+            <div class="metric"><b id="sys-alerts">--</b><span class="label">Alerts</span></div>
+          </div>
+          <div id="agent-lines" class="line-list scroll-pane"></div>
+        </div>
+        <div class="footer"><span class="agent-strip"><span class="agent-chip" style="--chip: var(--blue)">dev</span><span class="agent-chip" style="--chip: var(--cyan)">doc</span><span class="agent-chip" style="--chip: var(--red)">red</span></span><span class="footer-actions"><button class="action-link" data-open="ops.html" type="button">Orbit</button></span></div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    const $ = (sel, root = document) => root.querySelector(sel);
+    const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+    const fmt = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
+    const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+    const layoutKey = 'stewartos.mission.widgets.v2';
+    const cameraKey = 'stewartos.mission.camera.v1';
+    const bridgeBase = location.protocol === 'file:' ? 'http://127.0.0.1:8780' : '';
+    const apiUrl = (path) => `${bridgeBase}${path}`;
+    const fileApi = (path) => apiUrl(`/api/ops/file?path=${encodeURIComponent(path)}`);
+    const impulseBase = '/Users/stewartos/StewartOS/Impulse/research/state/';
+    const impulseJournalUrl = 'https://ops.f100rd.com/impulse-journal/?access=8691711e7ed04046087bc588d5d8a46724aa';
+    let state = { snap: null, feed: [], finance: null, calendar: [], impulse: null, youcast: null, media: [] };
+    let camera = { x: 0, y: 0, scale: 1 };
+
+    function openTarget(url) {
+      if (!url) return;
+      window.location.href = url;
+    }
+
+    function setText(id, text) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    }
+
+    function shortTime(ms) {
+      const t = Number(ms || 0);
+      if (!t) return '';
+      const delta = Date.now() - t;
+      if (delta < 60000) return 'now';
+      if (delta < 3600000) return `${Math.max(1, Math.round(delta / 60000))}m`;
+      if (delta < 86400000) return `${Math.round(delta / 3600000)}h`;
+      return `${Math.round(delta / 86400000)}d`;
+    }
+
+    function normalizeStatusClass(status) {
+      const s = String(status || '').toLowerCase();
+      if (s.includes('error') || s.includes('fail') || s.includes('attention') || s.includes('blocked')) return 'hot';
+      if (s.includes('running') || s.includes('watch') || s.includes('pending')) return 'warn';
+      return '';
+    }
+
+    function setPill(id, text, cls = '') {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.className = `state-pill ${cls}`.trim();
+      el.textContent = text;
+    }
+
+    function line(item, opts = {}) {
+      const dot = opts.dot || 'var(--accent)';
+      const pulse = opts.pulse ? ' pulse' : '';
+      return `<div class="line-item"><span class="dot${pulse}" style="--dot:${dot}"></span><span class="line-main">${escapeHtml(item.main || '')}</span><span class="line-side">${escapeHtml(item.side || '')}</span></div>`;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[ch]));
+    }
+
+    async function getJson(url) {
+      const r = await fetch(url, { cache: 'no-store', credentials: 'same-origin' });
+      if (!r.ok) throw new Error(`${r.status} ${url}`);
+      return r.json();
+    }
+
+    async function readOpsFile(path) {
+      const r = await getJson(fileApi(path));
+      if (!r.ok) throw new Error(r.error || path);
+      return JSON.parse(r.text || '{}');
+    }
+
+    async function loadBridge() {
+      try {
+        const [snap, finance, calendar, feed, media] = await Promise.all([
+          getJson(apiUrl('/api/ops/snapshot')),
+          getJson(apiUrl('/api/ops/finance')).catch(() => null),
+          getJson(apiUrl('/api/ops/calendar')).catch(() => null),
+          getJson(apiUrl('/api/ops/feed?limit=60')).catch(() => null),
+          getJson(apiUrl('/api/ops/media-index')).catch(() => null)
+        ]);
+        state.snap = snap;
+        state.finance = finance?.data || null;
+        state.calendar = calendar?.data?.events || [];
+        state.feed = feed?.items || snap.feed || [];
+        state.media = media?.items || [];
+        $('#bridge-status').textContent = 'bridge live';
+        $('#bridge-status').className = 'mode-pill live';
+      } catch (err) {
+        $('#bridge-status').textContent = 'bridge offline';
+        $('#bridge-status').className = 'mode-pill offline';
+        state.feed = [];
+      }
+      renderOps();
+      renderMedia();
+    }
+
+    function renderOps() {
+      const agents = state.snap?.agents || [];
+      const tasks = state.snap?.tasks || [];
+      const activeAgents = agents.filter(a => a.status === 'running' || (a.processes || []).some(p => p.status === 'running'));
+      const attention = agents.filter(a => a.status === 'attention' || a.errorCount > 0).length;
+      setText('metric-agents', agents.length || '--');
+      setText('metric-running', activeAgents.length || tasks.filter(t => t.status === 'running').length || 0);
+      setText('metric-attention', attention || 0);
+      setText('sys-agents', agents.length || '--');
+      setText('sys-running', activeAgents.length || tasks.filter(t => t.status === 'running').length || 0);
+      setText('sys-alerts', attention || 0);
+      setPill('overview-pill', attention ? `${attention} attention` : 'watching', attention ? 'hot' : '');
+      setPill('system-pill', activeAgents.length ? `${activeAgents.length} active` : 'idle', activeAgents.length ? 'warn' : '');
+
+      const feedItems = (state.feed || []).slice(0, 12).map(item => line({
+        main: `${item.agent || item.source || 'ops'}: ${item.message || item.event || item.status || 'event'}`,
+        side: shortTime(item._ts || item.ts || item.runAtMs)
+      }, { pulse: item.status === 'running', dot: item.status === 'error' ? 'var(--red)' : item.status === 'ok' ? 'var(--green)' : 'var(--blue)' })).join('');
+      $('#live-feed').innerHTML = feedItems || line({ main: 'No live bridge feed. Serve through Ops to see agent work here.', side: 'offline' }, { dot: 'var(--gold)' });
+
+      $('#proof-feed').innerHTML = (state.feed || []).filter(item => /error|fail|blocked|dns|proof|auth/i.test(`${item.status || ''} ${item.message || ''}`)).slice(0, 5).map(item => (
+        `<div class="proof-row"><span class="proof-mark">!</span><span>${escapeHtml(`${item.agent || item.source || 'ops'}: ${item.message || item.status || 'proof item'}`)}</span></div>`
+      )).join('') || `<div class="proof-row"><span class="proof-mark">?</span><span>Proof feed is waiting for bridge data. No static all-clear is assumed.</span></div>`;
+
+      $('#agent-lines').innerHTML = agents.slice(0, 8).map(a => line({
+        main: `${a.label || a.id}: ${(a.activity || [])[0]?.message || a.nextTask?.name || a.status || 'idle'}`,
+        side: a.errorCount ? `${a.errorCount} err` : a.status
+      }, { pulse: a.status === 'running', dot: a.errorCount ? 'var(--red)' : a.status === 'running' ? 'var(--green)' : a.status === 'recent' ? 'var(--gold)' : 'var(--blue)' })).join('') || line({ main: 'Agent snapshot unavailable.', side: 'offline' }, { dot: 'var(--gold)' });
+
+      renderFinance();
+      renderCalendar();
+    }
+
+    function renderFinance() {
+      const f = state.finance || {};
+      const bills = Array.isArray(f.bills) ? f.bills : [];
+      const income = Array.isArray(f.incomeEvents) ? f.incomeEvents : [];
+      const liquid = Number(f.liquidUsd ?? f.cash?.liquidUsd ?? 0);
+      const incoming = income.filter(i => !i.receivedDate).reduce((s, i) => s + Number(i.amount || 0), 0);
+      const unpaid = bills.filter(b => !b.paid).length;
+      setText('cash-liquid', liquid ? money.format(liquid) : '--');
+      setText('cash-incoming', incoming ? money.format(incoming) : '--');
+      setText('cash-bills', f.bills ? unpaid : '--');
+      const runway = Number(f.runwayReserveUsd || f.runwayReserve || 0);
+      setText('runway-value', runway ? money.format(runway) : '--');
+      $('#runway-bar').style.setProperty('--w', runway && liquid ? `${Math.min(100, Math.round((liquid / runway) * 100))}%` : '0%');
+      setText('proof-value', f.bills ? 'live' : 'offline');
+      $('#proof-bar').style.setProperty('--w', f.bills ? '72%' : '0%');
+      setPill('finance-pill', f.bills ? 'finance live' : 'no bridge', f.bills ? '' : 'warn');
+    }
+
+    function renderCalendar() {
+      const events = state.calendar || [];
+      setText('event-count', `${events.length || 0} events`);
+      setText('school-events', events.filter(e => /school|home/i.test(`${e.category} ${e.title}`)).length || '--');
+      setPill('calendar-pill', events.length ? `${events.length} events` : 'no feed', events.length ? '' : 'warn');
+      const today = new Date();
+      const start = new Date(today);
+      start.setDate(today.getDate() - today.getDay());
+      const days = Array.from({ length: 14 }, (_, i) => {
+        const d = new Date(start);
+        d.setDate(start.getDate() + i);
+        const iso = d.toISOString().slice(0, 10);
+        const count = events.filter(e => e.date === iso).length;
+        return `<div class="day-cell ${count ? 'has-event' : ''}">${d.getDate()}${count ? `<br>${count}` : ''}</div>`;
+      }).join('');
+      $('#mini-calendar').innerHTML = days;
+      $('#next-events').innerHTML = events.slice(0, 5).map(e => line({ main: `${e.time || ''} ${e.title || 'event'}`, side: e.agent || e.source || '' }, { dot: /bill/i.test(e.category) ? 'var(--green)' : /school/i.test(e.category) ? 'var(--orange)' : 'var(--blue)' })).join('') || line({ main: 'Calendar feed unavailable.', side: 'offline' }, { dot: 'var(--gold)' });
+      $('#family-lines').innerHTML = events.filter(e => /school|family|home/i.test(`${e.category} ${e.person} ${e.title}`)).slice(0, 2).map(e => line({ main: e.title, side: e.time }, { dot: 'var(--orange)' })).join('') || line({ main: 'No family calendar feed yet.', side: 'source' }, { dot: 'var(--gold)' });
+    }
+
+    function renderMedia() {
+      const jimItems = (state.media || []).filter(item => item.agent === 'jim');
+      const latestJim = jimItems[0];
+      if (latestJim) {
+        const audio = $('#jim-audio');
+        if (audio && audio.src !== new URL(latestJim.url, location.href).href) {
+          audio.src = apiUrl(latestJim.url);
+        }
+        $('#jim-media-shelf').innerHTML = jimItems.slice(0, 4).map(item => line({
+          main: item.name,
+          side: item.type
+        }, {
+          dot: item.type === 'video' ? 'var(--blue)' : 'var(--violet)',
+          pulse: latestAgeDays(item.mtimeMs) < 1
+        })).join('');
+      } else {
+        $('#jim-media-shelf').innerHTML = line({ main: 'No recent playable Jim media surfaced through the bridge.', side: 'media' }, { dot: 'var(--gold)' });
+      }
+
+      const jimAgent = (state.snap?.agents || []).find(a => a.id === 'jim');
+      if (jimAgent?.status === 'running') {
+        setPill('jim-pill', 'working', 'warn');
+        setText('jim-work', 'active');
+      } else if ((jimAgent?.activity || []).length) {
+        setPill('jim-pill', 'recent', '');
+        setText('jim-work', 'recent');
+      }
+    }
+
+    async function loadImpulse() {
+      try {
+        const [portfolio, openOrders, allOrders, cfm, meta, personal, journal, auth] = await Promise.all([
+          readOpsFile(impulseBase + 'portfolio_live.json').catch(() => null),
+          readOpsFile(impulseBase + 'coinbase_open_orders.json').catch(() => null),
+          readOpsFile(impulseBase + 'coinbase_orders.json').catch(() => null),
+          readOpsFile(impulseBase + 'coinbase_cfm_positions.json').catch(() => null),
+          readOpsFile(impulseBase + 'coinbase_meta.json').catch(() => null),
+          readOpsFile(impulseBase + 'coinbase_personal_snapshot.json').catch(() => null),
+          readOpsFile(impulseBase + 'journal_auto_entries.json').catch(() => null),
+          readOpsFile(impulseBase + 'autonomous_trading_authorization.json').catch(() => null)
+        ]);
+        const walletEstimate = Array.isArray(personal?.nonzero_balances)
+          ? personal.nonzero_balances.reduce((sum, item) => sum + Number(item.usd_value_estimate || 0), 0)
+          : 0;
+        const balance = Number(
+          portfolio?.account_balance_usd
+          || portfolio?.balance
+          || portfolio?.cash
+          || personal?.futures_balance_summary?.total_usd_balance?.value
+          || personal?.futures_balance_summary?.total_usd_balance
+          || walletEstimate
+          || 0
+        );
+        const positions = cfm?.positions || portfolio?.positions || personal?.futures_positions || [];
+        const openFromAllOrders = (allOrders?.orders || []).filter(order => /OPEN|PENDING|ACTIVE|QUEUED/i.test(order.status || order.order_status || ''));
+        const orders = openOrders?.orders?.length ? openOrders.orders : openFromAllOrders;
+        const recentOrders = (allOrders?.orders || []).slice(0, 4);
+        setText('impulse-balance', balance ? money.format(balance) : 'unpriced');
+        setText('impulse-positions', positions.length);
+        setText('impulse-orders', orders.length);
+        const generated = openOrders?.generated_at || cfm?.generated_at || meta?.generated_at || portfolio?.updated_at;
+        setText('impulse-source', generated ? `Coinbase snapshot ${new Date(generated).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : 'state files read');
+        const authorizedLive = auth?.autonomous_live_execution === true;
+        setPill('impulse-pill', positions.length || orders.length ? 'active risk' : authorizedLive ? 'armed live' : 'flat / verify', positions.length || orders.length ? 'hot' : authorizedLive ? 'warn' : 'warn');
+        if (!(positions.length || orders.length)) {
+          $('#impulse-line').classList.remove('live');
+        }
+        renderImpulseJournal(journal, recentOrders);
+      } catch (err) {
+        setText('impulse-balance', 'bridge');
+        setText('impulse-positions', '--');
+        setText('impulse-orders', '--');
+        setText('impulse-source', 'serve through bridge to read Coinbase state files');
+        setPill('impulse-pill', 'source needed', 'warn');
+        $('#impulse-line').classList.remove('live');
+        $('#impulse-line').classList.add('stale');
+        $('#impulse-trades').innerHTML = line({ main: 'Impulse state unavailable through this page.', side: 'source' }, { dot: 'var(--gold)' });
+      }
+    }
+
+    function renderImpulseJournal(journal, recentOrders = []) {
+      const trades = Object.values(journal || {})
+        .filter(t => t && t.close_time && Number.isFinite(Number(t.realized_pnl)))
+        .sort((a, b) => new Date(a.close_time) - new Date(b.close_time));
+      if (!trades.length) {
+        $('#impulse-line').classList.add('stale');
+        $('#impulse-trades').innerHTML = line({ main: 'No trade journal curve source found.', side: 'journal' }, { dot: 'var(--gold)' });
+        return;
+      }
+      const recent = trades.slice(-80);
+      let cumulative = 0;
+      const points = recent.map(t => {
+        cumulative += Number(t.realized_pnl || 0);
+        return cumulative;
+      });
+      const d = sparkPath(points, 8, 12, 504, 112);
+      $('#impulse-line').setAttribute('d', d);
+      $('#impulse-area').setAttribute('d', `${d} L512 132 L8 132 Z`);
+      $('#impulse-line').classList.toggle('stale', latestAgeDays(trades.at(-1)?.close_time) > 2);
+      const net = trades.reduce((s, t) => s + Number(t.realized_pnl || 0), 0);
+      const last = trades.at(-1);
+      const sourceLabel = $('#impulse-source').textContent;
+      setText('impulse-source', `${sourceLabel} · journal ${money.format(net)} realized`);
+      const orderRows = recentOrders.slice(0, 2).map(order => line({
+        main: `${order.product_id || 'order'} ${order.side || ''} ${order.order_type || order.status || ''}`,
+        side: order.status || shortTime(new Date(order.created_time || order.last_update_time || 0).getTime())
+      }, {
+        dot: /FILLED/i.test(order.status || '') ? 'var(--green)' : /CANCEL|REJECT|FAIL/i.test(order.status || '') ? 'var(--red)' : 'var(--gold)',
+        pulse: latestAgeDays(order.last_update_time || order.created_time) < 1
+      }));
+      $('#impulse-trades').innerHTML = orderRows.join('') + trades.slice(-3).reverse().map(t => line({
+        main: `${t.trade_id || 'trade'} ${t.product_id || ''} ${t.direction || ''}`,
+        side: money.format(Number(t.realized_pnl || 0))
+      }, {
+        dot: Number(t.realized_pnl || 0) >= 0 ? 'var(--green)' : 'var(--red)',
+        pulse: latestAgeDays(t.close_time) < 1
+      })).join('') + line({ main: `Last journal close ${last?.close_time ? new Date(last.close_time).toLocaleDateString() : 'unknown'}`, side: `${trades.length} trades` }, { dot: 'var(--blue)' });
+    }
+
+    function sparkPath(values, x0, y0, width, height) {
+      if (!values.length) return `M${x0} ${y0 + height}`;
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+      const range = max - min || 1;
+      return values.map((v, i) => {
+        const x = x0 + (i / Math.max(1, values.length - 1)) * width;
+        const y = y0 + height - ((v - min) / range) * height;
+        return `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`;
+      }).join(' ');
+    }
+
+    function latestAgeDays(value) {
+      const t = value ? new Date(value).getTime() : 0;
+      return t ? (Date.now() - t) / 86400000 : Infinity;
+    }
+
+    async function loadTraffic() {
+      try {
+        const traffic = await getJson(apiUrl('/api/ops/traffic'));
+        const totals = traffic.totals || {};
+        const connected = (traffic.sources || []).filter(s => s.ok);
+        setText('traffic-now', fmt.format(Number(totals.pageviews || 0)));
+        setText('traffic-visitors', fmt.format(Number(totals.visitors || 0)));
+        setText('traffic-projects', fmt.format(Number(totals.projects || 0)));
+        setText('traffic-source', `${connected.map(s => s.id).join(', ') || 'no analytics'} · ${traffic.missing?.length ? 'f100rd pending' : 'all connected'}`);
+        setPill('traffic-pill', connected.length ? 'partial live' : 'source needed', connected.length ? 'warn' : 'hot');
+        $('.traffic-dots')?.classList.remove('idle');
+      } catch (err) {
+        setText('traffic-now', '--');
+        setText('traffic-visitors', '--');
+        setText('traffic-projects', '--');
+        setText('traffic-source', 'f100rd + private analytics endpoint needed');
+        setPill('traffic-pill', 'source needed', 'warn');
+        $('.traffic-dots')?.classList.add('idle');
+      }
+    }
+
+    async function loadYouCast() {
+      try {
+        const current = await getJson('agent-components/dev/youcast/current.json?t=' + Date.now());
+        state.youcast = current;
+        const episode = current.featured || current.current || current;
+        const archive = Array.isArray(current.archive) ? current.archive : [];
+        const title = episode.title || episode.id || 'Current YouCast';
+        const audio = episode.audio || episode.audioUrl || episode.mp3 || '';
+        const transcript = episode.transcript || episode.transcriptUrl || '';
+        const base = new URL('agent-components/dev/youcast/', location.href);
+        setText('youcast-title', title);
+        setText('youcast-sub', episode.dateLabel || episode.dateIso ? `Current episode · ${episode.dateLabel || episode.dateIso}` : 'Current episode');
+        setText('youcast-size', episode.size || episode.sizeLabel || 'audio');
+        setPill('youcast-pill', episode.hasAudio === false ? 'no audio' : 'ready', episode.hasAudio === false ? 'warn' : '');
+        if (audio) $('#youcast-audio').src = new URL(audio, base).href;
+        $('#youcast-library').innerHTML = [
+          line({ main: title, side: episode.dateLabel || episode.dateIso || 'current' }, { dot: 'var(--gold)' }),
+          line({ main: transcript ? 'Transcript available' : 'Transcript source not exposed in current.json', side: 'text' }, { dot: 'var(--blue)' }),
+          ...archive.slice(0, 3).map(item => line({ main: item.title || item.id, side: item.dateLabel || item.dateIso || 'archive' }, { dot: 'var(--dim)' }))
+        ].join('');
+      } catch (err) {
+        setText('youcast-title', 'YouCast source unavailable');
+        setText('youcast-sub', 'Open through bridge/public component to load current.json');
+        setText('youcast-size', '--');
+        setPill('youcast-pill', 'offline', 'warn');
+      }
+    }
+
+    function setupAudio() {
+      const btn = $('#youcast-play');
+      const audio = $('#youcast-audio');
+      btn.addEventListener('click', async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!audio.src) return;
+        if (audio.paused) {
+          await audio.play();
+          btn.textContent = 'Ⅱ';
+        } else {
+          audio.pause();
+          btn.textContent = '▶';
+        }
+      });
+      audio.addEventListener('ended', () => { btn.textContent = '▶'; });
+    }
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function saveCamera() {
+      localStorage.setItem(cameraKey, JSON.stringify(camera));
+    }
+
+    function applyCamera() {
+      $('#mission-canvas').style.transform = `translate3d(${camera.x}px, ${camera.y}px, 0) scale(${camera.scale})`;
+    }
+
+    function loadCamera() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(cameraKey) || '{}');
+        camera = {
+          x: Number.isFinite(saved.x) ? saved.x : 0,
+          y: Number.isFinite(saved.y) ? saved.y : 0,
+          scale: Number.isFinite(saved.scale) ? clamp(saved.scale, 0.48, 1.85) : 1
+        };
+      } catch {
+        camera = { x: 0, y: 0, scale: 1 };
+      }
+      applyCamera();
+    }
+
+    function setupCanvasCamera() {
+      const shell = $('#canvas-shell');
+      const canvas = $('#mission-canvas');
+      loadCamera();
+      let panning = false;
+      let startX = 0;
+      let startY = 0;
+      let originX = 0;
+      let originY = 0;
+
+      shell.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0 || event.target.closest('.widget, button, audio, video')) return;
+        panning = true;
+        startX = event.clientX;
+        startY = event.clientY;
+        originX = camera.x;
+        originY = camera.y;
+        shell.classList.add('is-panning');
+        shell.setPointerCapture(event.pointerId);
+      });
+
+      shell.addEventListener('pointermove', (event) => {
+        if (!panning) return;
+        camera.x = originX + (event.clientX - startX);
+        camera.y = originY + (event.clientY - startY);
+        applyCamera();
+      });
+
+      shell.addEventListener('pointerup', (event) => {
+        if (!panning) return;
+        panning = false;
+        shell.classList.remove('is-panning');
+        try { shell.releasePointerCapture(event.pointerId); } catch {}
+        saveCamera();
+      });
+
+      shell.addEventListener('wheel', (event) => {
+        if (event.target.closest('.widget')) return;
+        event.preventDefault();
+        const rect = shell.getBoundingClientRect();
+        const px = event.clientX - rect.left;
+        const py = event.clientY - rect.top;
+        const oldScale = camera.scale;
+        const nextScale = clamp(oldScale * Math.exp(-event.deltaY * 0.0012), 0.48, 1.85);
+        const ratio = nextScale / oldScale;
+        camera.x = px - (px - camera.x) * ratio;
+        camera.y = py - (py - camera.y) * ratio;
+        camera.scale = nextScale;
+        applyCamera();
+        saveCamera();
+      }, { passive: false });
+
+      canvas.addEventListener('dblclick', (event) => {
+        if (event.target.closest('.widget')) return;
+        camera = { x: 0, y: 0, scale: 1 };
+        applyCamera();
+        saveCamera();
+      });
+    }
+
+    function saveLayout() {
+      const data = {};
+      $$('.widget').forEach(w => {
+        data[w.dataset.widget] = {
+          x: w.style.left || getComputedStyle(w).left,
+          y: w.style.top || getComputedStyle(w).top,
+          w: w.style.width || getComputedStyle(w).width,
+          h: w.style.height || getComputedStyle(w).height
+        };
+      });
+      localStorage.setItem(layoutKey, JSON.stringify(data));
+    }
+
+    function applySavedLayout() {
+      const raw = localStorage.getItem(layoutKey);
+      if (!raw) return;
+      let data;
+      try { data = JSON.parse(raw); } catch { return; }
+      $$('.widget').forEach(w => {
+        const item = data[w.dataset.widget];
+        if (!item) return;
+        w.style.left = item.x;
+        w.style.top = item.y;
+        w.style.width = item.w;
+        w.style.height = item.h;
+      });
+    }
+
+    function setupWidgets() {
+      applySavedLayout();
+      $$('.widget').forEach(widget => {
+        widget.style.left = widget.style.left || getComputedStyle(widget).getPropertyValue('--x').trim();
+        widget.style.top = widget.style.top || getComputedStyle(widget).getPropertyValue('--y').trim();
+        widget.style.width = widget.style.width || getComputedStyle(widget).getPropertyValue('--w').trim();
+        widget.style.height = widget.style.height || getComputedStyle(widget).getPropertyValue('--h').trim();
+
+        let startX = 0, startY = 0, originX = 0, originY = 0, moved = false;
+        const handle = $('.topline', widget);
+        handle.addEventListener('pointerdown', (event) => {
+          if (event.target.closest('button')) return;
+          startX = event.clientX;
+          startY = event.clientY;
+          originX = widget.offsetLeft;
+          originY = widget.offsetTop;
+          moved = false;
+          widget.classList.add('is-dragging');
+          handle.setPointerCapture(event.pointerId);
+        });
+        handle.addEventListener('pointermove', (event) => {
+          if (!widget.classList.contains('is-dragging')) return;
+          const dx = (event.clientX - startX) / camera.scale;
+          const dy = (event.clientY - startY) / camera.scale;
+          if (Math.abs(dx) + Math.abs(dy) > 2) moved = true;
+          widget.style.left = `${Math.max(0, originX + dx)}px`;
+          widget.style.top = `${Math.max(0, originY + dy)}px`;
+        });
+        handle.addEventListener('pointerup', (event) => {
+          widget.classList.remove('is-dragging');
+          try { handle.releasePointerCapture(event.pointerId); } catch {}
+          if (moved) saveLayout();
+        });
+        widget.addEventListener('click', (event) => {
+          if (event.target.closest('button,audio')) return;
+          if (moved) {
+            event.preventDefault();
+            moved = false;
+            return;
+          }
+        });
+        widget.addEventListener('dblclick', (event) => {
+          if (event.target.closest('button,audio')) return;
+          widget.classList.toggle('is-expanded');
+        });
+      });
+
+      $$('.action-link').forEach(button => {
+        button.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          openTarget(button.dataset.open || button.closest('.widget')?.dataset.link);
+        });
+      });
+
+      $('#reset-layout').addEventListener('click', () => {
+        localStorage.removeItem(layoutKey);
+        localStorage.removeItem(cameraKey);
+        location.reload();
+      });
+
+      const observer = new ResizeObserver(() => saveLayout());
+      $$('.widget').forEach(w => observer.observe(w));
+    }
+
+    function startStreams() {
+      if (location.protocol === 'file:') return;
+      try {
+        const es = new EventSource(apiUrl('/api/ops/feed/stream'));
+        es.addEventListener('status', () => {
+          $('#bridge-status').textContent = 'bridge live';
+          $('#bridge-status').className = 'mode-pill live';
+        });
+        es.addEventListener('task_started', loadBridge);
+        es.addEventListener('task_finished', loadBridge);
+        es.addEventListener('builds_updated', loadBridge);
+      } catch {}
+    }
+
+    setupCanvasCamera();
+    setupWidgets();
+    setupAudio();
+    loadBridge();
+    loadImpulse();
+    loadYouCast();
+    loadTraffic();
+    startStreams();
+    setInterval(loadBridge, 30000);
+    setInterval(loadImpulse, 45000);
+    setInterval(loadYouCast, 90000);
+    setInterval(loadTraffic, 60000);
+  </script>
+</body>
+</html>
